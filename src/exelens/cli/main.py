@@ -18,6 +18,7 @@ def create_parser():
     parser.add_argument("-i", "--input", help="Path to the PE file to analyze")
     parser.add_argument("--md5", help="MD5 of the PE file to analyze (if fetching from remote)")
     parser.add_argument("-m", "--model", help="LLM model to be used; e.g. openai/gpt-4o-mini or google/gemini-2.5-flash")
+    parser.add_argument("-o", "--output-dir", help="Directory to write the report/SVG to (default: alongside the input file)")
     parser.add_argument("-v", "--version", action="version", version=f"%(prog)s {__version__}")
     return parser
 
@@ -42,7 +43,7 @@ def main():
         print(f"Error: File '{file_path}' does not exist.", file=sys.stderr)
         return 1
         
-    return analyze_file(file_path=file_path, md5=args.md5, model_name=args.model)
+    return analyze_file(file_path=file_path, md5=args.md5, model_name=args.model, output_dir=args.output_dir)
 
 if __name__ == "__main__":
     sys.exit(main())

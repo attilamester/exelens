@@ -5,7 +5,6 @@ import pygraphviz
 from malflow import CallGraph
 from malflow.core.model.function import CGNode, FunctionType
 
-from exelens.core.analyzer import shorten_function_label
 from exelens.model.pe import NodeCentrality
 
 
@@ -13,6 +12,12 @@ MIN_SIZE = 2
 MAX_SIZE = 6
 MIN_COLOR = 10
 MAX_COLOR = 200
+
+
+def shorten_function_label(cg_node: CGNode) -> str:
+    if cg_node.type == FunctionType.DLL:
+        return cg_node.label.replace("sym.imp.", "")
+    return cg_node.label
 
 
 def scale_value(value: float, min_val: float, max_val: float, min_output: float, max_output: float) -> float:

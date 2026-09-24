@@ -1,12 +1,15 @@
 #!/bin/bash
 
 # .env file content:
-# FILE_PATH="/absolute/path/to/your/sample/on/host/system"
+# GOOGLE_API_KEY="your-google-api-key"
+#
+# Place your sample at ./workdir/input.file before running.
 
 source .env
 
+docker build -f build/Dockerfile -t docker.io/attilamester/exelens .
+
 docker run --rm \
     -e GOOGLE_API_KEY="${GOOGLE_API_KEY}" \
-    -v "${FILE_PATH}:/usr/exelens/workdir/input.file:ro" \
-    -v "./workdir:/usr/exelens/workdir:rw" \
+    -v "$(pwd)/workdir:/usr/exelens/workdir:rw" \
     "docker.io/attilamester/exelens"

@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 from dataclasses import dataclass, asdict
 from typing import Dict, List, Tuple, Set
@@ -10,7 +11,7 @@ from malflow.cli.formatters import print_info, print_success
 from malflow.core.model.function import CGNode, FunctionType
 from malflow.core.model.radare2_definitions import Mnemonics
 
-from exelens.core.drawing import draw_svg, get_selected_node_labels
+from exelens.core.drawing import draw_svg, get_selected_node_labels, shorten_function_label
 from exelens.core.llm import LlmClient
 from exelens.model.pe import NodeCentrality
 
@@ -80,12 +81,6 @@ def measure_node_centrality(cg: CallGraph) -> Tuple[Dict[str, NodeCentrality], L
     sorted_node_labels = [label for label, _ in sorted_centrality_items]
 
     return centrality_metrics, sorted_node_labels
-
-
-def shorten_function_label(cg_node: CGNode) -> str:
-    if cg_node.type == FunctionType.DLL:
-        return cg_node.label.replace("sym.imp.", "")
-    return cg_node.label
 
 
 def display_function_label(cg_node: CGNode) -> str:
@@ -304,15 +299,38 @@ def format_analysis_message(context: Dict):
 PE_AGENT_PROMPT = "You are a malware analyst. Analyze the following PE file summary."
 
 
-def analyze_file(file_path: str, md5: str = None, model_name: str = None) -> int:
-    ts_start = time.perf_counter()
+def analyze_file(file_path: str, md5: str = None, model_name: str = None, output_dir: str = None) -> int:
+    if not file_path:
+        # --md5-only (fetch-by-hash) mode is not implemented yet - fail clearly
+        # instead of crashing on os.path.* calls below with file_path=None.
+        print("Error: analyzing by --md5 alone is not supported yet; pass -i/--input.", file=sys.stderr)
+        return 1
 
-    cg = malflow_commands.load_callgraph(file_path, force_rescan=True, verbose=False)
+    ts_start = time.perf_counter()
+    input_dir = os.path.dirname(os.path.abspath(file_path))
+    output_dir = output_dir or input_dir
+    if os.path.exists(output_dir) and not os.path.isdir(output_dir):
+        print(f"Error: --output-dir '{output_dir}' exists and is not a directory.", file=sys.stderr)
+        return 1
+    os.makedirs(output_dir, exist_ok=True)
+
+    cg = malflow_commands.load_callgraph(file_path, force_rescan=False, verbose=False)
+    if cg is None:
+        print(f"Error: could not load/scan '{file_path}'.", file=sys.stderr)
+        return 1
 
     class DummyArgs:
         ep = False
         imports = False
-        dump = False
+        # malflow's own cache lookup (inside load_callgraph, force_rescan=False) always
+        # checks input_dir, so the compressed-cache dump below is kept there too - not
+        # in output_dir - to guarantee they stay in sync regardless of --output-dir.
+        # Always re-dumped (not skipped on a cache hit) so a corrupted/stale cache file
+        # self-heals instead of being reused forever. The report/SVG below are
+        # unaffected and still go to output_dir.
+        dump = True
+        input = file_path
+        output = None
         verbose = False
 
     malflow_commands.cmd_info(DummyArgs(), cg)
@@ -322,7 +340,7 @@ def analyze_file(file_path: str, md5: str = None, model_name: str = None) -> int
     important_functions = get_important_functions(cg, centrality_metrics, sorted_node_labels, top_n=20)
     entrypoints = get_entrypoints(cg)
 
-    svg_path = os.path.join(os.path.dirname(file_path), f"{cg.md5}.cg-sfdp.svg")
+    svg_path = os.path.join(output_dir, f"{cg.md5}.cg-sfdp.svg")
     try:
         draw_svg(cg, svg_path, centrality_metrics, sorted_node_labels)
     except Exception as e:
@@ -351,7 +369,7 @@ def analyze_file(file_path: str, md5: str = None, model_name: str = None) -> int
     dt_llm = time.perf_counter() - ts_llm
 
     # Result
-    output_file_path = os.path.join(os.path.dirname(file_path), f"exelens_report_{cg.md5}.txt")
+    output_file_path = os.path.join(output_dir, f"exelens_report_{cg.md5}.txt")
     with open(output_file_path, "w") as f:
         f.write(report_text)
 
