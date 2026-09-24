@@ -4,6 +4,7 @@
 # - lief >= 0.13: removed exception classes and lief.PE.SECTION_CHARACTERISTICS
 # - numpy >= 1.24: removed np.int alias
 # - scikit-learn >= 1.2: FeatureHasher rejects a bare string; pass its characters as before
+# - lief >= 0.13: section names that are not valid UTF-8 come back as bytes; decode them
 ''' Extracts some basic features from PE files. Many of the features
 implemented have been used in previously published works. For more information,
 check out the following resources:
@@ -139,6 +140,11 @@ class SectionInfo(FeatureType):
         super(FeatureType, self).__init__()
 
     @staticmethod
+    def _name(s):
+        # lief >= 0.13 returns bytes for section names that are not valid UTF-8
+        return s.name if isinstance(s.name, str) else s.name.decode("utf-8", errors="replace")
+
+    @staticmethod
     def _properties(s):
         return [str(c).split('.')[-1] for c in s.characteristics_lists]
 
@@ -153,7 +159,7 @@ class SectionInfo(FeatureType):
                 section = lief_binary.section_from_rva(lief_binary.entrypoint - lief_binary.imagebase)
                 if section is None:
                     raise LookupError
-                entry_section = section.name
+                entry_section = self._name(section)
             else: # lief < 0.12
                 entry_section = lief_binary.section_from_offset(lief_binary.entrypoint).name
         except LookupError:
@@ -161,12 +167,12 @@ class SectionInfo(FeatureType):
                 entry_section = ""
                 for s in lief_binary.sections:
                     if lief.PE.Section.CHARACTERISTICS.MEM_EXECUTE in s.characteristics_lists:
-                        entry_section = s.name
+                        entry_section = self._name(s)
                         break
 
         raw_obj = {"entry": entry_section}
         raw_obj["sections"] = [{
-            'name': s.name,
+            'name': self._name(s),
             'size': s.size,
             'entropy': s.entropy,
             'vsize': s.virtual_size,
