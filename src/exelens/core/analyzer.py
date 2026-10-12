@@ -1,3 +1,6 @@
+import hashlib
+import itertools
+import json
 import os
 import sys
 import time
@@ -5,15 +8,19 @@ from dataclasses import dataclass, asdict
 from typing import Dict, List, Tuple, Set
 
 import networkx as nx
-from malflow import CallGraph, Instruction, InstructionParameter, InstructionPrefix, InstructionReference
+from malflow import CallGraph, CallGraphCompressed, Instruction, InstructionParameter, InstructionPrefix, InstructionReference
 from malflow.cli import commands as malflow_commands
 from malflow.cli.formatters import print_info, print_success
 from malflow.core.model.function import CGNode, FunctionType
 from malflow.core.model.radare2_definitions import Mnemonics
 
+from exelens.core.cost import billed_output_tokens, estimate_cost, estimate_tokens
 from exelens.core.drawing import draw_svg, get_selected_node_labels, shorten_function_label
+from exelens.core.file_info import file_info_markdown
+from exelens.core.grounding import check_grounding
 from exelens.core.llm import LlmClient
 from exelens.model.pe import NodeCentrality
+from exelens.prompting import load_system_prompt
 
 
 # --- Data Models ---
@@ -129,23 +136,24 @@ def shorten_instruction2(i: Instruction) -> str:
     return buff
 
 
-def display_instruction(i: Instruction) -> str:
-    return f"{shorten_instruction2(i)}\n"
+def display_instructions(instructions: List[Instruction]) -> str:
+    """One line per instruction; a run of identical instructions is shown once, with its repeat count."""
+    buffer = ""
+    for line, run in itertools.groupby(shorten_instruction2(i) for i in instructions):
+        repeats = sum(1 for _ in run) - 1
+        buffer += f"{line} (repeated {repeats}x more times)\n" if repeats else f"{line}\n"
+    return buffer
 
 
 def function_instruction_summary(cg_node: CGNode):
     if len(cg_node.instructions) <= 100:
-        buffer = ""
-        for instr in cg_node.instructions[:10]:
-            buffer += display_instruction(instr)
-        return buffer
+        return display_instructions(cg_node.instructions[:10])
     else:
         buffer = f"(Total instructions: {len(cg_node.instructions)}, Showing only extracts:\n"
 
         def add_instruction_segment(buffer, i, segment_size=30):
             buffer += f"[{i} - {i + segment_size}]\n"
-            for instr in cg_node.instructions[i:i + segment_size]:
-                buffer += display_instruction(instr)
+            buffer += display_instructions(cg_node.instructions[i:i + segment_size])
             buffer += "...\n"
             return buffer
 
@@ -191,14 +199,18 @@ def function_register_types(cg_node: CGNode) -> List[str]:
 
 def dfs_call_graph_instruction_traversal(cg: CallGraph) -> str:
     buffer = ""
+    instructions = []  # consecutive instructions, displayed together so that repeats are collapsed
     for instr in cg.dfs_instructions(max_instructions=None, allow_multiple_visits=False, store_call=True, store_cg_node=True):
         if isinstance(instr, Instruction):
-            buffer += f"{display_instruction(instr)}"
+            instructions.append(instr)
         else:
+            buffer += display_instructions(instructions)
+            instructions = []
             cg_node, depth = instr
             register_types = function_register_types(cg_node)
             rt_str = " " + ", ".join(register_types) if register_types else ""
             buffer += f"\n> D{depth} {shorten_function_label(cg_node)}{rt_str}\n"
+    buffer += display_instructions(instructions)
     return buffer.strip()
 
 
@@ -222,14 +234,31 @@ def get_entrypoints(cg) -> List[PEFunctionInfo]:
     return entrypoints_info
 
 
-MAX_INSTRUCTIONS = 50000
+# Upper bound of system prompt + analysis message, in estimated tokens (Gemini Pro prices rise above 200k).
+MAX_PROMPT_TOKENS = 200_000
+# Cheap pre-check before building the full DFS traversal: at ~8 tokens/instruction, larger files cannot fit.
+MAX_INSTRUCTIONS = 100_000
 MAX_FUNCTIONS = 1000
+
+def imports_markdown(cg: CallGraph) -> str:
+    """The imported (DLL) functions of the call graph, grouped by DLL."""
+    imports: Dict[str, List[str]] = {}
+    for node in cg.nodes.values():
+        if node.type == FunctionType.DLL:
+            dll, _, api = shorten_function_label(node).rpartition(".dll_")
+            imports.setdefault(f"{dll}.dll" if dll else "other", []).append(api)
+    buffer = f"## Imports ({sum(len(apis) for apis in imports.values())}):\n"
+    for dll in sorted(imports):
+        buffer += f"- {dll}: {', '.join(sorted(imports[dll]))}\n"
+    return buffer
+
 
 def build_analysis_context(cg, pe_info: PEInfo,
                            entrypoints: List[PEFunctionInfo],
                            important_functions: List[PEFunctionInfo],
                            functions_to_analyze: List[str],
-                           dfs_summary: str) -> Dict:
+                           dfs_summary: str,
+                           file_info: str) -> Dict:
     context = {
         "md5": cg.md5,
         "entrypoints": entrypoints,
@@ -237,41 +266,25 @@ def build_analysis_context(cg, pe_info: PEInfo,
         "total_function_calls": pe_info.calls,
         "total_instructions": pe_info.instructions,
         "important_functions": important_functions,
+        "dfs_summary": dfs_summary,
+        "imports": imports_markdown(cg),
+        "file_info": file_info,
+        "functions_analyzed": {},
     }
 
-    if dfs_summary is not None:
-        context["full_dfs"] = True
-        context["dfs_summary"] = dfs_summary
-        return context
-
-    context["functions_analyzed"] = {}
-    instruction_budget = MAX_INSTRUCTIONS
-
-    for f_info in entrypoints[:10]:
-        if instruction_budget <= 0: break
-        node = cg.nodes.get(f_info.label)
-        if node:
-            func_instructions = function_instructions(cg, node.label)
-            context["functions_analyzed"][f_info.label] = {
-                "info": f_info,
-                "assembly": func_instructions
-            }
-            instruction_budget -= 100
-
-    for f_label in functions_to_analyze:
-        if instruction_budget <= 0: break
+    # Kept even when the full DFS is available: it is the fallback if the DFS does not fit the token budget.
+    for f_label in [f.label for f in entrypoints[:10]] + functions_to_analyze:
         node = cg.nodes.get(f_label)
         if node and node.label not in context["functions_analyzed"]:
-            func_instructions = function_instructions(cg, node.label)
             context["functions_analyzed"][f_label] = {}
             if node.type != FunctionType.DLL:
-                context["functions_analyzed"][f_label]["assembly"] = func_instructions
-            instruction_budget -= 100
+                context["functions_analyzed"][f_label]["assembly"] = function_instructions(cg, node.label)
 
     return context
 
 
-def format_analysis_message(context: Dict):
+def format_analysis_message(context: Dict, max_tokens: int) -> Tuple[str, Dict]:
+    """Returns the analysis message, within max_tokens (estimated), and stats about what it contains."""
     entrypoints_string = '\n'.join([f.display_markdown() for f in context["entrypoints"]])
     important_functions_string = '\n'.join([f.display_markdown() for f in context["important_functions"]])
 
@@ -283,23 +296,90 @@ def format_analysis_message(context: Dict):
 ## Instructions: {context["total_instructions"]}
 ## Function Calls: {context["total_function_calls"]}
 ## Important Functions: {important_functions_string}
-"""
-    if context.get("full_dfs", None):
-        task += f"## Full DFS Traversal\n---\n{context['dfs_summary']}\n---\n"
+{context["imports"]}{context["file_info"]}"""
+    if context["dfs_summary"] is not None:
+        full_dfs = f"## Full DFS Traversal\n---\n{context['dfs_summary']}\n---\n"
+        if estimate_tokens(task + full_dfs) <= max_tokens:
+            return task + full_dfs, {"mode": "full_dfs"}
+
+    # Functions are added in priority order (entrypoints, then by centrality score) while they fit the budget.
+    functions = []
+    budget = max_tokens - estimate_tokens(task + "## Analyzed Functions\n---\n---\n")
+    for label, function in context["functions_analyzed"].items():
+        block = f"### Function: {label}\n"
+        if "assembly" in function:
+            block += f"- Assembly:\n---\n{function['assembly']}\n---\n"
+        block_tokens = estimate_tokens(block)
+        if block_tokens > budget:
+            break
+        functions.append(block)
+        budget -= block_tokens
+    task += f"## Analyzed Functions\n---\n{''.join(functions)}---\n"
+    return task, {"mode": "selective", "functions_included": len(functions),
+                  "functions_selected": len(context["functions_analyzed"])}
+
+
+def write_drawing_and_context(cg: CallGraph, drawing_dir: str, context_dir: str, system_prompt: str,
+                              sample_path: str = None) -> str:
+    """Draws the call graph SVG (unless it exists) into drawing_dir and writes the LLM input context (the
+    analysis message) and its stats into context_dir. Returns the analysis message."""
+    pe_info = call_graph_info(cg)
+    centrality_metrics, sorted_node_labels = measure_node_centrality(cg)
+    important_functions = get_important_functions(cg, centrality_metrics, sorted_node_labels, top_n=20)
+    entrypoints = get_entrypoints(cg)
+
+    os.makedirs(drawing_dir, exist_ok=True)
+    svg_path = os.path.join(drawing_dir, f"{cg.md5}.cg-sfdp.svg")
+    if os.path.exists(svg_path):
+        print_info(f"Call graph SVG already exists, not redrawn: {svg_path}")
     else:
-        functions = []
-        for label, function in context["functions_analyzed"].items():
-            functions.append(f"### Function: {label}\n")
-            if "assembly" in function:
-                functions.append(f"- Assembly:\n---\n{function['assembly']}\n---\n")
-        task += f"## Analyzed Functions\n---\n{''.join(functions)}---\n"
-    return task
+        try:
+            draw_svg(cg, svg_path, centrality_metrics, sorted_node_labels)
+        except Exception as e:
+            print(f"Warning: Could not draw SVG: {e}")
+
+    if pe_info.instructions <= MAX_INSTRUCTIONS:
+        dfs_summary = dfs_call_graph_instruction_traversal(cg)
+    else:
+        dfs_summary = None
+
+    # Sorted by centrality score, so the functions kept within the token budget are the same on every run.
+    selected_node_labels = get_selected_node_labels(cg, centrality_metrics, sorted_node_labels, MAX_FUNCTIONS)
+    functions_to_analyze = [label for label in sorted_node_labels if label in selected_node_labels]
+
+    file_info = "## Sections, Resources, Overlay: not available (original file not provided)\n"
+    if sample_path:
+        try:
+            file_info = file_info_markdown(sample_path)
+        except Exception as e:
+            print(f"Warning: Could not read sections/resources of {sample_path}: {e}")
+
+    analysis_context = build_analysis_context(
+        cg, pe_info, entrypoints, important_functions, functions_to_analyze, dfs_summary, file_info
+    )
+    analysis_message, context_stats = format_analysis_message(
+        analysis_context, MAX_PROMPT_TOKENS - estimate_tokens(system_prompt))
+
+    context_meta = {
+        "md5": cg.md5,
+        **context_stats,
+        "prompt_chars": len(system_prompt) + len(analysis_message),
+        "estimated_prompt_tokens": estimate_tokens(system_prompt) + estimate_tokens(analysis_message),
+    }
+    print_info(f"Context: {context_stats}, ~{context_meta['estimated_prompt_tokens']:,} tokens")
+
+    os.makedirs(context_dir, exist_ok=True)
+    context_path = os.path.join(context_dir, f"{cg.md5}.txt")
+    with open(context_path, "w") as f:
+        f.write(analysis_message)
+    with open(os.path.join(context_dir, f"{cg.md5}.json"), "w") as f:
+        json.dump(context_meta, f, indent=2)
+    print_success(f"LLM input context written to {context_path}")
+    return analysis_message
 
 
-PE_AGENT_PROMPT = "You are a malware analyst. Analyze the following PE file summary."
-
-
-def analyze_file(file_path: str, md5: str = None, model_name: str = None, output_dir: str = None) -> int:
+def analyze_file(file_path: str, md5: str = None, model_name: str = None, output_dir: str = None,
+                 prompt_only: bool = False, sample_path: str = None) -> int:
     if not file_path:
         # --md5-only (fetch-by-hash) mode is not implemented yet - fail clearly
         # instead of crashing on os.path.* calls below with file_path=None.
@@ -326,52 +406,69 @@ def analyze_file(file_path: str, md5: str = None, model_name: str = None, output
         # checks input_dir, so the compressed-cache dump below is kept there too - not
         # in output_dir - to guarantee they stay in sync regardless of --output-dir.
         # Always re-dumped (not skipped on a cache hit) so a corrupted/stale cache file
-        # self-heals instead of being reused forever. The report/SVG below are
-        # unaffected and still go to output_dir.
-        dump = True
+        # self-heals instead of being reused forever. The drawing/, context/ and reports/
+        # outputs below are unaffected and still go to output_dir.
+        # An input that is already a compressed dump is not re-dumped over itself.
+        dump = not file_path.endswith(CallGraphCompressed.COMPRESSED_EXTENSION)
         input = file_path
         output = None
         verbose = False
 
     malflow_commands.cmd_info(DummyArgs(), cg)
 
-    pe_info = call_graph_info(cg)
-    centrality_metrics, sorted_node_labels = measure_node_centrality(cg)
-    important_functions = get_important_functions(cg, centrality_metrics, sorted_node_labels, top_n=20)
-    entrypoints = get_entrypoints(cg)
+    drawing_dir, context_dir, reports_dir = (os.path.join(output_dir, d) for d in ("drawing", "context", "reports"))
+    context_path = os.path.join(context_dir, f"{cg.md5}.txt")
+    system_prompt = load_system_prompt()
 
-    svg_path = os.path.join(output_dir, f"{cg.md5}.cg-sfdp.svg")
-    try:
-        draw_svg(cg, svg_path, centrality_metrics, sorted_node_labels)
-    except Exception as e:
-        print(f"Warning: Could not draw SVG: {e}")
-
-    if pe_info.instructions <= MAX_INSTRUCTIONS:
-        dfs_summary = dfs_call_graph_instruction_traversal(cg)
+    if prompt_only or not os.path.exists(context_path):
+        if not file_path.endswith(CallGraphCompressed.COMPRESSED_EXTENSION):
+            sample_path = sample_path or file_path  # the input itself is the original sample
+        analysis_message = write_drawing_and_context(cg, drawing_dir, context_dir, system_prompt, sample_path)
+        if prompt_only:
+            return 0
     else:
-        dfs_summary = None
-
-    functions_to_analyze = list(get_selected_node_labels(cg, centrality_metrics, sorted_node_labels, MAX_FUNCTIONS))
-
-    analysis_context = build_analysis_context(
-        cg, pe_info, entrypoints, important_functions, functions_to_analyze, dfs_summary
-    )
-    analysis_message = format_analysis_message(analysis_context)
+        with open(context_path) as f:
+            analysis_message = f.read()
+        print_info(f"Using existing context: {context_path}")
 
     # LLM summary
-    final_prompt = PE_AGENT_PROMPT + "\n" + analysis_message
-    print_info(f"Analyzing code with {model_name or 'default'}...")
-
     llm_client = LlmClient(model_name=model_name)
+    print_info(f"Analyzing code with {llm_client.model_name}...")
 
     ts_llm = time.perf_counter()
-    report_text = llm_client.generate_summary(final_prompt)
+    report_text, usage, finish_reason = llm_client.generate_summary(system_prompt, analysis_message)
     dt_llm = time.perf_counter() - ts_llm
+    if usage is None:
+        # The call failed (e.g. network, quota): nothing is written, so a batch re-run retries this sample.
+        return 1
 
-    # Result
-    output_file_path = os.path.join(output_dir, f"exelens_report_{cg.md5}.txt")
-    with open(output_file_path, "w") as f:
-        f.write(report_text)
+    # Result: the report (unless the LLM returned none) and its metadata, which also marks a sample without a report
+    # (blocked, or cut off at the output cap) as done - a batch re-run skips it instead of paying for it again.
+    os.makedirs(reports_dir, exist_ok=True)
+    output_file_path = os.path.join(reports_dir, f"exelens_report_{cg.md5}.txt")
+    if report_text is not None:
+        with open(output_file_path, "w") as f:
+            f.write(report_text)
+
+    report_meta = {
+        "md5": cg.md5,
+        "model": llm_client.model_name,
+        "system_prompt_sha256": hashlib.sha256(system_prompt.encode()).hexdigest(),
+        "prompt_chars": len(system_prompt) + len(analysis_message),
+        "estimated_prompt_tokens": estimate_tokens(system_prompt) + estimate_tokens(analysis_message),
+        "llm_seconds": round(dt_llm, 2),
+        "finish_reason": finish_reason,
+        "report_written": report_text is not None,
+        "grounding": check_grounding(report_text, analysis_message) if report_text is not None else None,
+        "usage": usage,
+        "cost_usd": estimate_cost(llm_client.model_name, usage["prompt_tokens"], billed_output_tokens(usage)),
+    }
+    with open(os.path.join(reports_dir, f"exelens_report_{cg.md5}.json"), "w") as f:
+        json.dump(report_meta, f, indent=2)
+
+    if report_text is None:
+        print(f"Error: no report for {cg.md5} (finish_reason: {finish_reason}); recorded in its metadata")
+        return 1
 
     dt_all = time.perf_counter() - ts_start
 
