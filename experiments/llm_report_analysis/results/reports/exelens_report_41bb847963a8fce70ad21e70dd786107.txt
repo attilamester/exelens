@@ -1,0 +1,72 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample is a backdoored service binary that establishes a reverse shell via HTTP. It periodically polls an external server, accepts commands (including 'shell'), executes them using 'cmd.exe', and communicates the output back to the C2 via HTTP POST requests.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The binary is not packed; the logic is clearly visible in the disassembly."
+  },
+  "capabilities": [
+    {
+      "name": "Reverse Shell",
+      "description": "Executes system commands via cmd.exe and redirects I/O through pipes and HTTP requests."
+    },
+    {
+      "name": "Command & Control (C2)",
+      "description": "Communicates with a hard-coded or environment-configured server using WININET for HTTP communication."
+    },
+    {
+      "name": "Service Manipulation",
+      "description": "Enumerates, starts, and controls services, and modifies service configuration via the registry."
+    },
+    {
+      "name": "Persistence",
+      "description": "Installs/uninstalls as a service by modifying 'SYSTEM\\CurrentControlSet\\Services'."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of using WININET to perform HTTP POST/GET requests, creating process pipes, and executing 'cmd.exe' to process command-and-control input is a clear indicator of a malicious backdoor. The service-related registry operations and console manipulation are consistent with stealthy remote access tooling, confirming malicious intent.",
+    "general": "Evidence includes: fcn.10001570 (C2 polling), fcn.10001e00 (Read/Write piping to processes), fcn.10001f20 (Executing cmd.exe), and the use of WININET functions like HttpSendRequestA and HttpOpenRequestA for remote command execution.",
+    "uncertainties": "The exact C2 host is not fully hard-coded in clear text but is constructed via function calls and registry lookups (e.g., 'DllPath', 'ServiceDll'), implying a configuration-driven C2.",
+    "conditions": "The malware expects to operate as a Windows service. It requires specific registry keys to be configured (e.g., 'SYSTEM\\CurrentControlSet\\Services\\...\\Parameters') to identify its C2 and DllPath. It also checks for the existence of 'cmd.exe' in the system directory.",
+    "sandbox_recommendations": "Simulate a live internet connection to allow the WININET calls to complete. Monitor registry modifications in 'SYSTEM\\CurrentControlSet\\Services' and intercept outbound HTTP traffic."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SYSTEM\\CurrentControlSet\\Services\\",
+          "description": "Path used for persistence and service manipulation"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "cmd.exe",
+          "description": "Used for shell command execution"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001f20",
+      "name": "fcn.10001f20",
+      "description": "Spawns cmd.exe and initializes pipes for I/O redirection."
+    },
+    {
+      "address": "0x10001570",
+      "name": "fcn.10001570",
+      "description": "Main C2 loop handling HTTP communication and periodic polling."
+    },
+    {
+      "address": "0x10002d50",
+      "name": "fcn.10002d50",
+      "description": "Installs/modifies service parameters in the registry."
+    }
+  ]
+}

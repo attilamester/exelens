@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a kernel-mode driver installer/loader that performs process hollowing, registry modifications for persistence, and bypasses kernel protection mechanisms (e.g., modifying system call tables). It actively hides itself by copying files and checking for environment variables to trigger payload execution.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation of resource data",
+      "Dynamic API resolution via GetProcAddress",
+      "Dynamic loading of libraries"
+    ],
+    "details": "The sample uses XOR routines (0xcd constant) to de-obfuscate embedded resources in .rsrc, likely containing the driver or malicious payload. It dynamically resolves many Windows APIs at runtime."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Hollowing",
+      "description": "Uses CreateProcessA followed by WriteProcessMemory/WriteFile to inject code into other processes."
+    },
+    {
+      "name": "Persistence Mechanism",
+      "description": "Modifies system registry keys, specifically under HKEY_LOCAL_MACHINE, to ensure execution on system boot."
+    },
+    {
+      "name": "Anti-Analysis / Kernel Hooking",
+      "description": "Attempts to interact with ntoskrnl.exe and ntkrnlpa.exe, and hooks kernel-level structures like the System Service Descriptor Table (SSDT) to hide or control system behavior."
+    },
+    {
+      "name": "Environment Awareness",
+      "description": "Checks for specific environment variables and system paths to conditionally trigger execution flow."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level hooking (SSDT modification, KeServiceDescriptorTable), process injection (CreateProcessA), and persistence via registry modifications, alongside the use of an installer component, provides strong evidence of malicious intent to compromise system integrity. These are not dual-use patterns in this context; they are standard techniques for rootkit-style malware.",
+    "general": "High-intent indicators include fcn.1000b369 (modifies KeServiceDescriptorTable), fcn.1000b46f/fcn.1000ab6f (unregisters classes and interacts with kernel drivers), and the use of CreateProcessA/WriteFile for process manipulation.",
+    "uncertainties": "The exact nature of the payload dropped in the temporary directory is obfuscated, as it relies on XOR-decryption from resources at runtime. Static analysis of the final malicious code is limited to the loader's behavior.",
+    "conditions": "Payload activation relies on the presence of specific environment variables and the success of registry operations. The code specifically checks for 'system32' path fragments and environment-specific configuration strings.",
+    "sandbox_recommendations": "Run in a kernel-aware sandbox. Ensure the system clock is set to a recent date. Observe registry access for HKLM run keys and kernel memory writes."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used to ensure single instance execution."
+        },
+        {
+          "value": "lsass",
+          "description": "Potential target process or target file name."
+        },
+        {
+          "value": "ntoskrnl.exe",
+          "description": "Target system file for kernel patching."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "_system32",
+          "description": "Path fragment used in file operations."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Kernel memory modification function, targets KeServiceDescriptorTable."
+    },
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Performs system registration and cleanup/process manipulation."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Registry and privilege escalation handling."
+    }
+  ]
+}

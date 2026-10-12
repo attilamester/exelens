@@ -1,0 +1,74 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable implements a reverse shell functionality. It establishes a socket connection, performs an authentication check using the string 'btc2014', and then pipes commands to 'cmd.exe', redirecting input/output via anonymous pipes to the remote attacker.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Overlay storage"
+    ],
+    "details": "The file contains a large overlay (7672 bytes) with high entropy (7.33), suggesting encrypted or compressed data. The main logic is in the .text section but utilizes functions to process data from the overlay."
+  },
+  "capabilities": [
+    {
+      "name": "Remote Shell/C2",
+      "description": "Establishes a network connection using WS2_32.dll (socket, connect) and tunnels command-line interaction."
+    },
+    {
+      "name": "Persistence",
+      "description": "Writes to the Windows Registry Run key (Software\\Microsoft\\Windows\\CurrentVersion\\Run) to ensure execution at system startup."
+    },
+    {
+      "name": "Process Injection/Redirection",
+      "description": "Uses CreatePipe and CreateProcessA to spawn cmd.exe and redirect its standard handles to a remote socket."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistent registry modification, the creation of a socket-based reverse shell, and the use of 'cmd.exe' redirection confirms malicious intent. While individual socket or registry APIs can be dual-use, their combined use to 'pipe' shell commands over a network connection is an unambiguous indicator of remote control malware.",
+    "general": "The function fcn.00401865 performs registry modification to 'Naver_Search'. The function fcn.00401021 implements the core shell logic, using KERNEL32!CreatePipe and KERNEL32!CreateProcessA to execute 'cmd.exe', with communication handled by fcn.0040156c (send) and fcn.0040159f (recv).",
+    "uncertainties": "The exact content of the high-entropy overlay is not fully visible, though the logic suggests it likely contains the C2 configuration or additional obfuscated strings.",
+    "conditions": "The shell initializes upon execution and immediately attempts a network connection. It requires the remote host to be reachable and to provide the correct authentication string 'btc2014' upon connection.",
+    "sandbox_recommendations": "Provide an isolated network environment with a listener ready on the hardcoded port (80/0x50). Monitor for Registry modification attempts on HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "btc2014",
+          "description": "Authentication string expected by the bot during socket communication."
+        },
+        {
+          "value": "Naver_Search",
+          "description": "Registry value name used for persistence."
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Persistence key used to run the malware on startup."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401021",
+      "name": "fcn.00401021",
+      "description": "Core shell logic: spawns cmd.exe and pipes I/O to the socket."
+    },
+    {
+      "address": "0x00401865",
+      "name": "fcn.00401865",
+      "description": "Sets persistence by modifying the Windows Registry Run key."
+    },
+    {
+      "address": "0x004013c0",
+      "name": "fcn.004013c0",
+      "description": "Network initialization and connection setup."
+    }
+  ]
+}

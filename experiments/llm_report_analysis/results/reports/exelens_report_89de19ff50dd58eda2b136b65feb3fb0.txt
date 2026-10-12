@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample exhibits typical trojan/downloader behavior: it collects system and processor information, persists itself in the registry, copies itself to APPDATA directories using various filenames, and attempts to exfiltrate collected data via HTTP POST requests.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The file is not packed; however, it uses basic obfuscation techniques like string XORing (fcn.004030f0) and dynamic API resolution for various network and file operations."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Writes to the Windows Run registry key to ensure autostart."
+    },
+    {
+      "name": "Data Exfiltration",
+      "description": "Uses WinINet API to perform HTTP POST requests to send collected system information."
+    },
+    {
+      "name": "Process Hollowing/Creation",
+      "description": "Uses CreateProcessA to spawn its own copies or other binaries."
+    },
+    {
+      "name": "Environment Fingerprinting",
+      "description": "Queries registry for CPU identifiers, network adapter info, and OS versions."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistence, system information harvesting, and HTTP communication clearly indicates malicious intent. The file collects system data, formats it into a string, and attempts to POST it to a remote location. The repeated use of APPDATA paths and registry modification provides strong evidence of unauthorized persistence mechanisms rather than a legitimate installer.",
+    "general": "High-intent indicators include: fcn.00401fe0 (RegSetValueExA to 'Run' key for persistence), fcn.00402e90 (WinINet HTTP POST communication), and fcn.004027a0 (collecting hardware/OS identifiers from the registry).",
+    "uncertainties": "While the binary is not packed, specific C2 domain/IP addresses are generated dynamically or through obfuscated strings that were not fully resolved without runtime execution.",
+    "conditions": "The malware checks for a mutex 'sfmntcr.exe' and creates specific directories in APPDATA (MicrosoftIME, MicrosoftIMEV2002). It requires an active internet connection to initiate its data exfiltration routines.",
+    "sandbox_recommendations": "Provide an environment with a simulated gateway or internet access. Monitor registry modifications in HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run. Monitor network traffic for HTTP POST requests."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Persistence mechanism location"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "%APPDATA%\\MicrosoftIME",
+          "description": "Malware working directory"
+        },
+        {
+          "value": "%APPDATA%\\MicrosoftIMEV2002",
+          "description": "Malware working directory"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401fe0",
+      "name": "fcn.00401fe0",
+      "description": "Sets registry values in the Run key for persistence."
+    },
+    {
+      "address": "0x00402e90",
+      "name": "fcn.00402e90",
+      "description": "Handles internet connectivity via WinINet and HTTP POST requests."
+    },
+    {
+      "address": "0x004027a0",
+      "name": "fcn.004027a0",
+      "description": "Gathers system and hardware information for fingerprinting."
+    }
+  ]
+}

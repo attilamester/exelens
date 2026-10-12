@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a loader that extracts and installs a driver (FsFlt) to the system. It performs privilege escalation checks, checks for elevated permissions, and modifies registry keys to register the driver in the system's service configuration, likely for rootkit or persistence functionality.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Custom overlay",
+      "Dynamic API resolution",
+      "Resource-based loading"
+    ],
+    "details": "The file contains a large overlay (entropy 6.24) and uses dynamic loading of system DLLs like FLTLIB.DLL. Routine entry0 and others contain obfuscated control flow and use DecodePointer/EncodePointer to protect function pointers, suggesting a protected or packed structure."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Registers a system service ('FsFlt') via RegCreateKeyExA and CreateServiceA."
+    },
+    {
+      "name": "Process Injection/Driver Loading",
+      "description": "Loads a kernel driver via FLTLIB.DLL_FilterLoad and sets up system service registry parameters."
+    },
+    {
+      "name": "Privilege Escalation/Evasion",
+      "description": "Uses AdjustTokenPrivileges to acquire SeLoadDriverPrivilege and queries registry keys (ConsentPromptBehaviorAdmin) to assess system security posture."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Contains IsDebuggerPresent checks and uses unhandled exception filters to disrupt debuggers."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent actions—specifically loading a custom driver (FsFlt), modifying system-level registry keys for service persistence, and explicitly requesting SeLoadDriverPrivilege—is characteristic of malicious rootkit installers. The binary is designed to bypass security controls by interacting with the Filter Manager and registry service keys, which are not typical for standard installers.",
+    "general": "High-intent evidence includes calls to ADVAPI32.dll_CreateServiceA and FLTLIB.DLL_FilterLoad within fcn.004010b0. The sequence in fcn.00401210 explicitly modifies registry keys in SYSTEM\\CurrentControlSet\\services\\FsFlt, which is consistent with malicious driver persistence.",
+    "uncertainties": "The core payload contained in the overlay remains obscured, but the loader's behavior is sufficiently clear to determine intent. The exact nature of the driver being loaded could be a legitimate filter or a malicious one, but the registration method (registry manipulation) is high-risk.",
+    "conditions": "The execution flow checks for administrative privileges via ConvertStringSidToSidW and OpenProcessToken; it is designed to run in an elevated context to successfully load the driver.",
+    "sandbox_recommendations": "Run in a controlled Windows environment with monitoring for driver installation and registry key modification. Use a tool like Process Monitor to track the registry keys under SYSTEM\\CurrentControlSet\\services."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SYSTEM\\CurrentControlSet\\services\\FsFlt",
+          "description": "Registry key used for service persistence and configuration."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "system32\\DRIVERS\\FsFlt.sys",
+          "description": "Expected path of the kernel driver being installed."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x004010b0",
+      "name": "fcn.004010b0",
+      "description": "Registers the FsFlt service and configures service registry keys."
+    },
+    {
+      "address": "0x00401210",
+      "name": "fcn.00401210",
+      "description": "Configures registry parameters for the FsFlt service."
+    },
+    {
+      "address": "0x00401870",
+      "name": "fcn.00401870",
+      "description": "Requests SeLoadDriverPrivilege and loads the driver."
+    }
+  ]
+}

@@ -1,0 +1,88 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to manipulate system internals, including hooking kernel services via `KeServiceDescriptorTable` and `KeAddSystemServiceTable` manipulation. It also demonstrates persistence mechanisms through registry modification (Run keys), file system persistence by copying itself to system directories, and the use of mutexes for process synchronization.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource-based unpacking",
+      "Dynamic API resolution"
+    ],
+    "details": "The file uses resources (RVA 0x100015f7) and `LoadResource`/`LockResource` to load encrypted or compressed data. It also uses `GetProcAddress` and `LoadLibrary` extensively, including resolving non-exported or internal kernel symbols (`KeServiceDescriptorTable`, `NtShutdownSystem`, `PsGetCurrentProcess`)."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Hooking",
+      "description": "Uses `KeServiceDescriptorTable` manipulation to likely hook System Service Descriptor Table (SSDT) to hide or gain elevated privileges."
+    },
+    {
+      "name": "Persistence",
+      "description": "Writes to registry keys and copies itself to System32 directories to ensure execution upon reboot."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Checks for mutexes (`prkMtx`, `GlobalRPCMutex`) to ensure only one instance runs and possibly detect sandbox environment synchronization."
+    },
+    {
+      "name": "Kernel-mode Interaction",
+      "description": "Attempts to load `ntoskrnl.exe`, `ntkrnlpa.exe`, and `hal.dll` to find and manipulate kernel function addresses."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode API resolution (`KeServiceDescriptorTable`, `KeAddSystemServiceTable`, `PsGetCurrentProcess`), persistent registry modifications in `Run` keys, and the deliberate targeting of system processes (lsass, system32) identifies this as a sophisticated rootkit/malware loader. While individual functions like `RegSetValueExA` are dual-use, their application here—targeting security-sensitive registry locations and system directories—demonstrates clear malicious intent.",
+    "general": "High-intent evidence includes `fcn.1000b369` (SSDT hooking), `fcn.100017a0` (Registry persistence), and `fcn.10009d28` (Kernel symbol resolution). The sequence `fcn.1000b46f` performs a manual lookup and injection attempt which is characteristic of rootkits.",
+    "uncertainties": "While the kernel-level code manipulation is highly suspicious, the full payload unpacked at runtime from the `RCDATA` resource is not visible, meaning the primary secondary payload (e.g., banking trojan, ransomware) remains speculative based on visible loader functionality.",
+    "conditions": "The malware checks for a mutex named `prkMtx` and likely expects to be run with elevated (Administrator/SYSTEM) privileges to succeed in kernel-level modifications. It also likely requires specific registry keys to be present for its internal configuration.",
+    "sandbox_recommendations": "Run in a virtualized Windows environment with kernel debugging enabled. Monitor registry activity for HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run. Ensure system time and user profile match a typical workstation to pass environment checks."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Persistence mechanism registry key."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "%SYSTEM32%\\win32k.sys",
+          "description": "Target file path for manipulation/overwriting."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for process synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for process synchronization."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Modifies KeServiceDescriptorTable to hook system calls."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Performs registry-based persistence and file system operations."
+    },
+    {
+      "address": "0x10009d28",
+      "name": "fcn.10009d28",
+      "description": "Resolves kernel function pointers within system binaries."
+    }
+  ]
+}

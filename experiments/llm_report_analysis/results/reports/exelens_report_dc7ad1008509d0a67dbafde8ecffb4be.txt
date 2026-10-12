@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality consistent with a kernel-mode rootkit or driver installer, including anti-analysis techniques, process injection/privilege escalation through service table modification (SSDT hooking), and persistence mechanisms via registry keys.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation/encryption",
+      "Dynamic API resolution via GetProcAddress"
+    ],
+    "details": "The file contains XOR decryption loops (e.g., in fcn.100015f7 and fcn.10001723) and uses resources (type UNKNOWN/232) that are likely encrypted payloads. The .rsrc section has high entropy (6.54), indicating compressed or encrypted data."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Modifies registry keys (e.g., 'lsass') to ensure automatic execution on system boot."
+    },
+    {
+      "name": "Kernel-mode modification",
+      "description": "Attempts to locate and hook KeServiceDescriptorTable (SSDT) in kernel memory to intercept system calls."
+    },
+    {
+      "name": "Process Injection",
+      "description": "Includes logic to open processes and write code to memory, often a precursor to DLL injection or code hollowing."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Uses mutexes (GlobalRPCMutex) and registry checks to ensure only one instance runs and to detect virtualization environments."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level system table modification ('KeServiceDescriptorTable'), explicit code for process/token manipulation ('DuplicateTokenEx'), and persistent registry modification classifies this as malicious. The presence of XOR decryption routines applied to data resources confirms that the malicious payload is hidden and deployed dynamically. The code lacks legitimate application markers and specifically targets system internals (Win32k.sys, NtShutdownSystem).",
+    "general": "High-intent evidence includes calls to 'ADVAPI32.dll_LookupAccountSidW' and 'ADVAPI32.dll_SetSecurityDescriptorDacl' for privilege manipulation, and deep inspection of kernel structures in fcn.1000b369. Specific code paths in fcn.1000c492 and fcn.1000ca8f explicitly demonstrate memory-write operations (Mdl allocation, MmMapLockedPages) used to patch protected system memory.",
+    "uncertainties": "While the core logic is clearly malicious, the full extent of the final kernel payload remains hidden behind the XOR obfuscation, limiting complete reconstruction of the final post-detonation command-and-control behavior.",
+    "conditions": "The malware requires administrative privileges to interact with system drivers and modify the registry or kernel memory. It is also gated by a mutex check ('GlobalRPCMutex'); if the mutex is already present, the process terminates.",
+    "sandbox_recommendations": "Ensure the sandbox supports kernel-mode driver loading and API hooking detection. Simulate administrative user login. Monitor for unauthorized modifications to the SSDT or system registry keys under HKLM."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\lsass",
+          "description": "Persistence mechanism via Run key"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for process synchronization"
+        },
+        {
+          "value": "Win32k.sys",
+          "description": "System driver targeted for hooking"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Hooks system services by modifying the KeServiceDescriptorTable."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Handles registry key persistence and token manipulation."
+    },
+    {
+      "address": "0x10004d5c",
+      "name": "fcn.10004d5c",
+      "description": "Primary deployment routine for decrypting and executing the payload."
+    }
+  ]
+}

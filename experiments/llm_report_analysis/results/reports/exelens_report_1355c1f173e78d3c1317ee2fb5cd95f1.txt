@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a malicious driver installer or rootkit component. It employs kernel-level techniques, such as modifying the System Service Descriptor Table (SSDT), and attempts to manipulate system drivers (e.g., 'win32k.sys') to achieve persistence and evasion.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation",
+      "Resource-based loading"
+    ],
+    "details": "The sample uses a XOR 0xCD loop to decrypt resources (e.g., 102) before utilizing KERNEL32 resource functions to load and possibly execute the decrypted data. The entropy of .rsrc (6.54) supports this."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Modifies system service tables (KeServiceDescriptorTable) and attempts to resolve kernel symbols like 'KeRaiseIrqlToDpcLevel'."
+    },
+    {
+      "name": "Persistence via Registry",
+      "description": "Manipulates Run keys and system services to ensure execution on startup."
+    },
+    {
+      "name": "Process Injection",
+      "description": "Uses CreateProcess, WriteFile, and related APIs to handle file and process manipulation."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Uses mutexes ('GlobalRPCMutex', 'prkMtx') to prevent multiple instances and likely to detect sandboxes."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel service descriptor table (SSDT) modification, DbgPrint manipulation, and direct interaction with 'ntoskrnl.exe' and 'win32k.sys' strongly indicates malicious intent (rootkit/driver-based malware) rather than standard application behavior. The file contains specific indicators of kernel-level hooking (fcn.1000b369).",
+    "general": "High-intent indicators include SSDT modification logic in fcn.1000b369, DbgPrint hook attempts in fcn.10009b69, and direct manipulation of kernel structures via IoAllocateMdl and related kernel APIs in fcn.1000c492. These are standard techniques for kernel-mode rootkits.",
+    "uncertainties": "The exact nature of the payload stored in the encrypted resource (102) is not fully visible, though the code indicates it is a driver-related binary that is mapped to kernel memory.",
+    "conditions": "Execution likely requires Administrator/SYSTEM privileges to successfully interface with kernel services and modify the SSDT. The sample uses mutex checks (GlobalRPCMutex, prkMtx) which will block execution if already active.",
+    "sandbox_recommendations": "Must be run in a kernel-aware sandbox with elevated privileges. Monitor for registry modifications, specifically in HKLM\\SYSTEM\\CurrentControlSet\\Services. Ensure the environment is not pre-populated with the named mutexes."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Suspected target for service creation/modification."
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for single-instance check."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for kernel-level instance protection."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Performs SSDT hooking by resolving KeServiceDescriptorTable."
+    },
+    {
+      "address": "0x1000c492",
+      "name": "fcn.1000c492",
+      "description": "Handles MDL allocation and memory mapping for kernel-mode operations."
+    },
+    {
+      "address": "0x10009b69",
+      "name": "fcn.10009b69",
+      "description": "Helper to resolve kernel symbols for hooking."
+    }
+  ]
+}

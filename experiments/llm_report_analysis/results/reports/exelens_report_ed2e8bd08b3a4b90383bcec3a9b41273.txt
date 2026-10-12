@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to manipulate system registry keys for persistence, perform kernel-level modifications, and hide/protect its components. It uses custom XOR-based obfuscation to load a payload and includes anti-debug/anti-VM capabilities.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation",
+      "Dynamic API resolution via GetProcAddress",
+      "Resource-based payload loading"
+    ],
+    "details": "The file contains an encrypted resource (size 106KB) that is decrypted at runtime using a XOR operation with 0xcd (e.g., fcn.10001697, fcn.10001723). It resolves sensitive APIs dynamically at runtime, as evidenced by the heavy use of GetProcAddress with obfuscated string names."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence / Registry Manipulation",
+      "description": "Writes to system registry keys (Run keys) via RegSetValueExA to ensure execution upon boot."
+    },
+    {
+      "name": "Kernel-Level Hooking",
+      "description": "Attempts to interact with kernel structures like the Service Descriptor Table (KeServiceDescriptorTable) for potentially rootkit-like behavior."
+    },
+    {
+      "name": "Process Injection/Creation",
+      "description": "Uses CreateProcessA to launch subprocesses, often from temporary directories."
+    },
+    {
+      "name": "Mutex-based synchronization",
+      "description": "Checks for/creates global mutexes (e.g., GlobalRPCMutex, prkMtx) to prevent concurrent instances and manage infection state."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent capabilities—specifically the attempts to manipulate kernel-level structures (KeServiceDescriptorTable), the use of specific, obfuscated registry keys for persistence, and the routine use of process hollowing or resource decryption—far exceeds the threshold for benign software. The presence of functions interacting with 'win32k.sys' and 'ntoskrnl.exe' provides clear evidence of malicious intent to gain system-level control.",
+    "general": "The function fcn.1000ab6f and fcn.1000b46f explicitly demonstrate code to hook the kernel service table. The decryption routine in fcn.10001697 uses XOR 0xcd, which is a classic indicator of a secondary payload hidden within the resources.",
+    "uncertainties": "Due to dynamic API resolution, some additional capabilities might be present but remain hidden until fully detonated in a controlled environment.",
+    "conditions": "The malware checks for existing instances via global mutexes and registry values. Successful payload execution likely depends on being run with elevated (Administrator) privileges to access the kernel-level components it targets.",
+    "sandbox_recommendations": "Run with administrative privileges. Monitor registry operations specifically around HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run. Expect the creation of a temporary system file (e.g., in System32)."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Common persistence location for the malware."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for synchronization."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001697",
+      "name": "fcn.10001697",
+      "description": "Resource decryption and extraction routine."
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Function responsible for kernel structure manipulation (hooking)."
+    },
+    {
+      "address": "0x10003c04",
+      "name": "fcn.10003c04",
+      "description": "Installs the file as a system process/component."
+    }
+  ]
+}

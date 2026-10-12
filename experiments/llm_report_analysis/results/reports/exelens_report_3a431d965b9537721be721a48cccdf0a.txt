@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a kernel-mode driver installer/loader. It performs process environment manipulation, registry modifications, file system persistence, and attempts to interact with kernel structures (e.g., KeServiceDescriptorTable) to likely install a malicious driver or rootkit.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation of resource data",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress"
+    ],
+    "details": "The sample uses a custom XOR routine (XOR 0xcd) to decrypt resource data (found in routines like fcn.100015f7). It dynamically resolves various kernel and security-related APIs, likely to bypass static analysis or to interact with loaded drivers."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Attempts to interact with KeServiceDescriptorTable (SSDT) and uses IoAllocateMdl/MmBuildMdlForNonPagedPool, suggesting rootkit-like behavior."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies system registry keys and copies files to system directories (e.g., using CopyFileA, RegSetValueExA, SetFileAttributesA)."
+    },
+    {
+      "name": "Process Injection/Execution",
+      "description": "Creates processes and modifies file attributes, indicative of payload deployment."
+    },
+    {
+      "name": "Environment Evasion",
+      "description": "Checks system version (GetVersionExA) and uses mutexes (prkMtx) to ensure single instance and avoid detection."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode API usage (SSDT hooking/interaction via KeServiceDescriptorTable, memory descriptors), registry persistence, and the dynamic loading of system-level modules is characteristic of a malicious rootkit installer. The intent to modify system integrity at the kernel level is the primary indicator of malice.",
+    "general": "Evidence is found in fcn.1000b369 (SSDT interaction), fcn.1000c492 (Memory Descriptor List handling), and fcn.100017a0 (registry manipulation of system services).",
+    "uncertainties": "While the kernel-level code is highly suspicious, the specific payload functionality remains partially obscured behind XOR-obfuscated resources and dynamic resolution, which would require full-system emulation to fully characterize.",
+    "conditions": "The main payload activates when run with administrative/system privileges, allowing it to modify kernel structures and registry keys.",
+    "sandbox_recommendations": "Run in a kernel-mode debugging environment (like WinDbg with a guest VM) with network connectivity enabled to observe potential C2 callbacks during driver loading."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\",
+          "description": "Registry path modified for persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name referenced in kernel manipulation functions."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Function responsible for SSDT/KeServiceDescriptorTable manipulation."
+    },
+    {
+      "address": "0x1000c492",
+      "name": "fcn.1000c492",
+      "description": "Function handling Memory Descriptor Lists (MDL) and memory mapping."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Handles registry key creation and value modification for persistence."
+    }
+  ]
+}

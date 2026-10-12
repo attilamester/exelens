@@ -1,0 +1,89 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This sample acts as a persistent backdoor and downloader. It performs environment analysis, injects itself into the startup process, manipulates file permissions to ensure persistence, and initiates a network connection attempt using socket APIs to potentially download further malicious components.",
+  "packed": {
+    "status": "false",
+    "techniques": [
+      "string obfuscation via custom XOR/subtraction loop",
+      "dynamic API resolution"
+    ],
+    "details": "The binary is not packed, but it heavily employs a custom string obfuscation routine (fcn.00401135) to hide critical strings, paths, and registry keys used for persistence and communication. These strings are de-obfuscated at runtime before being passed to APIs."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Registers its executable in the Windows registry (Run keys) via ADVAPI32.dll."
+    },
+    {
+      "name": "Process Injection",
+      "description": "Uses CreateToolhelp32Snapshot and Process32First/Next to enumerate processes and identify security tools (e.g., AVP.EXE)."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Modifies system time and checks for the presence of specific process names to evade sandbox execution."
+    },
+    {
+      "name": "Networking",
+      "description": "Initializes Winsock (WSAStartup) and attempts to resolve hostnames and establish connections."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistence mechanisms (registry modification), process enumeration for evasion, system time tampering to bypass sandbox timers, and network initialization (Winsock) confirms malicious intent. The dual-use nature of these APIs is outweighed by the specific sequence of operations: identifying security software, establishing persistence in the registry, and preparing for network communication without a clear UI or user-facing purpose.",
+    "general": "The function fcn.00401090 searches for 'AVP.EXE' (Kaspersky Anti-Virus) via process enumeration. Persistence is established in fcn.00401438 via RegCreateKeyExA on Windows registry run keys. The networking capability is enabled in fcn.0040141a calling WSAStartup, followed by host resolution logic.",
+    "uncertainties": "The specific payload URL or IP for the download component is dynamically generated or downloaded, and was not visible as a static hard-coded IOC in the provided disassembly.",
+    "conditions": "The sample performs environment checks (GetLogicalDriveStringsA) and checks for specific mutexes (OpenMutexA, e.g., 'OusSy_W_RV') to ensure only one instance is active. It also attempts to delete previous versions of itself (DeleteFileA) to finalize its infection routine.",
+    "sandbox_recommendations": "The sandbox should simulate an environment with a variety of files and a network connection, and it must allow the registry write operations to persist. Analysts should set the system time to ignore any potential time-based triggers embedded in the binary."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Persistence registry key location"
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "OusSy_W_RV",
+          "description": "Mutex used to ensure single-instance execution"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "C:\\Windows\\System32\\",
+          "description": "Target directory for file copying and persistence"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x004010d6",
+      "name": "main",
+      "description": "Entry point: orchestrates the initial environment analysis and anti-sandbox checks."
+    },
+    {
+      "address": "0x00401438",
+      "name": "fcn.00401438",
+      "description": "Handles registry-based persistence by setting the application to run at startup."
+    },
+    {
+      "address": "0x00401090",
+      "name": "fcn.00401090",
+      "description": "Enumerates running processes and compares them against security-related process names."
+    },
+    {
+      "address": "0x0040141a",
+      "name": "fcn.0040141a",
+      "description": "Initializes network communication via the Windows Socket API."
+    }
+  ]
+}

@@ -1,0 +1,94 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to decrypt an embedded resource, write it to disk (possibly disguised as a .pdf), and execute it. It also interacts with the registry to establish persistence and communicates with a C2 server via URLs (e.g., '_______URL').",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource-based payload hiding",
+      "Dynamic API resolution",
+      "Custom decryption/decompression"
+    ],
+    "details": "The large .rsrc section (entropy 7.92) strongly indicates compressed/encrypted data. Functions like fcn.00401060 and fcn.004012a0 perform cryptographic operations (CryptDecrypt, CryptDeriveKey) on this resource data."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Uses RegOpenKeyA and RegQueryValueExA to read/check registry values, likely for startup persistence."
+    },
+    {
+      "name": "Process Execution",
+      "description": "Utilizes CreateProcessA and ShellExecuteA to launch other executables."
+    },
+    {
+      "name": "Networking/C2",
+      "description": "Imports urlmon.dll/dnsapi.dll and contains logic for downloading content from a URL via URLDownloadToCacheFileA/URLDownloadToFile."
+    },
+    {
+      "name": "Data Obfuscation",
+      "description": "Implements crypto routines using ADVAPI32 (CryptDecrypt, CryptDeriveKey) to decode embedded payloads."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistent registry access, file system modification (creating/dropping files), and dynamic execution (ShellExecuteA, CreateProcessA) alongside the presence of C2-related URL strings and cryptographic routines confirms malicious intent. This is not a standard installer or protected application due to the specific combination of 'id' markers in URL templates and the decryption of embedded resources intended for execution.",
+    "general": "High-intent evidence includes: fcn.004018c0 (implements URLDownloadToCacheFileA to fetch content), fcn.00402720 (uses ShellExecuteA to 'open' a dropped .pdf), and fcn.004025f0 (writes decrypted resources to disk). The code explicitly targets registry keys related to startup (Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders).",
+    "uncertainties": "The exact nature of the decrypted resource remains unknown without executing the decryption loop, but it is clearly treated as a file to be written to disk.",
+    "conditions": "The sample performs checks against the environment (e.g., GetModuleFileNameA, GetTickCount). It likely requires internet connectivity to succeed in its URL download phase. The execution flow often branches based on file existence/deletion checks (DeleteFileA).",
+    "sandbox_recommendations": "Run with full network simulation enabled, specifically allowing DNS queries and HTTP connections to reach out to potential C2 domains. Monitor file system for dropped files, specifically those with .exe or .pdf extensions in the temporary directory."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders",
+          "description": "Registry key queried for persistence."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "AdobeRe.exe",
+          "description": "Suspicious filename referenced in strings."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "_______URL",
+          "description": "Template for C2 communication URLs."
+        },
+        {
+          "value": "_2010QBP",
+          "description": "Indicator/Marker string in payload data."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x004018c0",
+      "name": "fcn.004018c0",
+      "description": "Handles downloading remote content via URLDownloadToCacheFileA."
+    },
+    {
+      "address": "0x00401060",
+      "name": "fcn.00401060",
+      "description": "Cryptographically decrypts and processes the embedded resource."
+    },
+    {
+      "address": "0x00402720",
+      "name": "fcn.00402720",
+      "description": "Shell executes the dropped file to trigger execution."
+    },
+    {
+      "address": "0x00402900",
+      "name": "fcn.00402900",
+      "description": "Primary persistence/check logic involving the registry."
+    }
+  ]
+}

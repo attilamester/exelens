@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to modify system registry keys, persist in the file system, and potentially perform kernel-mode operations. It appears to be an installer-type dropper that performs environmental checks, decrypts embedded resources, and attempts to install malicious components disguised as system files.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Custom XOR obfuscation of embedded resources",
+      "Dynamic API resolution"
+    ],
+    "details": "Resources with 0xcd XOR encoding are unpacked using a custom routine (fcn.100015f7). The main logic relies on dynamic API resolution for sensitive imports like NtQueryObject and NtQuerySystemInformation."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Modifies registry Run keys or system configurations to ensure execution upon boot."
+    },
+    {
+      "name": "Process Injection/Hooking",
+      "description": "Contains routines for accessing kernel service descriptor tables (KeServiceDescriptorTable) and performing system-level hooks."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Copies, deletes, and sets file attributes for system files (lsass, etc.)"
+    },
+    {
+      "name": "Environment Awareness",
+      "description": "Checks registry keys and environment variables to detect environment settings."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level structure modification (fcn.1000ab6f, fcn.1000a2cd, fcn.1000b369), manipulation of system files (copying to paths involving 'system32'), and the use of hardcoded mutex names ('GlobalRPCMutex', 'prkMtx') indicates clear malicious intent to establish persistent, stealthy control over the host system. The benign-looking boilerplate is insufficient to explain these high-intent operations.",
+    "general": "High-intent evidence includes calls to modify the Service Descriptor Table (fcn.1000b369, fcn.1000ab6f), creation of global mutexes to prevent multiple infections, and attempts to overwrite or manipulate system-critical files, evidenced by the use of KERNEL32.dll_CopyFileA and ADVAPI32.dll_RegSetValueExA targeting 'lsass' related values.",
+    "uncertainties": "While the binary is clearly a malware loader, the exact nature of the final payload remains hidden behind the multi-stage unpacking, which is typical for sophisticated droppers.",
+    "conditions": "The file requires administrative privileges to modify registry keys and system files. It checks for specific environment variables and might require specific OS versions (e.g., Windows 5.x/6.x checks).",
+    "sandbox_recommendations": "Simulate a fully featured Windows environment, ensure administrative privileges are available, and monitor registry operations for unauthorized persistence entries."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used to ensure single instance."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name for kernel synchronization."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "_system32",
+          "description": "Target directory for malicious component installation."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Performs modification of the KeServiceDescriptorTable."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Unpacks and decrypts XOR-encoded resources."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Performs persistence via registry key manipulation and file copying."
+    }
+  ]
+}

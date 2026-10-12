@@ -1,0 +1,85 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This sample is a remote administration tool (RAT) that establishes persistent access, monitors process and service activity, and can execute arbitrary commands via a backdoored shell.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed; the logic for network communication, command execution, and persistence is clearly visible."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Modifies the Windows registry (Run keys) and creates a scheduled task via a batch script to maintain execution."
+    },
+    {
+      "name": "Process Injection/Control",
+      "description": "Can list, terminate, and spawn processes (cmd.exe) and services, allowing remote control."
+    },
+    {
+      "name": "Networking (C2)",
+      "description": "Uses WININET APIs to initiate outbound connections, download files, and send system information to a remote server."
+    },
+    {
+      "name": "Anti-Analysis/Evasion",
+      "description": "Uses mutexes to ensure single-instance execution and checks for debugging environments."
+    }
+  ],
+  "details": {
+    "reasoning": "The application exhibits classic RAT behavior: it collects machine/user info (GetUserNameA, GetComputerNameA), establishes persistence via registry/scheduled tasks, and provides remote control functionality through shell commands. The presence of network communication (WININET, HttpSendRequestA) and process manipulation confirms malicious intent beyond mere system utilities.",
+    "general": "High-intent evidence includes RegCreateKeyExA/RegDeleteValueA for persistence (fcn.004030d8), shell command execution (CreateProcessA in fcn.00401bf7), and dynamic C2 communication using InternetOpenA/InternetReadFile (fcn.00402afc).",
+    "uncertainties": "While the C2 domain/IP address is not explicitly hardcoded as a cleartext string, the logic in fcn.00402afc suggests remote configuration driven by the server's response.",
+    "conditions": "The primary execution loop is triggered upon startup. Persistence is established after environment checks. Interaction requires the C2 server to respond with appropriate HTTP headers and commands (e.g., 'shell', 'list').",
+    "sandbox_recommendations": "Run in an isolated environment with network simulation (e.g., INetSim). Monitor Registry HKLM/Software/Microsoft/Windows/CurrentVersion/Run for changes. Observe file system for the dropped _MS80547.bat file."
+  },
+  "ioc": [
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "Application_DataAdobe_reader_sl.exe",
+          "description": "Dropped executable path."
+        },
+        {
+          "value": "_MS80547.bat",
+          "description": "Batch script file dropped for persistence."
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Registry key used for persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "Adobe_Reader_Speed_Launcher",
+          "description": "Registry value/process name used to masquerade as legitimate software."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401406",
+      "name": "fcn.00401406",
+      "description": "Main C2 communications and command handling loop."
+    },
+    {
+      "address": "0x004030d8",
+      "name": "fcn.004030d8",
+      "description": "Persistence logic involving registry modification and batch file creation."
+    },
+    {
+      "address": "0x00401bf7",
+      "name": "fcn.00401bf7",
+      "description": "Shell spawning and command execution logic."
+    }
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample is a modular backdoor/bot component designed for remote command execution and service control. It communicates over HTTP, enables shell access, and installs itself as a persistent system service.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code structure is straightforward and readable, with no evidence of packing or advanced obfuscation."
+  },
+  "capabilities": [
+    {
+      "name": "HTTP Command and Control",
+      "description": "Utilizes WININET.dll for HTTP GET/POST requests, including custom headers and file downloading."
+    },
+    {
+      "name": "Persistence Mechanism",
+      "description": "Manipulates registry keys (System\\CurrentControlSet\\Services) to register as a service, specifically modifying 'ServiceDll' and 'DllPath'."
+    },
+    {
+      "name": "Remote Shell Execution",
+      "description": "Spawns a cmd.exe process with redirected I/O (via pipes) to allow remote command execution."
+    },
+    {
+      "name": "System Enumeration",
+      "description": "Lists running processes, services, and system volumes, returning the information to a remote controller."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of functionalities—specifically the ability to spawn shells via pipes, perform HTTP C2 communications, and modify system service registry entries—constitutes a clear malicious intent characteristic of a remote access trojan (RAT) or a modular botnet agent.",
+    "general": "The function fcn.10001570 acts as the main command loop. It initializes HTTP connectivity (fcn.100010e0) and implements a shell management interface (fcn.10001fb0). Persistent service modification is handled by fcn.100031a0 and fcn.10003330 which write to HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services.",
+    "uncertainties": "The exact C2 URL is not visible in the static analysis, likely provided by the server or an external configuration file at runtime.",
+    "conditions": "The sample performs command parsing (e.g., 'shell', 'kill', 'start'). It requires active network connectivity to the hardcoded/configured C2 server to receive commands. It expects a specific command format via HTTP responses.",
+    "sandbox_recommendations": "Run in a sandboxed network environment where outbound HTTP/HTTPS connections can be intercepted. Monitor registry access to HKLM\\SYSTEM\\CurrentControlSet\\Services and track the spawning of cmd.exe instances."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\*\\Parameters",
+          "description": "Registry path manipulated for service persistence."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "cmd.exe",
+          "description": "Executed for shell capabilities."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001570",
+      "name": "fcn.10001570",
+      "description": "Main C2 command processing loop and shell initialization."
+    },
+    {
+      "address": "0x100031a0",
+      "name": "fcn.100031a0",
+      "description": "Installs service persistence via registry modification."
+    },
+    {
+      "address": "0x10001fb0",
+      "name": "fcn.10001fb0",
+      "description": "Spawns and manages a remote shell process."
+    },
+    {
+      "address": "0x100010e0",
+      "name": "fcn.100010e0",
+      "description": "Initializes HTTP connection to the C2 server."
+    }
+  ]
+}

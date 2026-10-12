@@ -1,0 +1,88 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple persistence and system-modification mechanisms, including file copying to system directories, registry key manipulation, mutex creation, and kernel-mode driver interaction. It appears to act as a system-level installer that masks its activity.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation",
+      "Dynamic API resolution"
+    ],
+    "details": "Resource sections show high entropy and specific routines (e.g., fcn.10001697) utilize XOR loops (0xcd key) to decrypt data. The file dynamically resolves APIs using GetProcAddress after loading libraries."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Registers values to the Run registry keys to ensure execution upon system boot."
+    },
+    {
+      "name": "Process Injection/System modification",
+      "description": "Capable of copying files to system directories and modifying file attributes."
+    },
+    {
+      "name": "System Evasion",
+      "description": "Uses mutexes to ensure single-instance execution and checks for environment variables to avoid analysis."
+    },
+    {
+      "name": "Kernel Interaction",
+      "description": "Attempts to interact with system descriptors and potentially load kernel-mode components (e.g., KeServiceDescriptorTable checks)."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of registry modifications, persistence mechanisms, mutex checks, and low-level kernel service table manipulation strongly indicates malicious intent rather than legitimate installation behavior. While some dual-use APIs are present, the overall complexity and the specific targeting of system drivers confirm a malicious purpose.",
+    "general": "High-intent indicators include RegSetValueExA usage for persistence (fcn.10001000), Mutex creation to manage execution state (fcn.10002109), and direct manipulation of KeServiceDescriptorTable (fcn.1000b369).",
+    "uncertainties": "The exact nature of the decrypted resource payload is unknown, but the loader-style behavior is consistent across the observed execution flow.",
+    "conditions": "Execution requires a non-debugged environment and specific registry/file existence state to trigger the payload.",
+    "sandbox_recommendations": "Simulate a standard Windows environment, ensure network connectivity is controlled, and monitor registry key writes to HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Registry key used for persistence."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "%SYSTEM32%\\",
+          "description": "Target directory for file copying."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Another identified mutex name."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001000",
+      "name": "fcn.10001000",
+      "description": "Registry manipulation for persistence."
+    },
+    {
+      "address": "0x10002109",
+      "name": "fcn.10002109",
+      "description": "Mutex handling and environment check logic."
+    },
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "System service descriptor table access routine."
+    }
+  ]
+}

@@ -1,0 +1,85 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample is a modular backdoor/bot that communicates with a hardcoded C2, performs network reconnaissance, exfiltrates data, and manages persistence via registry keys.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed but employs multiple obfuscation techniques, including XOR-based string decryption (fcn.00401070) and dynamic API resolution using LoadLibrary/GetProcAddress."
+  },
+  "capabilities": [
+    {
+      "name": "Network Communication",
+      "description": "Utilizes Winsock (WSOCK32.dll) to initiate HTTP requests and manage C2 socket connections."
+    },
+    {
+      "name": "Persistence Mechanism",
+      "description": "Manipulates registry keys (ADVAPI32.dll) to ensure execution across system reboots."
+    },
+    {
+      "name": "Data Exfiltration/Stealing",
+      "description": "Collects system information, file listings, and potentially browser data, and writes them to temporary files for exfiltration."
+    },
+    {
+      "name": "Process Injection/Control",
+      "description": "Capability to enumerate processes, terminate processes (via OpenProcess/TerminateProcess), and execute commands."
+    },
+    {
+      "name": "Evasion",
+      "description": "Uses mutexes (CreateMutexA) to ensure only one instance runs and attempts to set security info on files/registry keys to protect its components."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of specific high-intent behaviors—remote C2 communication, dynamic loading of network-related libraries, registry-based persistence, and the ability to terminate other processes—confirmed the malicious nature of this executable. It is not a legitimate tool or installer.",
+    "general": "High-intent evidence includes calls to WSOCK32.dll_connect to hardcoded IPs (e.g., 20.25), use of ADVAPI32.dll_RegSetValueExA to set persistence, and the systematic use of CreateProcessA with pipes to execute hidden commands.",
+    "uncertainties": "While the functionality is clear, the exact command-and-control server's current status and the full breadth of the payload scripts downloaded are only partially visible due to the dynamic nature of the communication.",
+    "conditions": "The malware expects a network connection to the C2 server at 20.25. It likely requires administrative privileges for the registry modifications and persistence setup.",
+    "sandbox_recommendations": "Provide an isolated network environment with a faked C2 response. The sample may check for specific file paths; ensure the simulated environment reflects a standard Windows installation directory structure."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings",
+          "description": "Registry path manipulated for proxy and configuration settings."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "20.25",
+          "description": "Potential C2 IP segment identified in string comparisons."
+        },
+        {
+          "value": "ASDFGH:",
+          "description": "Key used in string obfuscation or protocol identification."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x004010a0",
+      "name": "fcn.004010a0",
+      "description": "Primary initialization function, resolves APIs dynamically and decrypts strings."
+    },
+    {
+      "address": "0x00401d60",
+      "name": "fcn.00401d60",
+      "description": "Handles mutex creation and environment checks to prevent multiple infections."
+    },
+    {
+      "address": "0x00404570",
+      "name": "fcn.00404570",
+      "description": "Implements process enumeration and reconnaissance capabilities."
+    },
+    {
+      "address": "0x004021b0",
+      "name": "fcn.004021b0",
+      "description": "Core networking function, handles socket connections and HTTP request generation."
+    }
+  ]
+}

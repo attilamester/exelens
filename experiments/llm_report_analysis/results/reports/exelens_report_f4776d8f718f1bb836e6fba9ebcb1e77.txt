@@ -1,0 +1,70 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a complex, multi-stage installer and system modifier. It decrypts an embedded payload, interacts with registry keys, modifies system files (lsass), and contains logic to manipulate low-level system structures (System Service Descriptor Table) and hook system calls, suggesting rootkit-like behavior.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based decryption of embedded resources",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress"
+    ],
+    "details": "Routine fcn.100015f7 identifies and decrypts resource 102 (size 106496) using a 0xcd XOR key, indicating hidden payload loading."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Modification",
+      "description": "Uses RegQueryValueExA/RegSetValueExA to modify registry persistence and interacts with LSASS."
+    },
+    {
+      "name": "System Internals Manipulation",
+      "description": "Contains code to locate and manipulate the KeServiceDescriptorTable (SSDT) and hook functions like NtShutdownSystem."
+    },
+    {
+      "name": "Persistence and Evasion",
+      "description": "Utilizes mutexes (GlobalRPCMutex, prkMtx) to prevent multiple instances and registry modification for persistence."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent capabilities—specifically the targeted modification of LSASS, attempts to hook system functions (NtShutdownSystem), and code intended to manipulate the SSDT (KeServiceDescriptorTable)—is not consistent with legitimate software. These features are characteristic of rootkits/kernel-mode malware, classifying the intent as malicious.",
+    "general": "High-intent evidence includes: fcn.100017a0 (LSASS modification), fcn.100096ce/fcn.10009d28 (SSDT manipulation logic), and fcn.1000b73a (Hooking NtShutdownSystem).",
+    "uncertainties": "While the code demonstrates clear malicious intent, the full functionality of the decrypted resource 102 is inferred from its usage patterns in loader functions.",
+    "conditions": "The primary payload executes if the system environment checks pass and the registry-based configuration (e.g., 'prkMtx') is absent or allows for initialization.",
+    "sandbox_recommendations": "Simulate a standard Windows environment, ensure the file is executed with administrative privileges, and monitor registry operations (especially keys related to service configuration and LSASS)."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for process synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for process synchronization."
+        },
+        {
+          "value": "lsass",
+          "description": "Target process name for modification."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Main logic for modifying LSASS settings."
+    },
+    {
+      "address": "0x10009d28",
+      "name": "fcn.10009d28",
+      "description": "Function responsible for SSDT (System Service Descriptor Table) lookup and modification."
+    },
+    {
+      "address": "0x1000b73a",
+      "name": "fcn.1000b73a",
+      "description": "Contains hooking logic for NtShutdownSystem."
+    }
+  ]
+}

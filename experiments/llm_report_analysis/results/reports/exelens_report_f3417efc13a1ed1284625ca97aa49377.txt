@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The file is a malicious installer/loader that performs kernel-mode privilege escalation, manipulates kernel structures (system service descriptor table), disables security checks (like PatchGuard/Driver Signature Enforcement), and persists by injecting into system processes like 'lsass.exe'. It uses resource-based packing and complex environment checks to hide its activities.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Resource-based payload storage",
+      "Dynamic API resolution (GetProcAddress/LoadLibrary)",
+      "Memory decryption/XORing (0xcd key)"
+    ],
+    "details": "The file utilizes FindResource/LoadResource/LockResource to retrieve encrypted components stored in the .rsrc section, which are then decrypted in memory via XOR 0xcd operations."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "Injects or manipulates code in lsass.exe to gain persistence or elevated privileges."
+    },
+    {
+      "name": "Kernel-mode Rootkit capability",
+      "description": "Attempts to locate and modify 'KeServiceDescriptorTable' and other kernel structures, indicating an attempt to bypass security."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Uses mutexes ('GlobalRPCMutex', 'prkMtx') to prevent multiple instances and environment checks to avoid sandboxes."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies Windows registry keys (Run keys) and registry values related to system security processes."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level hooking (SSDTable modification), process hollowing/injection into LSASS, and explicit attempts to locate and patch kernel symbols (e.g., 'KeServiceDescriptorTable') confirms malicious intent beyond dual-use utility.",
+    "general": "High-intent evidence includes calls to 'MmBuildMdlForNonPagedPool' and 'MmMapLockedPagesSpecifyCache' (fcn.1000c492), which are standard primitives for kernel memory manipulation. The function 'fcn.1000b369' specifically targets 'KeServiceDescriptorTable'.",
+    "uncertainties": "The exact nature of the final payload injected into LSASS is hidden by the decryption routines, but the loader behavior is clearly malicious.",
+    "conditions": "The payload executes only if it successfully bypasses initial environment checks (registry keys, mutexes, and file system presence checks).",
+    "sandbox_recommendations": "Run in an environment that allows kernel-mode debugging to observe the SSDT patching. Monitor registry operations on 'HKLM\\SYSTEM\\CurrentControlSet\\Services'."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\lsass",
+          "description": "Targeted registry path for persistence manipulation"
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Used to ensure single execution"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Used for synchronization during kernel-mode operations"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Handles SSDT hooking and kernel service table modifications."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Performs persistence modification by altering registry values associated with system services."
+    },
+    {
+      "address": "0x100043d2",
+      "name": "fcn.100043d2",
+      "description": "Drives the main installation and configuration loop."
+    }
+  ]
+}

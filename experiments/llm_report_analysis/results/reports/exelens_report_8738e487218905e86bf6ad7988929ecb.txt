@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to manipulate system kernel structures, specifically hooking or modifying the system call table (KeServiceDescriptorTable), which is a common technique for rootkit persistence. It also contains routines for process injection and registry modification to ensure stealth execution.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation of resource content",
+      "Dynamic API resolution"
+    ],
+    "details": "The file uses FindResource/LoadResource/LockResource to retrieve and XOR-decrypt its internal payloads. Several critical functions (e.g., KeServiceDescriptorTable manipulation) are resolved dynamically at runtime, likely to bypass static import analysis."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Attempts to access/modify the KeServiceDescriptorTable, characteristic of rootkit behavior."
+    },
+    {
+      "name": "Process Hollowing/Injection",
+      "description": "Uses VirtualAlloc and CreateProcess to inject or execute code in the context of other processes."
+    },
+    {
+      "name": "Registry Persistence",
+      "description": "Extensive use of RegSetValueExA and RegCreateKeyExA to register malicious services or modifications."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Checks for environment variables and specific file patterns to detect VM/sandbox environments."
+    }
+  ],
+  "details": {
+    "reasoning": "While some components like resource loading are dual-use, the combined presence of kernel system table modification (fcn.1000b369), process manipulation, and persistence mechanisms provides high-intent evidence of a rootkit or advanced persistent threat (APT) tool rather than legitimate software.",
+    "general": "High-intent evidence is found in fcn.1000b369 which accesses KeServiceDescriptorTable to redirect system calls. Additionally, fcn.10001b34 performs process creation via CreateProcessA, and fcn.1000788e interacts with sensitive registry keys to establish system-level persistence.",
+    "uncertainties": "Portions of the payload remain encrypted/obfuscated in resources, meaning secondary modules may have additional capabilities not visible in the primary binary.",
+    "conditions": "The payload requires specific registry keys to be present or may fail if it detects a debugged or virtualized environment through environment variable checks.",
+    "sandbox_recommendations": "Run in a kernel-aware sandbox; monitor registry access to Run/RunOnce keys; monitor system calls targeting ntoskrnl.exe or ntdll.dll structures."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Persistence registry path frequently modified by the sample."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used to ensure single-instance execution."
+        },
+        {
+          "value": "KeServiceDescriptorTable",
+          "description": "Target kernel structure for hooking."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Handles manipulation of the KeServiceDescriptorTable (SSDTHooking)."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Main process creation/hollowing routine."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Performs system-wide registry-based persistence operations."
+    }
+  ]
+}

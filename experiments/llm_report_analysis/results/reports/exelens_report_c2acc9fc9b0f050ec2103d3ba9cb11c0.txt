@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable implements a persistent worm-like capability that spreads by copying itself into directories on removable drives and modifying system configurations. It uses custom string obfuscation, registry manipulation to disable security features (Hidden files, AutoRun), and process creation to execute its payload.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code does not exhibit typical packing signatures; however, it uses a custom XOR-based string obfuscation routine (fcn.004010a0) for its core functionality."
+  },
+  "capabilities": [
+    {
+      "name": "Worm behavior",
+      "description": "Copies its executable to multiple locations and manipulates shell/registry settings to maintain persistence and spread."
+    },
+    {
+      "name": "Persistence / Evasion",
+      "description": "Modifies 'Hidden', 'HideFileExt', and 'NoDriveTypeAutoRun' registry keys to hinder manual detection."
+    },
+    {
+      "name": "File system manipulation",
+      "description": "Uses CreateFileA, CopyFileA, and DeleteFileA to propagate and manage its payloads on the disk."
+    },
+    {
+      "name": "Dynamic API loading",
+      "description": "Uses GetProcAddress/LoadLibrary to resolve sensitive API calls at runtime to avoid static analysis detection."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistent registry modifications (disabling hidden file visibility and AutoRun) with the active propagation of the binary (CopyFileA/FindNextFileA logic in fcn.004018e0) clearly demonstrates malicious intent rather than a legitimate software function. The use of custom XOR routines (fcn.004010a0) to obfuscate registry and file strings confirms the intent to hide its malicious actions from simple signature-based analysis.",
+    "general": "The function fcn.004018e0 exhibits clear propagation logic. In fcn.004014b0, the malware sets 'NoDriveTypeAutoRun'. In fcn.00401520, it modifies 'Hidden' and 'HideFileExt' registry keys under 'Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced'.",
+    "uncertainties": "While the binary behavior is clearly malicious, the full extent of the remote command-and-control capabilities might be larger, as some logic relies on dynamic execution flow.",
+    "conditions": "Execution is gated by an environment check (fcn.00401000) that performs a timing loop based on GetTickCount, effectively delaying execution for approximately one minute after launch to avoid automated sandbox analysis.",
+    "sandbox_recommendations": "Simulate a multi-drive environment including removable media. Set the system clock or manipulate the GetTickCount return values to bypass the initial 60-second sleep timer found in fcn.00401000."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced\\Hidden",
+          "description": "Attempting to hide files."
+        },
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced\\HideFileExt",
+          "description": "Attempting to hide extensions."
+        },
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\\NoDriveTypeAutoRun",
+          "description": "Disabling AutoRun."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "ebgmlbtl",
+          "description": "Obfuscated registry/file string."
+        },
+        {
+          "value": "vers.ini",
+          "description": "File name used for persistence or metadata."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401000",
+      "name": "fcn.00401000",
+      "description": "Anti-analysis timing loop (approx 1 minute)."
+    },
+    {
+      "address": "0x004014b0",
+      "name": "fcn.004014b0",
+      "description": "Registry manipulation to disable system security features."
+    },
+    {
+      "address": "0x004018e0",
+      "name": "fcn.004018e0",
+      "description": "Main logic for file propagation and system persistence."
+    }
+  ]
+}

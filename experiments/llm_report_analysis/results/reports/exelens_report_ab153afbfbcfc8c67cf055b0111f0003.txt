@@ -1,0 +1,87 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample is a network-aware backdoor designed for environment reconnaissance, proxy-based C2 communication, and file/registry manipulation. It uses custom encoding for communication and implements persistence mechanisms via registry keys and startup files.",
+  "packed": {
+    "status": "false",
+    "techniques": [
+      "Custom XOR/subtraction obfuscation for string literals"
+    ],
+    "details": "No standard packer detected. The code uses a basic XOR/subtraction routine (fcn.00401293) to decode internal configuration strings and network headers at runtime."
+  },
+  "capabilities": [
+    {
+      "name": "Network Communication",
+      "description": "Establishes socket connections, resolves hostnames, and performs HTTP/Proxy requests."
+    },
+    {
+      "name": "Process Injection/Enumeration",
+      "description": "Enumerates system processes, terminates target processes, and injects capabilities via standard API hooks."
+    },
+    {
+      "name": "Persistence",
+      "description": "Manipulates registry keys (e.g., 'PassPath', 'hFlag') and creates files to ensure execution across reboots."
+    },
+    {
+      "name": "Environment Reconnaissance",
+      "description": "Collects computer name, OS version, and network configuration to identify the target machine."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of specific high-intent capabilities—such as process termination (via TerminateProcess), custom C2 socket communication, registry-based persistence, and the exfiltration of system information (computer name/IP)—confirms malicious intent rather than a legitimate utility.",
+    "general": "High-intent malicious activity is evidenced by calls to KERNEL32.dll_TerminateProcess inside fcn.00394e and fcn.0038f9, alongside network socket manipulation (WSASocket, recv, send) and manual proxy configuration via the registry. Function fcn.004033fc specifically utilizes SetSecurityInfo to modify object permissions, an anti-forensic or privilege-elevation technique.",
+    "uncertainties": "While the code structure is highly characteristic of a backdoor, the exact C2 server address is dynamically fetched/decrypted, and the specific payload logic depends on the C2 server's response.",
+    "conditions": "The sample performs environmental checks including checking for debugger presence and specific registry values. It requires internet access and a valid, configured C2 responder to fully activate its download/execution payload functionality.",
+    "sandbox_recommendations": "Simulate a live internet connection with DNS resolution. Use a tool like INetSim to provide dummy responses to HTTP/Socket requests. Monitor the registry for changes to 'Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings' and any keys created by the malware."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings",
+          "description": "Registry key accessed for proxy configuration."
+        },
+        {
+          "value": "PassPath",
+          "description": "Registry key used for persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "_s_sKB985109.log",
+          "description": "Log file format string."
+        },
+        {
+          "value": "qazWSX123",
+          "description": "Potential hardcoded identifier or mutex string."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x004012b3",
+      "name": "fcn.004012b3",
+      "description": "Main initialization routine, resolves critical APIs dynamically."
+    },
+    {
+      "address": "0x00403603",
+      "name": "fcn.00403603",
+      "description": "Process enumeration and termination module."
+    },
+    {
+      "address": "0x004071d7",
+      "name": "fcn.004071d7",
+      "description": "Primary network communication wrapper for socket operations."
+    },
+    {
+      "address": "0x004033fc",
+      "name": "fcn.004033fc",
+      "description": "Handles token privilege adjustments and security descriptor modifications."
+    }
+  ]
+}

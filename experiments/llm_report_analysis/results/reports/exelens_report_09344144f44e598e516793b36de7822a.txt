@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a kernel-mode rootkit dropper and driver loader, targeting system files (win32k.sys) and manipulating system integrity mechanisms (Service Descriptor Table) to maintain persistence and evade detection.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation (0xcd key)",
+      "Resource-based payload hiding"
+    ],
+    "details": "The sample uses a simple XOR routine (0xcd) to decrypt payloads stored in .rsrc sections. It then proceeds to copy these decrypted blobs as system drivers (e.g., win32k.sys) and registers them."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode Rootkit Persistence",
+      "description": "Modifies the System Service Descriptor Table (SSDT) to intercept system calls."
+    },
+    {
+      "name": "Payload Dropping",
+      "description": "Drops drivers to the system directory, specifically targeting system-critical components like win32k.sys."
+    },
+    {
+      "name": "Evasion & Anti-Analysis",
+      "description": "Uses mutexes and registry keys (DMWI, GlobalRPCMutex) to avoid multiple executions; checks for debuggers and specific system environments."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent malicious capabilities, specifically the manipulation of the Service Descriptor Table (SSDT) in `fcn.1000b369` and `fcn.1000aa69` to hook kernel functions, alongside the systematic dropping of files into the system directory, is indicative of a rootkit. This behavior is not dual-use in a standard installer context; it is a clear attempt to gain unauthorized persistence at the kernel level.",
+    "general": "High-intent evidence includes `fcn.1000b369` which directly targets 'KeServiceDescriptorTable' and 'KeAddSystemServiceTable'. The code in `fcn.10003c04` and `fcn.1000a2cd` uses `CreateFileW` to interact with 'system32\\win32k.sys' and performs memory mapping operations, demonstrating an intent to modify protected OS files.",
+    "uncertainties": "The exact function of some embedded blobs remains hidden without a runtime environment to observe the decryption and injection stages in real-time.",
+    "conditions": "Execution flow is gated by a Global Mutex check (`GlobalRPCMutex`) and environment variable checks (e.g., for 'system32' path existence).",
+    "sandbox_recommendations": "Must be run in an environment that allows kernel-mode monitoring. The sandbox should include a fake win32k.sys file in the system folder to observe the file system write hooks."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\DMWI",
+          "description": "Persistence registry key"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "C:\\Windows\\System32\\win32k.sys",
+          "description": "Target file for rootkit manipulation"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for synchronization/anti-re-execution"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "SSDT manipulation function"
+    },
+    {
+      "address": "0x10003c04",
+      "name": "fcn.10003c04",
+      "description": "Dropper/Installer routine for system drivers"
+    },
+    {
+      "address": "0x1000a2cd",
+      "name": "fcn.1000a2cd",
+      "description": "Main routine controlling the rootkit installation flow"
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a spyware/stealer, collecting system information, registry keys, and network data, then exfiltrating it via HTTP POST requests. It achieves persistence through registry modifications and employs base64-like obfuscation.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code appears to be compiled C++ code without signs of runtime packing. The entropy levels are relatively low, and standard CRT entry points are visible."
+  },
+  "capabilities": [
+    {
+      "name": "System Information Gathering",
+      "description": "Collects hardware, OS version, processor name, and network configuration using Registry and WMI/IPHelper APIs."
+    },
+    {
+      "name": "Persistence",
+      "description": "Adds entries to the Windows Registry 'Run' key to ensure execution at system startup."
+    },
+    {
+      "name": "Data Exfiltration",
+      "description": "Sends gathered system data to a remote server using HTTP POST requests via WinInet APIs."
+    },
+    {
+      "name": "Process Injection/Enumeration",
+      "description": "Enumerates processes using PSAPI and looks for specific module base names, suggesting anti-analysis or monitoring intent."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of system information harvesting (Registry, ComputerName, Network details) coupled with persistent registry modification and exfiltration via HTTP POST provides strong evidence of malicious intent. This is not dual-use protector or utility behavior.",
+    "general": "High-intent indicators include calling ADVAPI32!RegSetValueExA on the 'Software\\Microsoft\\Windows\\CurrentVersion\\Run' key (fcn.00401fc9), sending POST requests via WININET (fcn.00402c09), and performing process enumeration using PSAPI (fcn.00402040) to likely check for analysis tools or environment targets.",
+    "uncertainties": "The specific C2 URLs are generated/obfuscated in memory, and the exact data structure being sent is dynamic, slightly limiting static attribution of the full exfiltrated dataset.",
+    "conditions": "Execution is gated by registry keys and file existence checks (e.g., PathFileExistsA). It uses mutexes (CreateMutexA) to ensure only one instance runs.",
+    "sandbox_recommendations": "Simulate a live network environment and monitor registry access at 'Software\\Microsoft\\Windows\\CurrentVersion\\Run'. Ensure common system registry keys for CPU/OS identifiers are present to prevent early exits."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Persistence mechanism used to maintain execution across reboots."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "apKCCBBCtWJadSCGGReFWRBGeqqFVFVV",
+          "description": "Obfuscated string/key found in binary."
+        },
+        {
+          "value": "POST",
+          "description": "HTTP method used for exfiltration."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00402c09",
+      "name": "fcn.00402c09",
+      "description": "Network exfiltration routine using WinInet."
+    },
+    {
+      "address": "0x00401fc9",
+      "name": "fcn.00401fc9",
+      "description": "Registry modification for persistence."
+    },
+    {
+      "address": "0x00402040",
+      "name": "fcn.00402040",
+      "description": "Process enumeration and module checking logic."
+    }
+  ]
+}

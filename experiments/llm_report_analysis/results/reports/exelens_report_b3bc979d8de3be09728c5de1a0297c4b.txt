@@ -1,0 +1,89 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The file is a remote access trojan (RAT) disguised as a service, designed to establish persistence via registry manipulation, provide remote shell access, and execute commands received via HTTP.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed; the control flow logic is fully visible and functional."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Uses RegSetValueExA to modify service configurations in the Registry to maintain persistence."
+    },
+    {
+      "name": "Remote Command Execution",
+      "description": "Implements a remote shell by spawning cmd.exe and communicating via pipes and HTTP."
+    },
+    {
+      "name": "Networking/C2",
+      "description": "Utilizes WinINet to connect to a remote server, send HTTP requests (HttpSendRequestA), and download files (URLDownloadToFileA)."
+    },
+    {
+      "name": "Service Manipulation",
+      "description": "Interacts with Windows Services (OpenServiceA, StartServiceA, ControlService, EnumServicesStatusExA)."
+    }
+  ],
+  "details": {
+    "reasoning": "The application exhibits high-intent malicious behavior by combining remote connectivity (WinINet) with system modification (registry persistence as a service) and shell spawning. While some functions like service enumeration could be benign system tools, the inclusion of code specifically designed to receive commands and spawn a remote shell confirms malicious intent.",
+    "general": "The function fcn.10001570 is the primary command loop, orchestrating Internet communication, shell spawning (fcn.10001e50), and processing commands (fcn.10001fb0). Persistence is managed via fcn.100031a0, which writes to HKLM\\SYSTEM\\CurrentControlSet\\Services.",
+    "uncertainties": "While the binary is clearly a RAT, the exact C2 domain or IP is not hardcoded in plain text in the assembly extracts, suggesting configuration might be pulled from the registry or an external source.",
+    "conditions": "Requires installation as a Windows Service to operate fully. The main communication logic initiates after an environment check and is triggered by incoming HTTP requests.",
+    "sandbox_recommendations": "Deploy in an isolated network environment with an HTTP traffic logger. Monitor registry write attempts to HKLM\\SYSTEM\\CurrentControlSet\\Services and track the initiation of cmd.exe via pipes."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\*\\Parameters",
+          "description": "Registry path used for service configuration and persistence."
+        },
+        {
+          "value": "ServiceDll",
+          "description": "Registry value name used for persistent loading."
+        },
+        {
+          "value": "DllPath",
+          "description": "Registry value name used to store path of the malicious DLL component."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "cmd.exe",
+          "description": "Target process for shell spawning."
+        },
+        {
+          "value": "shell",
+          "description": "Command string for triggering the remote shell."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001570",
+      "name": "fcn.10001570",
+      "description": "Main orchestrator function; handles C2 loops, command parsing, and environment setup."
+    },
+    {
+      "address": "0x100031a0",
+      "name": "fcn.100031a0",
+      "description": "Handles registry modifications for service persistence."
+    },
+    {
+      "address": "0x10001e50",
+      "name": "fcn.10001e50",
+      "description": "Executes cmd.exe and redirects I/O using pipes for remote control."
+    },
+    {
+      "address": "0x10001fb0",
+      "name": "fcn.10001fb0",
+      "description": "Command processor/dispatcher for received instructions."
+    }
+  ]
+}

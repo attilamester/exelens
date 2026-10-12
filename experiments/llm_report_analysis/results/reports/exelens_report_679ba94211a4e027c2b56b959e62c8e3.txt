@@ -1,0 +1,66 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample is a kernel-mode rootkit/driver that performs system API hooking (inline patching) by modifying kernel memory at runtime. It monitors system operations via a device object and uses NDIS-like or system-specific structures to manipulate request queues, potentially for hiding files, processes, or network activity.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Dynamic API Resolution via MmGetSystemRoutineAddress",
+      "Manual code patch/hooking (inline splicing)"
+    ],
+    "details": "The code manually resolves kernel symbols at runtime and performs inline patching (hooking) on kernel-mode functions, specifically modifying memory to divert execution to its own routines."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel API Hooking",
+      "description": "Patches kernel functions in memory to intercept system calls."
+    },
+    {
+      "name": "Device Object Creation",
+      "description": "Uses IoCreateDevice to establish a communication channel (driver entry point)."
+    },
+    {
+      "name": "Memory Manipulation",
+      "description": "Uses MmMapLockedPagesSpecifyCache to modify read-only or system memory sections."
+    },
+    {
+      "name": "Kernel Callback/Dispatch Management",
+      "description": "Intercepts NtDeviceIoControlFile to inspect and manipulate I/O requests."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode API hooking, direct memory modification using CR0 register toggling to bypass write protection, and interception of I/O control calls (NtDeviceIoControlFile) is characteristic of a rootkit. While drivers often use these techniques, this specific pattern—hooking NtDeviceIoControlFile to inspect and filter I/O requests—is a high-intent malicious indicator designed for stealth and system subversion.",
+    "general": "The function fcn.00011d8a implements an inline hooker that modifies system memory (using cr0 toggling: 'mov eax, cr0; and eax, 0xfffeffff; mov cr0, eax'). The function fcn.00010d00 intercepts I/O control requests via NtDeviceIoControlFile, which is a classic rootkit behavior to hide activity from user-mode applications.",
+    "uncertainties": "The exact target of the hooked I/O requests is not fully clear from the code alone, though it is clearly intended to filter system activity. The sample requires a specific environment (kernel) and likely relies on being loaded by a legitimate process or service.",
+    "conditions": "This is a kernel-mode driver file (.sys). Execution requires the driver to be loaded into the Windows kernel via a service or manual mapping. It performs checks for specific Windows build versions (via NtBuildNumber) to select appropriate hooking offsets.",
+    "sandbox_recommendations": "Use a kernel-capable debugger (WinDbg) with two machines. Monitor kernel memory writes and I/O request packets (IRPs) targeting the device created by the driver."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "\\Device\\",
+          "description": "Common prefix for device object names created by the driver."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00011d8a",
+      "name": "fcn.00011d8a",
+      "description": "Performs inline patching of kernel memory using CR0 register manipulation."
+    },
+    {
+      "address": "0x00010d00",
+      "name": "fcn.00010d00",
+      "description": "Intercepts I/O control codes, likely used for stealth/hiding."
+    },
+    {
+      "address": "0x00011132",
+      "name": "fcn.00011132",
+      "description": "Implements memory locking and mapping to prepare for kernel memory writes."
+    }
+  ]
+}

@@ -1,0 +1,67 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a downloader/dropper that gathers system information (CPU, OS, Network), establishes persistence by modifying Registry 'Run' keys, and communicates with a remote server via HTTP to download and execute additional files.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed or obfuscated in the traditional sense; it exhibits clear logical structures typical of malware, such as self-identification (Mutexes), persistence, and network communication."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Modifies Windows Registry 'Run' keys (ADVAPI32.dll_RegSetValueExA) to execute at startup."
+    },
+    {
+      "name": "System Profiling",
+      "description": "Collects computer name, username, and CPU information (RegQueryValueExA on hardware keys)."
+    },
+    {
+      "name": "Process Injection/Execution",
+      "description": "Uses CreateProcessA (RVA: 0x401d36) to run child processes, likely for secondary payloads."
+    },
+    {
+      "name": "Network Communication",
+      "description": "Uses WININET.dll (InternetOpenA, HttpSendRequestA) to perform HTTP requests to download files."
+    }
+  ],
+  "details": {
+    "reasoning": "The application exhibits clear malicious intent through its combination of data collection, persistence mechanisms (Registry modification), and network-based payload fetching. It is not a legitimate tool, as it actively attempts to hide its files, delete existing traces, and auto-start on boot, which are hallmarks of a trojan or downloader.",
+    "general": "The function fcn.004020bb explicitly interacts with 'SoftwareMicrosoftWindowsCurrentVersionRun', while fcn.00402e1d performs HTTP requests using WinInet. The use of Mutexes (CreateMutexA) to ensure single-instance execution is a standard technique for avoiding race conditions in malware persistence.",
+    "uncertainties": "The specific remote server URL is constructed dynamically via string formatting and runtime values (GetAdaptersInfo), so a single hardcoded C2 is not visible in the binary; however, the pattern of activity is consistent.",
+    "conditions": "Execution is gated by environment checks (GetVersionExA) and requires the system to be running Windows. The file uses a mutex check to prevent multiple instances from running simultaneously.",
+    "sandbox_recommendations": "Provide internet access to the sandbox environment to see the payload download. Monitor Registry changes under HKLM/Software/Microsoft/Windows/CurrentVersion/Run."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Persistence mechanism registry key"
+        },
+        {
+          "value": "HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0",
+          "description": "Hardware info collection key"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00402e1d",
+      "name": "fcn.00402e1d",
+      "description": "HTTP downloader function using WININET.dll"
+    },
+    {
+      "address": "0x004020bb",
+      "name": "fcn.004020bb",
+      "description": "Modifies Registry Run keys for persistence"
+    },
+    {
+      "address": "0x00402cb6",
+      "name": "fcn.00402cb6",
+      "description": "Collects system and network information"
+    }
+  ]
+}

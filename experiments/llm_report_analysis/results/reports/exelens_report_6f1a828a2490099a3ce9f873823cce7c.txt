@@ -1,0 +1,89 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a downloader and persistence mechanism. It performs environment gathering (HDD firmware, network adapters), establishes a mutex for single-instance execution, registers itself in the Windows Registry, and initiates POST requests to a remote server using the WinINet API to potentially download and execute further malicious payloads.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The file is not packed. It uses standard MSVCRT and Windows APIs, with visible strings and clear function calls, suggesting it is a compiled C/C++ binary."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Registers executable path in 'SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run' to execute on startup via fcn.00401fa0."
+    },
+    {
+      "name": "Process Execution",
+      "description": "Uses CreateProcessA in fcn.00402dc0 to execute files (e.g., PHIME2002A.exe, smcnmgr.exe)."
+    },
+    {
+      "name": "Networking",
+      "description": "Uses WinINet API (HttpOpenRequestA, HttpSendRequestA) to perform POST requests and download data in fcn.00402e50."
+    },
+    {
+      "name": "Environment Harvesting",
+      "description": "Queries registry for ProcessorNameString and retrieves local network adapter info via iphlpapi.dll."
+    },
+    {
+      "name": "Evasion",
+      "description": "Checks for mutexes to ensure single-instance execution and uses Sleep loops to potentially delay execution."
+    }
+  ],
+  "details": {
+    "reasoning": "While some capabilities (RegOpenKey, CreateFile, InternetOpen) are dual-use, the combination of persistence (Run key), downloading from an external network source via WinINet, executing downloaded files via CreateProcess, and harvesting system/network identifiers confirms malicious intent. The code follows a classic 'beacon and infect' lifecycle typical of trojan droppers.",
+    "general": "High-intent evidence includes calls to ADVAPI32!RegCreateKeyExA (RVA 0x401fa0) for persistence, WININET!HttpSendRequestA (RVA 0x402e50) for C2 communication, and KERNEL32!CreateProcessA (RVA 0x402dc0) used in conjunction with files it drops.",
+    "uncertainties": "The exact remote command and control (C2) domain/IP is not hardcoded as a static string; the downloader likely resolves it via the network interaction or encoded logic in fcn.00402e50 that was partially truncated.",
+    "conditions": "The execution flow requires the environment to not have an existing mutex (e.g., 'sfmntcr.exe' mutex) and likely depends on a successful response from a remote HTTP POST request to proceed with payload deployment.",
+    "sandbox_recommendations": "Simulate a live internet connection, as the malware makes POST requests via WinINet. Monitor the registry paths in SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run and watch for new files created in the APPDATA path (MicrosoftIME, MicrosoftCrypto)."
+  },
+  "ioc": [
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "APPDATA\\MicrosoftIME\\MicrosoftIMEV2002\\sfmntcr.exe",
+          "description": "Binary dropped by the malware"
+        },
+        {
+          "value": "APPDATA\\MicrosoftIME\\MicrosoftIMEV2002\\PHIME2002A.exe",
+          "description": "Binary dropped by the malware"
+        },
+        {
+          "value": "APPDATA\\MicrosoftCrypto\\DES64v1\\msieckc.exe",
+          "description": "Binary dropped by the malware"
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Key used for persistence"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401fa0",
+      "name": "fcn.00401fa0",
+      "description": "Handles persistence by writing to the Registry Run key"
+    },
+    {
+      "address": "0x00402e50",
+      "name": "fcn.00402e50",
+      "description": "Core networking logic: uses WinINet to POST data to the C2"
+    },
+    {
+      "address": "0x00402dc0",
+      "name": "fcn.00402dc0",
+      "description": "Executes external processes using CreateProcessA"
+    },
+    {
+      "address": "0x00402560",
+      "name": "fcn.00402560",
+      "description": "Harvests system information (HDD serials, CPU IDs)"
+    }
+  ]
+}

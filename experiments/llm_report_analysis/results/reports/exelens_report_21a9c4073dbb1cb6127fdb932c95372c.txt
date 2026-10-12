@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a kernel-mode driver installer or controller that uses advanced techniques to interact with kernel structures, including bypassing PatchGuard (via PatchGuard-related function names like 'KeServiceDescriptorTable') and interacting with critical system files. It utilizes dynamic API resolution and custom mutexes to manage its state and persistence.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation",
+      "Dynamic API resolution"
+    ],
+    "details": "Routine fcn.100015f7 and fcn.10001697 perform XOR operations (key 0xcd) on resource data, suggesting the payload is encrypted or packed in the resources."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode interaction",
+      "description": "Attempts to locate and interact with kernel structures like 'KeServiceDescriptorTable' and 'KeAddSystemServiceTable'."
+    },
+    {
+      "name": "Resource manipulation",
+      "description": "Uses BeginUpdateResourceA, UpdateResourceA, and EndUpdateResourceA to potentially modify or drop files."
+    },
+    {
+      "name": "Privilege escalation/Persistence",
+      "description": "Manipulates registry keys (Run keys) and service configurations to ensure persistence."
+    },
+    {
+      "name": "Evasion",
+      "description": "Uses mutexes and environment variable checks to ensure single-instance execution and potentially avoid detection."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level structure modification, resource injection (UpdateResourceA), and Registry modifications targeting sensitive keys confirms malicious intent rather than legitimate installer behavior. The code clearly references kernel structures and bypass techniques, which are hallmarks of rootkits or advanced persistent threats.",
+    "general": "The function fcn.1000b369 performs direct manipulation of the System Service Descriptor Table (SSDT), a common rootkit tactic. Fcn.10001723 explicitly uses UpdateResourceA to modify executables, suggesting payload delivery.",
+    "uncertainties": "The exact nature of the payload dropped or decrypted remains hidden due to the encrypted resource data. The exact target OS version checks (GetVersionExA) indicate the malware adapts its payload based on the OS environment.",
+    "conditions": "The malware requires administrative privileges and likely checks for specific environment variables (e.g., 'system32' path checks) to successfully execute its kernel manipulation routines.",
+    "sandbox_recommendations": "Run in an isolated kernel-debugging environment with file system and registry monitoring enabled. Use a tool like Procmon to observe attempts to register services or modify registry run keys."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Likely target for persistence or kernel driver registration"
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for process synchronization"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex for kernel-mode synchronization"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "SSDT manipulation function, attempts to patch kernel services."
+    },
+    {
+      "address": "0x10001723",
+      "name": "fcn.10001723",
+      "description": "Uses UpdateResourceA to modify resources, indicative of file infection or payload dropping."
+    },
+    {
+      "address": "0x10001697",
+      "name": "fcn.10001697",
+      "description": "Performs decryption and preparation of embedded resources."
+    }
+  ]
+}

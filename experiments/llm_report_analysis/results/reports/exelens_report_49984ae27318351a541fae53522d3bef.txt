@@ -1,0 +1,72 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains a persistence mechanism that modifies registry Run keys and initiates a connection to a remote host. It performs dynamic API resolution to hide its imports and uses an obfuscated overlay that is likely the payload or a second-stage loader, which is decrypted and processed at runtime.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Dynamic API resolution",
+      "Encrypted overlay",
+      "Custom XOR-based decryption loop"
+    ],
+    "details": "The file contains a large encrypted overlay (entropy 7.32) and utilizes a custom decryption routine at 0x004016d0. It uses GetProcAddress and GetModuleHandle to load functions dynamically. Main logic is stored in an obfuscated format that is processed in memory."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Writes to Software\\Microsoft\\Windows\\CurrentVersion\\Run via RegSetValueExW."
+    },
+    {
+      "name": "Networking",
+      "description": "Uses Winsock (WSAStartup, WSASocketW, connect) to communicate with external hosts."
+    },
+    {
+      "name": "File Manipulation",
+      "description": "Creates, writes, and deletes temporary files in the system TEMP directory."
+    },
+    {
+      "name": "Process Injection/Hooking",
+      "description": "Uses GetCurrentProcess and dynamic loading to execute code in its own space."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of registry persistence (Software\\Microsoft\\Windows\\CurrentVersion\\Run), dynamic network communication using Winsock, and the use of an encrypted overlay makes this file high-intent malicious. Legitimate software rarely attempts to hide its execution flow behind custom decryption loops while simultaneously modifying user-level startup registry keys.",
+    "general": "Persistence is established at 0x00401b35 (RegSetValueExW) using the registry key path found in the .rdata section. Network connectivity is initiated in fcn.00401720 via connect(). Decryption of the payload occurs at 0x004016d0 using a XOR loop.",
+    "uncertainties": "The exact nature of the decrypted payload in the overlay is unknown as it is dynamically resolved at runtime; however, the surrounding context is sufficient to classify it as a loader or dropper.",
+    "conditions": "The malware requires standard execution privileges. It checks for registry access; if the keys cannot be written, it may fail gracefully. It assumes a standard Windows environment with network access.",
+    "sandbox_recommendations": "Run in a controlled sandbox with network simulation enabled. Monitor registry modifications in HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run. Intercept network attempts to identify the C2 host."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Registry key path used for persistence."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401c50",
+      "name": "main",
+      "description": "Main execution entry point coordinating persistence and payload decryption."
+    },
+    {
+      "address": "0x00401720",
+      "name": "fcn.00401720",
+      "description": "Initializes Winsock and handles network connectivity."
+    },
+    {
+      "address": "0x004016d0",
+      "name": "fcn.004016d0",
+      "description": "Decryption routine used to prepare the payload."
+    },
+    {
+      "address": "0x00401ac0",
+      "name": "fcn.00401ac0",
+      "description": "Registers or interacts with the system registry for persistence."
+    }
+  ]
+}

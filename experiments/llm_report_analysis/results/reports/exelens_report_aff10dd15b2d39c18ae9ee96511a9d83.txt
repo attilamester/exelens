@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The file is a modular malicious loader that performs privilege escalation, registry manipulation, and injects malicious code into kernel-mode components or system processes using techniques like MDL manipulation and kernel-mode service descriptor table hooking.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR encoding",
+      "Resource-based loading",
+      "Dynamic API resolution"
+    ],
+    "details": "The file contains encrypted/encoded payload data stored in resources. It uses XOR loops to decrypt data in memory and dynamically resolves critical kernel and user-mode functions via GetProcAddress and LoadLibrary to evade static analysis."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-Mode Hooking",
+      "description": "Uses NtQuerySystemInformation, NtQueryObject, and modifications to the System Service Descriptor Table (SSDT) to manipulate kernel behavior."
+    },
+    {
+      "name": "Privilege Escalation",
+      "description": "Performs token duplication (DuplicateTokenEx) and security descriptor manipulation to gain higher privileges."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies Windows registry keys (Run keys) to ensure execution across reboots."
+    },
+    {
+      "name": "Process Injection",
+      "description": "Uses VirtualAlloc and CreateProcess to load payloads into new or existing processes."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode API resolution (e.g., KeServiceDescriptorTable, NtQuerySystemInformation), SSDT hooking attempts (fcn.1000b369), and manipulation of system drivers (Win32k.sys, ntoskrnl.exe) demonstrates high-intent malicious behavior typical of sophisticated rootkits/loaders. The usage of dual-use functions (VirtualAlloc, RegSetValueExA) is tied directly to malicious intent through clear patterns of kernel-space instrumentation and unauthorized system modification.",
+    "general": "Specific high-intent evidence includes SSDT hooking via fcn.1000b369, manipulation of security descriptors in fcn.10007315, and dynamic resolution of kernel-mode functions like NtShutdownSystem and KeServiceDescriptorTable.",
+    "uncertainties": "The exact nature of the final payload injected into kernel space is partially obscured by dynamic decryption, but the loader's behavior is unambiguously malicious.",
+    "conditions": "Execution likely requires elevated administrative or SYSTEM privileges. The malware performs environment checks (GetSystemDirectory, GetVersionEx) and likely checks for the existence of its mutex (GlobalRPCMutex or prkMtx) to prevent multiple instances.",
+    "sandbox_recommendations": "Run in an environment with kernel-mode debugging disabled or protected (PatchGuard). Monitor registry changes to HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run and observe I/O operations targeting system drivers."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Persistence key for automatic startup"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used to ensure single-instance execution"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used in kernel-mode synchronization"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Contains logic for SSDT hooking"
+    },
+    {
+      "address": "0x10007315",
+      "name": "fcn.10007315",
+      "description": "Security descriptor and ACL manipulation"
+    },
+    {
+      "address": "0x1000c492",
+      "name": "fcn.1000c492",
+      "description": "MDL and memory mapping functions for kernel injection"
+    }
+  ]
+}

@@ -1,0 +1,75 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample is a modular backdoor/botnet client that uses process injection, registry-based persistence, and HTTP-based C2 communication to execute commands and exfiltrate information.",
+  "packed": {
+    "status": "false",
+    "techniques": [
+      "Custom XOR string obfuscation",
+      "Dynamic API resolution (LoadLibraryA/GetProcAddress)"
+    ],
+    "details": "The code uses a basic XOR loop (fcn.00401080) with a key of 0x11 to decode strings at runtime. It imports common networking and registry APIs and resolves others dynamically."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "Utilizes CreateToolhelp32Snapshot, OpenProcess, and CreateRemoteThread to inject code into other processes."
+    },
+    {
+      "name": "Network Communication",
+      "description": "Implements HTTP communication over sockets using WSASocket/connect/send/recv for C2 command-and-control."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies system registry keys to ensure execution on system startup."
+    },
+    {
+      "name": "File/Directory Manipulation",
+      "description": "Scans drives, copies files, and creates directories."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent capabilities—specifically the use of WSASocket to initiate HTTP connections to hard-coded patterns, the modification of registry keys for persistence, and dynamic process interaction—confirms malicious intent rather than dual-use utility. The sample exhibits classic botnet behavior.",
+    "general": "High-intent evidence includes dynamic resolution of networking functions (fcn.00401310), registry modification (fcn.00401a60), and network communication logic (fcn.004021a0, fcn.003460).",
+    "uncertainties": "While the binary is not packed, the C2 server information is obfuscated via string manipulation, requiring active analysis to extract specific infrastructure IPs.",
+    "conditions": "The malware uses a mutex (fcn.00401db0) to ensure a single instance is running. It relies on the presence of specific environment variables and registry configurations.",
+    "sandbox_recommendations": "Provide an active network connection, as the malware will likely wait for C2 communication before showing most of its functionality. Simulate a typical Windows desktop environment with internet access."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings",
+          "description": "Registry key modified for proxy/internet settings persistence."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "Kernel32.dll",
+          "description": "Inferred DLL for dynamic API loading."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401310",
+      "name": "fcn.00401310",
+      "description": "Dynamic API loading routine, resolves critical KERNEL32 and Ws2_32 APIs."
+    },
+    {
+      "address": "0x004021a0",
+      "name": "fcn.004021a0",
+      "description": "Core communication handler performing socket operations."
+    },
+    {
+      "address": "0x00401db0",
+      "name": "fcn.00401db0",
+      "description": "Mutex-based persistence and environment setup."
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This sample is a remote access trojan (RAT) component designed to run as a service. It provides a reverse shell, process listing, service manipulation, and file download capabilities. It communicates via HTTP using WinINet.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The file is not packed; the import table and strings are clearly visible."
+  },
+  "capabilities": [
+    {
+      "name": "Reverse Shell",
+      "description": "Uses CreatePipe and CreateProcessA (cmd.exe) to redirect input/output to a network stream."
+    },
+    {
+      "name": "Service Manipulation",
+      "description": "Can install, uninstall, list, start, and stop Windows services via OpenSCManagerA/OpenServiceA."
+    },
+    {
+      "name": "Remote Command & Control",
+      "description": "Implements HTTP-based C2 communication using InternetOpenA, InternetConnectA, HttpOpenRequestA, and HttpSendRequestA."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies Windows Registry keys (e.g., SYSTEM\\CurrentControlSet\\Services) to configure service persistence."
+    },
+    {
+      "name": "Process Injection/Management",
+      "description": "Can create processes under different user contexts via CreateProcessAsUserA and terminate processes."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent capabilities—specifically the implementation of a reverse shell (`cmd.exe` redirection), unauthorized service manipulation, and HTTP-based C2 communication—conclusively demonstrates malicious intent. The code maps specific command keywords (like 'shell', 'kill', 'start') to functionality that performs remote system administration. This is clearly a backdoor component.",
+    "general": "The function fcn.10001570 acts as the main command loop. fcn.10001fb0 (invoked by 'shell' command) uses CreatePipe and CreateProcessA to spawn a persistent cmd.exe shell. fcn.10002220 handles process/service enumeration. fcn.10002c90/fcn.100026a0 manage service start/kill operations. The binary contains explicit strings like 'shell', 'kill', 'list', 'GetUrl', and 'cmd.exe'.",
+    "uncertainties": "No major uncertainties; the logic is modular and the control flow is clearly defined by command parsing.",
+    "conditions": "The malware operates as a Windows service. It must be installed using the provided 'install' entrypoint (sym.NTLMSVC.dll) and requires network connectivity to a command-and-control server to receive instructions.",
+    "sandbox_recommendations": "Run in an isolated environment with a faked internet gateway that mimics an HTTP server. Observe the initial beacon and respond with commands like 'shell' or 'list' to trigger the primary malicious functionality."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SYSTEM\\CurrentControlSet\\Services\\%s\\Parameters",
+          "description": "Registry path used for service configuration and persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "cmd.exe",
+          "description": "Command shell targeted for reverse shell access."
+        },
+        {
+          "value": "shell",
+          "description": "Command string used to trigger reverse shell."
+        },
+        {
+          "value": "kill",
+          "description": "Command string used to terminate processes."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001570",
+      "name": "fcn.10001570",
+      "description": "Main execution loop for command parsing and HTTP communication."
+    },
+    {
+      "address": "0x10001fb0",
+      "name": "fcn.10001fb0",
+      "description": "Shell execution handler using pipes to redirect I/O."
+    },
+    {
+      "address": "0x100031a0",
+      "name": "fcn.100031a0",
+      "description": "Service installation/configuration routine modifying registry keys."
+    }
+  ]
+}

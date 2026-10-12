@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The file acts as a dropper/loader that performs resource-based decryption, persistence via Registry modification, and includes sophisticated anti-analysis techniques such as system kernel function hooking and process environment checks.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR decryption of resource data",
+      "Dynamic API resolution via GetProcAddress",
+      "Memory-based unpacking"
+    ],
+    "details": "The entry point and multiple functions (e.g., fcn.100015f7, fcn.1000b46f) demonstrate the decryption of resource (102) data using a XOR-based routine. The decrypted payload is subsequently interacted with or executed."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Persistence",
+      "description": "Uses RegCreateKeyExA and RegSetValueExA to modify Windows registry keys for persistence, and manipulates files in system directories."
+    },
+    {
+      "name": "Kernel-Level Hooking",
+      "description": "Functions like fcn.1000b369 attempt to access KeServiceDescriptorTable, suggesting rootkit-like capabilities or low-level system interception."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Presence of code checking for debuggers and VM environments, and anti-hooking mechanisms via memory comparison."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-entropy resource decryption, direct manipulation of the System Service Descriptor Table (SSDT), and registry-based persistence is highly characteristic of advanced malware. The file actively hooks system functions (NtShutdownSystem, KeServiceDescriptorTable) to maintain control and hide its presence, which is not a behavior found in legitimate installers.",
+    "general": "The function fcn.1000b369 specifically targets 'KeServiceDescriptorTable', which is a hallmark of kernel-mode rootkits or advanced user-mode hooking tools. The file creates/manages mutexes ('GlobalRPCMutex', 'prkMtx') to ensure only one instance of the malicious process persists.",
+    "uncertainties": "While the binary is clearly malicious, the full payload unpacked from resource 102 is not visible in the static analysis provided, leaving the exact nature of the final secondary payload (e.g., info-stealer, ransomware) open to interpretation.",
+    "conditions": "The payload activation requires specific environment conditions: it verifies existence of certain registry keys and environment variables (likely looking for existing malicious configurations) and checks if the process is running in an environment where it can hook system services.",
+    "sandbox_recommendations": "Run in a hardened VM environment. Monitor Registry modifications to HKCU/HKLM Run keys. Capture network traffic as the binary contains functions interacting with remote host configurations."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for inter-process synchronization"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name observed in anti-analysis and synchronization logic"
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Potential persistence target for the registry modification routines"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Attempts to hook the kernel service descriptor table (SSDT)."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Decrypts and loads the embedded malicious resource."
+    },
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Handles file-system and persistence operations."
+    }
+  ]
+}

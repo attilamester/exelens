@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a dropper/loader. It creates a mutex to ensure single-instance execution, extracts embedded binary resources (specifically icon files IDR_ICOFILE1 and IDR_ICOFILE2) to the filesystem (likely in temporary directories), performs a simple XOR-based decryption routine on the extracted data, and executes the dropped file using ShellExecuteExA.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed. It contains standard C++ runtime boilerplate and clear resource extraction logic."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence/Drop Mechanism",
+      "description": "Writes embedded resources to disk using CreateFileA and WriteFile."
+    },
+    {
+      "name": "Process Execution",
+      "description": "Executes dropped files using ShellExecuteExA and ShellExecuteA."
+    },
+    {
+      "name": "Resource Extraction",
+      "description": "Uses FindResourceA, LoadResource, and LockResource to access embedded data."
+    },
+    {
+      "name": "Mutex Creation",
+      "description": "Uses CreateMutexA to ensure a single instance is running."
+    },
+    {
+      "name": "Custom Obfuscation",
+      "description": "Employs an XOR-based routine in fcn.00401440 to process the dropped binary content."
+    }
+  ],
+  "details": {
+    "reasoning": "The application exhibits high-intent indicators of a dropper. While resource extraction and XOR routines can be used for legitimate software (e.g., self-extracting installers), the combination of forcing a specific working directory structure (C:\\tmp, C:\\temp, C:\\intel), extracting hidden binary data (masquerading as icons), and immediately executing the resulting file via ShellExecuteExA strongly points to malicious delivery. The lack of standard installer behavior (no UI interaction logic, no uninstallation routines) differentiates this from a legitimate installer.",
+    "general": "The function fcn.00401600 triggers ShellExecuteExA to execute the dropped file. The routine fcn.00401440 provides the XOR decryption logic applied to the resource content before writing it to disk. The use of 'mark01' as a mutex name is a strong indicator of an attempt to manage multi-stage malware execution.",
+    "uncertainties": "The exact content of the decrypted payload is not fully visible, but the structure confirms the binary is a loader for an secondary executable component.",
+    "conditions": "The malware requires an environment with writable access to 'C:\\tmp', 'C:\\temp', or 'C:\\intel'. It also checks for the existence of the mutex 'mark01' to prevent redundant execution.",
+    "sandbox_recommendations": "Monitor file creation in 'C:\\tmp' or 'C:\\temp' directories. Intercept calls to ShellExecuteExA to identify the path and name of the dropped executable. Ensure the environment has at least one of the specified temporary directory paths present."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "mark01",
+          "description": "Mutex name used for execution synchronization."
+        },
+        {
+          "value": "C:\\tmp\\",
+          "description": "Target directory path for dropped file."
+        },
+        {
+          "value": "C:\\temp\\",
+          "description": "Alternative target directory path for dropped file."
+        },
+        {
+          "value": "C:\\intel\\",
+          "description": "Alternative target directory path for dropped file."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401440",
+      "name": "fcn.00401440",
+      "description": "XOR decryption/transformation routine applied to resources."
+    },
+    {
+      "address": "0x00401600",
+      "name": "fcn.00401600",
+      "description": "Main execution logic for environment preparation and file detonation."
+    },
+    {
+      "address": "0x00401000",
+      "name": "main",
+      "description": "Program entry point, performs mutex check."
+    }
+  ]
+}

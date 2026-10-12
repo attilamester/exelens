@@ -1,0 +1,67 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a loader that unpacks a secondary payload from its data section into memory, resolves dynamic imports, and redirects execution flow to the decrypted code. It incorporates anti-debugging techniques, such as calling IsDebuggerPresent and setting exception filters to terminate the process if analysis is detected.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR-based deobfuscation loop",
+      "Dynamic API resolution (GetProcAddress/LoadLibraryA)",
+      "Process Hollowing/Manual Mapping"
+    ],
+    "details": "The file contains a large .data section with high entropy (6.49) containing the packed payload. The routine fcn.10001130 performs an XOR operation with a changing key (starting at 0x99) to decrypt data. The loader uses VirtualAlloc to prepare memory space and manually processes the PE structure (e.g., fcn.10001800, fcn.10001530) to map and execute the payload."
+  },
+  "capabilities": [
+    {
+      "name": "Process Hollowing/Manual Mapping",
+      "description": "Allocates memory using VirtualAlloc and manually copies/relocates sections of a PE file to memory."
+    },
+    {
+      "name": "Anti-Debugging",
+      "description": "Uses IsDebuggerPresent to check for the presence of a debugger and uses SetUnhandledExceptionFilter for termination upon detection."
+    },
+    {
+      "name": "Dynamic API Resolution",
+      "description": "Locates system DLLs and resolves function pointers at runtime using LoadLibrary and GetProcAddress."
+    }
+  ],
+  "details": {
+    "reasoning": "While the file uses common capabilities like memory allocation and dynamic library loading, the combination of manual PE header parsing (fcn.10001800), XOR-based decryption of a large .data section, and explicit anti-debugging checks (fcn.10001ba4) confirms a malicious loader intent. The presence of these specific techniques, especially the manual mapping of code and subsequent jump to the decrypted base, is inconsistent with legitimate application functionality.",
+    "general": "The function fcn.10001ba4 calls KERNEL32!IsDebuggerPresent. The function fcn.10001130 performs the decryption via an XOR loop and subsequently triggers execution of the decrypted data. The routine at fcn.10001800 specifically parses the PE header (searching for 0x5a4d/0x4550) to facilitate manual mapping.",
+    "uncertainties": "The exact nature of the final payload is unknown as it resides in the encrypted .data section; however, the loading behavior is definitively identified as malicious.",
+    "conditions": "The code checks for debugging environments; it must be executed without an attached debugger or inside a sandbox that hides debugger flags. It likely expects to be run directly as a standalone process, as implied by the check for command-line arguments and module filename.",
+    "sandbox_recommendations": "Run the sample in a sandbox with anti-anti-debugging measures enabled (e.g., setting the PEB BeingDebugged flag to 0). Monitor memory allocation events and subsequent jumps to newly allocated memory regions."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "_svchost.exe",
+          "description": "Process name often targeted or impersonated by malware."
+        },
+        {
+          "value": "_netsvcs",
+          "description": "Registry key associated with network services."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001130",
+      "name": "fcn.10001130",
+      "description": "Primary decryption routine that unlocks the encrypted payload."
+    },
+    {
+      "address": "0x10001ba4",
+      "name": "fcn.10001ba4",
+      "description": "Anti-debugging routine that handles process termination."
+    },
+    {
+      "address": "0x10001800",
+      "name": "fcn.10001800",
+      "description": "PE loader/mapper that prepares the payload for execution."
+    }
+  ]
+}

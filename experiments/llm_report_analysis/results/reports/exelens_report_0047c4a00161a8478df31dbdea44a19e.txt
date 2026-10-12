@@ -1,0 +1,83 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to perform process injection and kernel-mode operation manipulation, including patching system tables (ServiceDescriptorTable) and hijacking driver functions to gain elevated execution or hide its activity. It uses resource-based decryption for its secondary payloads.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Resource-based payload decryption",
+      "Custom XOR-based decryption/obfuscation of internal data/code segments"
+    ],
+    "details": "The sample uses FindResourceA/LoadResource to extract encrypted data from RSRC. It then uses custom decryption routines (XOR 0xCD) to unpack and execute or map these components into memory."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "Utilizes CreateProcessA and potentially writes memory to target processes."
+    },
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Uses NtQuerySystemInformation, NtQueryObject, and interacts with system tables (KeServiceDescriptorTable) to likely subvert OS security mechanisms."
+    },
+    {
+      "name": "Persistence",
+      "description": "Uses registry operations (RegSetValueExA, RegCreateKeyExA) to store configuration or malicious hooks."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Contains code patterns designed to identify and circumvent debugging/sandboxing environments, such as checking for specific module names (ntoskrnl.exe)."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent APIs targeting system internals (ServiceDescriptorTable), the direct attempt to manipulate kernel-mode structures via driver-like procedures (NtQuerySystemInformation), and the use of obfuscated resource payloads clearly indicates malicious intent beyond standard protector software. The specific logic for searching/patching system structures confirms it is designed to subvert host system integrity.",
+    "general": "The function fcn.1000b369 performs direct manipulation of the KeServiceDescriptorTable. Function fcn.100096ce utilizes USER32 and kernel calls to potentially perform injection. The usage of Ordinal_3/4 from 'sym.dll_installer.dll' combined with internal string obfuscation (e.g., 'KeRaiseIrqlToDpcLevel') indicates a deep interaction with the OS kernel environment.",
+    "uncertainties": "The exact nature of the decrypted resource payload is inferred from its usage (injection/table patching). The full scope of the impact depends on the specific drivers or system versions present during execution.",
+    "conditions": "Execution flow is gated by various checks, including registry presence (e.g., DMWI keys), and potential checks for specific OS kernel drivers or versions (e.g., ntoskrnl.exe).",
+    "sandbox_recommendations": "Ensure the sandbox provides a kernel-mode analysis capability. Do not run in a minimal environment; the malware attempts to detect specific system configurations before continuing its primary payload activation."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "DMWI",
+          "description": "Registry key used for persistence or status tracking."
+        },
+        {
+          "value": "DMWH",
+          "description": "Registry key used for process or configuration tracking."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "KeServiceDescriptorTable",
+          "description": "Target structure for kernel manipulation."
+        },
+        {
+          "value": "NtShutdownSystem",
+          "description": "Function targeted for modification or monitoring."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Kernel structure manipulation and table patching logic."
+    },
+    {
+      "address": "0x100096ce",
+      "name": "fcn.100096ce",
+      "description": "Initialization and potential entry point for injection-related operations."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Registry and environment setup function."
+    }
+  ]
+}

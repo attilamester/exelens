@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a downloader/dropper that fetches payloads from a remote server via HTTP, persists itself in the registry, and attempts to hide or execute downloaded files while performing anti-analysis checks.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Large encrypted/compressed overlay",
+      "Dynamic API resolution via GetProcAddress"
+    ],
+    "details": "The file contains a 1MB+ overlay with entropy 8.0, indicating packed or encrypted data. It performs dynamic API resolution (GetProcAddress) on kernel32.dll during operation."
+  },
+  "capabilities": [
+    {
+      "name": "HTTP Communication",
+      "description": "Utilizes WININET.dll (InternetOpenA, HttpSendRequestA, etc.) to contact remote servers."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies 'RunOnce' registry keys to ensure execution on startup."
+    },
+    {
+      "name": "File Manipulation",
+      "description": "Downloads, writes, and deletes local files (e.g., .tmp files) and modifies file attributes."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Uses Sleep calls and timing/environment checks (GetVersionExA, GetLocalTime) to delay or alter execution."
+    }
+  ],
+  "details": {
+    "reasoning": "While some components like network communication and registry persistence can be dual-use, the combination of these capabilities—specifically downloading files and executing them via XOR-obfuscation cycles, combined with registry persistence for malicious-sounding file names like 'toolbar.exe' and 'DirectXupdate.exe'—demonstrates clear malicious intent consistent with a trojan/downloader.",
+    "general": "The function fcn.00401476 orchestrates network requests. fcn.004012eb specifically targets the 'Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce' registry key. fcn.0040185b handles file deletions and writes. The code iterates through multiple potential file names (tmpgoogletoolbar.exe, tmpdetect.dll) which confirms drop-and-execute behavior.",
+    "uncertainties": "The exact contents of the 1MB overlay are not visible, meaning the primary payload could be more complex than the observed downloader logic.",
+    "conditions": "The malware requires internet connectivity to reach its C2 server. It also performs a time-based check (GetLocalTime vs FileTime) and a mutex check (CreateMutexA) to prevent multiple instances or early detection.",
+    "sandbox_recommendations": "Provide an internet-simulated environment (e.g., INetSim). Allow the process to run for at least 5-10 minutes due to multiple Sleep calls. Monitor registry modifications in the 'RunOnce' hive."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce",
+          "description": "Registry key used for persistence."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "toolbar.exe",
+          "description": "Suspicious file name targeted for registry persistence."
+        },
+        {
+          "value": "DirectXupdate.exe",
+          "description": "Suspicious file name targeted for registry persistence."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401476",
+      "name": "fcn.00401476",
+      "description": "Orchestrates the main network communication and payload retrieval logic."
+    },
+    {
+      "address": "0x004012eb",
+      "name": "fcn.004012eb",
+      "description": "Handles the creation of persistence via registry RunOnce keys."
+    },
+    {
+      "address": "0x0040185b",
+      "name": "fcn.0040185b",
+      "description": "Utility function for file system operations, including writing and deleting files."
+    }
+  ]
+}

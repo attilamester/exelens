@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The file is a modular malicious loader that performs process hollowing, privilege escalation checks, and registry-based persistence. It uses custom resource decryption to unpack a hidden payload, interacts with kernel-level components, and attempts to modify system security configurations.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR-based decryption",
+      "Resource-based payload storage",
+      "Dynamic API resolution"
+    ],
+    "details": "The file contains an encrypted/packed resource (106,496 bytes) at RVA 0x10010028, which is decrypted using a 0xcd XOR key in function fcn.100015f7 and fcn.100017a0. The decrypted contents are transferred to memory or written to disk before execution via CreateProcessA."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Hollowing",
+      "description": "Uses CreateProcessA with suspended state, followed by writing to the process memory and resuming execution (typical of hollowing)."
+    },
+    {
+      "name": "Persistence",
+      "description": "Creates or modifies registry keys (Run/RunOnce equivalents) and services to maintain presence."
+    },
+    {
+      "name": "Privilege Escalation / System Evasion",
+      "description": "Checks process tokens and attempts to modify system security descriptors (SetSecurityDescriptorDacl) and access control lists."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Employs various checks including Mutex creation (to prevent multiple instances) and attempts to resolve low-level kernel APIs."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent APIs (CreateProcessA, WriteFile, SetSecurityDescriptorDacl) along with a decryption routine used to hide the payload in RSRC sections provides strong evidence of malicious intent. The code specifically looks for and attempts to disable security-critical components and services, which is characteristic of advanced malware.",
+    "general": "The function fcn.10001b34 performs CreateProcessA using a payload likely extracted from resources. Functions fcn.10007315 and fcn.1000745e show clear intent to manipulate security descriptors and token information, bypassing standard user permissions.",
+    "uncertainties": "The exact nature of the final payload remains hidden as it is loaded from the encrypted resource only at runtime, meaning the full extent of the C2 capabilities cannot be determined from static analysis alone.",
+    "conditions": "The malware requires an environment with specific registry structures (evidenced by RegEnumKeyExA loops) and likely needs administrative privileges to successfully modify system security descriptors.",
+    "sandbox_recommendations": "Run in a sandbox with a kernel debugger attached; ensure the environment supports registry keys found in the 'ioc' section and allow the file to access system directories."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Persistence registry key frequently used by malware"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used to synchronize execution"
+        },
+        {
+          "value": "lsass",
+          "description": "Target string indicating potential credential dumping or system process manipulation"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Main loader function: handles decryption, resource extraction, and process creation."
+    },
+    {
+      "address": "0x10007315",
+      "name": "fcn.10007315",
+      "description": "Handles security descriptor manipulation and privilege checks."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Persistence logic involving registry enumeration and value manipulation."
+    }
+  ]
+}

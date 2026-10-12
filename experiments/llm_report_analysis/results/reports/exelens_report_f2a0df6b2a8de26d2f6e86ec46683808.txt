@@ -1,0 +1,93 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a malware loader that implements process hollowing and privilege escalation techniques to inject a payload into the system. It checks for debuggers, uses network communication, and manages persistence via service creation.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom obfuscation",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress",
+      "Encoded payload in overlay"
+    ],
+    "details": "The overlay section has high entropy (7.40), suggesting an encrypted or compressed payload. The code uses dynamically resolved APIs and internal decoding routines to reconstruct its execution state."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Hollowing",
+      "description": "Utilizes CreateToolhelp32Snapshot, OpenProcess, and likely related injection APIs to execute code in other processes."
+    },
+    {
+      "name": "Privilege Escalation",
+      "description": "Attempts to acquire 'SeDebugPrivilege' using LookupPrivilegeValueW and AdjustTokenPrivileges."
+    },
+    {
+      "name": "Persistence/Service Control",
+      "description": "Uses OpenSCManagerW, CreateServiceW, and StartServiceW to ensure persistence as a background service."
+    },
+    {
+      "name": "Networking",
+      "description": "Uses WININET and WSOCK32 APIs to establish network connections, likely for C2 communications."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Uses IsDebuggerPresent and specific exception handling structures (FS segment register access) to detect debuggers."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent malicious capabilities—specifically privilege escalation (SeDebugPrivilege), process management (toolhelp32), and service installation (CreateServiceW)—clearly demonstrates malicious intent. While individual APIs like VirtualAlloc or CreateThread are dual-use, their usage in this context, coupled with anti-debugging and the high-entropy overlay containing an hidden payload, confirms the loader functionality.",
+    "general": "Evidence is found in 'fcn.0041f200' (token manipulation/privilege escalation), 'fcn.0041d710' (network communication), and 'main' (service deletion/cleanup and payload execution). The presence of 'SeDebugPrivilege' string and service management APIs in a non-installer context is a high-intent indicator.",
+    "uncertainties": "While the specific payload code is not visible due to the encrypted overlay and runtime unpacking, the surrounding loader logic provides sufficient evidence to classify it as malicious.",
+    "conditions": "The file acts as a service ('SaberSvc.exe' mentioned in strings). Execution likely requires installation of the service. It may contain logic to check for specific environment variables or network reachability.",
+    "sandbox_recommendations": "Run in a controlled sandbox with network monitoring and API hooking enabled. Observe the creation of the service and any subsequent process hollowing attempts, specifically focusing on child processes spawned from the service executable."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "SaberSvc.exe",
+          "description": "Service executable name identified in string data"
+        },
+        {
+          "value": "SeDebugPrivilege",
+          "description": "Privilege acquired for process injection"
+        },
+        {
+          "value": "10.1.60.218",
+          "description": "Hardcoded IP address, potentially C2"
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SOFTWARE\\Excalibur",
+          "description": "Registry key path potentially used for persistence"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x004209c0",
+      "name": "main",
+      "description": "Entry point: coordinates service cleanup and execution flow."
+    },
+    {
+      "address": "0x0041f200",
+      "name": "fcn.0041f200",
+      "description": "Handles process tokens and privilege escalation (SeDebugPrivilege)."
+    },
+    {
+      "address": "0x0041d710",
+      "name": "fcn.0041d710",
+      "description": "Handles HTTP networking requests using WININET."
+    },
+    {
+      "address": "0x004195e0",
+      "name": "fcn.004195e0",
+      "description": "Likely network payload downloader or C2 handler."
+    }
+  ]
+}

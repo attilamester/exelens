@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample is a network-based backdoor masquerading as a service, capable of executing shell commands, downloading files, and performing directory navigation on the compromised host.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is clearly visible and exhibits standard C/C++ library patterns for network communication and process management. No evidence of packing or obfuscation."
+  },
+  "capabilities": [
+    {
+      "name": "Remote Command Execution",
+      "description": "Utilizes CreatePipe and CreateProcessA to redirect command-line output back to a remote attacker via a socket."
+    },
+    {
+      "name": "File Exfiltration/Download",
+      "description": "Implements functionality to download files from remote URLs using WININET and upload local files via sockets."
+    },
+    {
+      "name": "Persistence Mechanism",
+      "description": "Contains service installation logic (InstallService, CreateServiceA) to maintain presence."
+    },
+    {
+      "name": "Network Backdoor",
+      "description": "Listens for commands (e.g., 'getfile', 'exit', 'quit') and performs directory navigation ('chdir')."
+    }
+  ],
+  "details": {
+    "reasoning": "The application exhibits definitive high-intent malicious behavior. While it uses legitimate service management and network APIs, it specifically ties these to a remote-controlled shell implementation (fcn.100017cb) and file exfiltration routines (fcn.100012c8). The combination of command piping (CreatePipe, CreateProcessA) and socket-based command dispatching is not a standard pattern for benign software installers.",
+    "general": "High-intent malicious logic is confirmed in fcn.100017cb, which executes 'cmd.exe /c' and pipes output, and fcn.1000211b, which downloads files from URLs. The use of 'getfile', 'exit', and 'quit' command strings in logic branches provides direct evidence of a backdoor protocol.",
+    "uncertainties": "No significant uncertainties; the code logic is sufficiently explicit.",
+    "conditions": "The service requires proper installation/registration to execute via ServiceMain (sym.Nwsapagent.dll_ServiceMain). It specifically checks for 'log.sportreadok.net' for configuration or tasking.",
+    "sandbox_recommendations": "Capture network traffic to investigate C2 communication. Ensure the environment simulates an active internet connection to see the full download/exfiltration logic."
+  },
+  "ioc": [
+    {
+      "type": "url",
+      "values": [
+        {
+          "value": "log.sportreadok.net",
+          "description": "C2 domain observed in network communication routines."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "getfile",
+          "description": "Command string interpreted by the backdoor."
+        },
+        {
+          "value": "cmd.exe /c",
+          "description": "Command used for shell execution."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100017cb",
+      "name": "fcn.100017cb",
+      "description": "Primary command-and-control handler that manages pipes and shell execution."
+    },
+    {
+      "address": "0x100012c8",
+      "name": "fcn.100012c8",
+      "description": "Implements file downloading from the internet."
+    },
+    {
+      "address": "0x1000211b",
+      "name": "fcn.1000211b",
+      "description": "Handles remote file transfer and HTTP operations."
+    }
+  ]
+}

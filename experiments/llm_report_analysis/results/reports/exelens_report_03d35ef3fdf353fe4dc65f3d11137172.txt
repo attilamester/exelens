@@ -1,0 +1,75 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a reconnaissance and data exfiltration malware. It collects system metadata, including computer name, username, and network adapter info, then performs file operations based on hardcoded strings (e.g., proto.dat) and communicates via WININET functions.",
+  "packed": {
+    "status": "false",
+    "techniques": [
+      "String obfuscation via XOR/custom encoding",
+      "Dynamic API resolution via GetProcAddress"
+    ],
+    "details": "No evidence of traditional packers like UPX. The code uses XOR-based string decoding (fcn.00403b20) to hide configuration strings and registry keys."
+  },
+  "capabilities": [
+    {
+      "name": "Data Exfiltration / C2",
+      "description": "Uses WININET.dll (HttpOpenRequestA, HttpSendRequestA) to send POST requests, indicating C2 communication."
+    },
+    {
+      "name": "System Reconnaissance",
+      "description": "Queries registry keys (ProductName, CurrentVersion) and network adapters (GetAdaptersInfo) to gather system fingerprints."
+    },
+    {
+      "name": "Persistence",
+      "description": "Writes to the Windows registry to maintain execution status."
+    },
+    {
+      "name": "Environment Awareness",
+      "description": "Checks for virtual machine/analysis environments via registry checks and I/O port checks."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of system profiling (IP addresses, OS version), persistence via registry keys, and network communication via WININET (POST requests) in a non-standard application context strongly indicates malicious intent rather than a legitimate installation process.",
+    "general": "The function fcn.00402530 directly implements HTTP POST requests using WININET. The reconnaissance data gathering is clearly visible in the call sequence to fcn.00402a90 (VM detection) and fcn.00402a00 (GetAdaptersInfo) to profile the infected machine.",
+    "uncertainties": "The exact content of the C2 server endpoint is obfuscated/dynamic; however, the behavior is consistent with data-stealing malware.",
+    "conditions": "The malware requires an internet connection and looks for specific files like 'proto.dat'. It also checks registry values to determine if the infection has successfully persisted.",
+    "sandbox_recommendations": "Use a network simulation tool (e.g., INetSim) to capture the POST request traffic. Ensure the registry key HKLM\\Software\\... exists to allow the malware to pass its initial configuration check."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Persistence key used to maintain execution."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "proto.dat",
+          "description": "Configuration file checked in the working directory."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00402530",
+      "name": "fcn.00402530",
+      "description": "Performs C2 communication via HTTP POST."
+    },
+    {
+      "address": "0x00402a90",
+      "name": "fcn.00402a90",
+      "description": "Performs VM/analysis environment detection."
+    },
+    {
+      "address": "0x00401d70",
+      "name": "fcn.00401d70",
+      "description": "Collects hardware and network information."
+    }
+  ]
+}

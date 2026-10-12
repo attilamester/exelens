@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This executable performs stealthy persistence and potential kernel-level manipulation. It drops files, modifies registry keys to likely hide its presence (e.g., 'lsass'), and includes functions that interact with kernel structures like 'KeServiceDescriptorTable' and 'NtQuerySystemInformation'.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom encryption (XOR 0xcd)",
+      "Dynamic API resolution",
+      "Resource-based payload extraction"
+    ],
+    "details": "The file uses resource-based payload storage (FindResource/LoadResource) and custom XOR obfuscation (0xcd) to hide its data. It dynamically resolves many Windows APIs using GetProcAddress."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Modifies system registry keys to achieve persistence, including targeting sensitive areas."
+    },
+    {
+      "name": "Process Injection/Hooking",
+      "description": "Evidence of hooking functions like 'NtQuerySystemInformation' and using 'KeServiceDescriptorTable' to manipulate kernel-level execution."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Drops and deletes system files, and manipulates file attributes to hide its presence."
+    },
+    {
+      "name": "Mutex Evasion",
+      "description": "Creates and checks for specific mutexes (e.g., 'GlobalRPCMutex', 'prkMtx') to prevent multiple instances or evade detection."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level hooking capabilities (accessing 'KeServiceDescriptorTable'), stealthy registry modifications targeting process-like names, and the use of obfuscated resource payloads clearly indicates malicious intent designed to gain and maintain unauthorized control at the system/kernel level.",
+    "general": "The function fcn.1000ab6f and fcn.1000a2cd involve manipulation of 'KeServiceDescriptorTable' and dynamic system call patching, which is high-intent malicious behavior. The use of 'NtShutdownSystem' and 'KeAddSystemServiceTable' combined with registry keys named 'lsass' strongly suggests rootkit-like behavior.",
+    "uncertainties": "The exact nature of the final payload remains abstract, as it is dynamically loaded from resources, but the hooking logic itself is clearly unauthorized and malicious.",
+    "conditions": "Execution is gated by environment variable checks and the successful acquisition of specific mutexes like 'prkMtx'.",
+    "sandbox_recommendations": "Run in an environment that allows monitoring of kernel-mode transitions and registry changes. Simulate a standard user environment, as the sample may check for 'lsass' or other core system artifacts."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\...\\lsass",
+          "description": "Registry key modification mimicking system processes."
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used to synchronize infection instances."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex associated with kernel hooking activity."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Contains kernel hooking logic, specifically accessing the SSDT (System Service Descriptor Table)."
+    },
+    {
+      "address": "fcn.1000a2cd",
+      "name": "fcn.1000a2cd",
+      "description": "Responsible for system-wide persistence and registry manipulation."
+    },
+    {
+      "address": "fcn.10001b34",
+      "name": "fcn.10001b34",
+      "description": "Extracts payload and executes it as a new process."
+    }
+  ]
+}

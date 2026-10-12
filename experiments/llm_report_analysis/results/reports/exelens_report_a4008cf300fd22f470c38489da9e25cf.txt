@@ -1,0 +1,82 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple high-intent indicators of malware, including password theft (Internet Explorer autocomplete, Protected Storage, and Credential APIs), self-replication/persistence logic, and C2 communication modules.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Dynamic API resolution via LoadLibrary/GetProcAddress",
+      "Function pointers/vtable obfuscation",
+      "Custom string obfuscation"
+    ],
+    "details": "The entrypoint performs manual dynamic API loading and redirection using custom tables. Many core strings and sensitive API calls are obfuscated, suggesting an effort to hinder static analysis."
+  },
+  "capabilities": [
+    {
+      "name": "Password Theft",
+      "description": "Exfiltrates passwords from IE autocomplete (fcn.0040a45f), Windows Protected Storage (fcn.0040923c), and Windows Credential Manager (fcn.00408f36)."
+    },
+    {
+      "name": "Persistence and Evasion",
+      "description": "Checks for virtual machine environments (fcn.004060d5), manages service configurations (ADVAPI32.dll), and modifies file attributes (KERNEL32.dll)."
+    },
+    {
+      "name": "Command & Control",
+      "description": "Communicates with a hardcoded IP (64.18.143.90) via HTTP POST requests to exfiltrate data (fcn.0040749e)."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of specific password-stealing APIs (PStoreCreateInstance, CredEnumerateW) with network communication code targeting hardcoded non-standard IP addresses for 'modules' makes this clearly malicious. These behaviors cannot be justified by any benign installer or protection mechanism.",
+    "general": "High-intent evidence includes calls to CredEnumerateW in fcn.00408f36, PStoreCreateInstance in fcn.0040923c, and hardcoded C2 communication in fcn.0040749e. Anti-VM and environment checks (e.g., fcn.004060d5 checking for 'VMWHORE') are also present.",
+    "uncertainties": "While the binary is clearly malicious, the full payload extraction logic is obfuscated and relies on complex runtime data, so some secondary behaviors may be missed.",
+    "conditions": "Payload activation requires the environment to pass specific checks, including potential VM detection. It also appears to use mutexes ('dispatcher::mutex_exist') to prevent multiple instances.",
+    "sandbox_recommendations": "Use a non-virtualized environment or a heavily obfuscated hypervisor. Monitor network traffic to 64.18.143.90/modules/en/app.class.php. Ensure the system is configured as an active domain user/workstation to trigger credential harvesting."
+  },
+  "ioc": [
+    {
+      "type": "ip",
+      "values": [
+        {
+          "value": "64.18.143.90",
+          "description": "C2 command and control server for exfiltrating data"
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SOFTWARE\\Microsoft\\Internet Explorer\\IntelliForms\\Storage2",
+          "description": "Registry key targeted for IE password theft"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x0040a45f",
+      "name": "fcn.0040a45f",
+      "description": "Steals Internet Explorer autocomplete passwords"
+    },
+    {
+      "address": "0x0040923c",
+      "name": "fcn.0040923c",
+      "description": "Accesses and steals Protected Storage credentials"
+    },
+    {
+      "address": "0x00408f36",
+      "name": "fcn.00408f36",
+      "description": "Enumerates and steals Windows Credentials"
+    },
+    {
+      "address": "0x0040749e",
+      "name": "fcn.0040749e",
+      "description": "Primary C2 exfiltration logic via HTTP"
+    },
+    {
+      "address": "0x004060d5",
+      "name": "fcn.004060d5",
+      "description": "Environment/VM detection logic"
+    }
+  ]
+}

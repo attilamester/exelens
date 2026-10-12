@@ -1,0 +1,89 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple high-intent indicators: it performs self-installation, utilizes rootkit-like capabilities (modifying System Service Descriptor Table - SSDT), attempts to disable system security features via registry modification, and contains embedded malicious resources that are decrypted and executed as drivers or secondary payloads.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR decryption loop",
+      "Embedded resource decryption",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress"
+    ],
+    "details": "The file uses resources (e.g., RVA 0x100015f7 calls FindResourceA) and applies a XOR transformation (0xcd) to decrypted payloads before executing them in memory via VirtualAlloc/CreateProcess."
+  },
+  "capabilities": [
+    {
+      "name": "SSDT Hooking",
+      "description": "Modifies system service tables to intercept OS requests, a technique characteristic of rootkits."
+    },
+    {
+      "name": "Process Injection",
+      "description": "Uses VirtualAlloc and CreateProcess to inject or run hidden code."
+    },
+    {
+      "name": "Persistence Mechanisms",
+      "description": "Writes to system registry keys to ensure re-execution upon reboot."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Contains code to detect debuggers and virtual environments."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of SSDT modification routines (e.g., fcn.1000b369 targeting KeServiceDescriptorTable), the attempt to load 'win32k.sys' modifications, and the persistent registry modifications designed to survive reboot demonstrates clear malicious intent rather than dual-use utility.",
+    "general": "High-intent malicious evidence is found in fcn.1000b369 (SSDT hooking), fcn.1000b46f (system file manipulation), and fcn.1000788e (credential-related registry operations). The usage of 'KeServiceDescriptorTable' and 'KeAddSystemServiceTable' points directly to kernel-level subversion.",
+    "uncertainties": "While the core malicious behavior is clear, the exact nature of the final secondary payload is obscured by the custom XOR routine, though its purpose is definitively identified as kernel-mode rootkit activity.",
+    "conditions": "The primary execution flow requires the sample to have administrative or kernel-level privileges to successfully hook the SSDT and modify system binaries in System32.",
+    "sandbox_recommendations": "Run in an isolated environment with kernel debugging enabled (WinDbg). Simulate a standard user environment but provide administrative elevation to observe the persistence and hooking mechanisms."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\Class",
+          "description": "Targeted for persistence or driver installation"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "_system32win32k.sys",
+          "description": "Modified or dropped system file"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for process synchronization"
+        },
+        {
+          "value": "KeServiceDescriptorTable",
+          "description": "Kernel structure target for hooking"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Performs SSDT hooking for rootkit functionality"
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Decrypts and extracts the main malicious payload from resources"
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Creates a malicious process (installer behavior)"
+    }
+  ]
+}

@@ -1,0 +1,85 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a modular rootkit/kernel-mode driver installer. It utilizes resources to store encrypted payloads, likely containing kernel-mode drivers, which it decrypts and installs into the system. It contains advanced anti-analysis techniques, including checking for specific debuggers and kernel-mode hooks (e.g., KeServiceDescriptorTable manipulation).",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR decryption",
+      "Resource-based loading",
+      "Dynamic API resolution"
+    ],
+    "details": "The file uses resources (e.g., 101, 102, 103) as containers for encrypted payload data. Routines such as fcn.10001697 perform XOR-based decryption (key 0xCD) on these resources before mapping or transferring control to them. It uses LoadResource/LockResource to access this data."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Uses functions to interact with the kernel, specifically targeting the Service Descriptor Table (SSDT)."
+    },
+    {
+      "name": "Persistence and Evasion",
+      "description": "Registers services and modifies registry keys; checks for debuggers and attempts to hide files or processes."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Creates, copies, and deletes system files (e.g., 'system32' folder) to blend in with legitimate system components."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent capabilities—specifically the manipulation of the SSDT (KeServiceDescriptorTable) and attempts to load drivers from encrypted resources—provides clear evidence of malicious intent. While individual capabilities like 'VirtualAlloc' are dual-use, the context of hooking core kernel structures and hiding files confirms this is a rootkit.",
+    "general": "Functions fcn.100034de and fcn.1000b369 are involved in SSDT hooking. fcn.10009d28 checks the system version and targets kernel symbols like 'KeRaiseIrqlToDpcLevel'. The code uses 'int 0x2e' for system calls, which is typical for kernel-mode communication in older Windows versions.",
+    "uncertainties": "Due to the complexity of the kernel-mode interaction and the use of obfuscated resource payloads, it is difficult to determine the full extent of the payload's functionality without a dynamic runtime analysis, though the intent remains clear.",
+    "conditions": "The file requires administrative privileges to modify registry keys and load drivers. Execution likely depends on specific environment variable checks (e.g., SYSTEMROOT) to locate target system directories.",
+    "sandbox_recommendations": "Run in an isolated Windows XP or Windows 7 32-bit environment to ensure all syscalls and kernel hooks function as the malware expects. Monitor registry keys in 'HKLM\\SYSTEM\\CurrentControlSet\\Services'."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Targeted registry hive for service persistence."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "system32\\win32k.sys",
+          "description": "Likely target for file replacement or hook injection."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for single-instance execution."
+        },
+        {
+          "value": "NtShutdownSystem",
+          "description": "System call used to control power or reset state."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001000",
+      "name": "fcn.10001000",
+      "description": "Modifies registry settings (RegSetValueExA) for potential persistence."
+    },
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Core routine responsible for SSDT hooking to intercept kernel functions."
+    },
+    {
+      "address": "0x10009d28",
+      "name": "fcn.10009d28",
+      "description": "Analyzes the kernel environment and locates function pointers for hooking."
+    }
+  ]
+}

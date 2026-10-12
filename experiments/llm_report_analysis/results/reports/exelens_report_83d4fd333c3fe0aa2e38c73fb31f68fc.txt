@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple components for kernel-mode operations, including modifying service descriptor tables and hooking system calls to potentially disable security mechanisms. It also exhibits persistence and self-replication capabilities.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR decryption",
+      "Resource-based payload hiding"
+    ],
+    "details": "The file uses resource-based storage for its payloads, which are decrypted at runtime via XOR operations (e.g., in fcn.100015f7 and fcn.10001723) before being loaded into memory."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode hook/manipulation",
+      "description": "Uses low-level APIs to manipulate System Service Descriptor Tables (SSDT) or kernel structures via fcn.1000b369 and fcn.1000c492."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies Windows Registry keys (e.g., Run keys, system settings) using ADVAPI32 functions to ensure execution."
+    },
+    {
+      "name": "Process Injection/Execution",
+      "description": "Creates processes and modifies their memory/attributes to execute hidden payloads."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Checks for debugger/environment conditions, uses mutexes for single-instance enforcement and potential evasion."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode manipulation techniques (modifying SSDT/kernel memory), persistence, and anti-analysis gates clearly exceeds legitimate dual-use patterns. The code specifically targets system drivers (win32k.sys) and performs undocumented system calls (int 0x2e), which is characteristic of malicious rootkit-like behavior aimed at system subversion.",
+    "general": "High-intent malicious actions found in fcn.1000b369 (SSDT hook), fcn.10001b34 (file creation and process execution), and fcn.1000b46f (direct manipulation of kernel descriptors via int 0x2e).",
+    "uncertainties": "While the binary is obviously malicious, the specific final goal (e.g., data exfiltration vs. ransomware) is hidden within the obfuscated resources, but the infrastructure for deep system compromise is fully present.",
+    "conditions": "Execution is likely triggered by system startup (via registry persistence) or user interaction. It uses mutex 'prkMtx' to prevent multiple instances and requires administrative/SYSTEM privileges for kernel modification.",
+    "sandbox_recommendations": "Simulate a fully updated Windows environment, use a tool capable of monitoring kernel-mode activity (e.g., Procmon, Volatility), and prepare to intercept network traffic to check for C2 communication after successful detonation."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "DMWH",
+          "description": "Registry key/value used for persistence"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for single-instance check"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "_system32",
+          "description": "Target directory for file persistence"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Handles payload extraction and process creation"
+    },
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Performs kernel system descriptor table manipulation"
+    },
+    {
+      "address": "0x1000c492",
+      "name": "fcn.1000c492",
+      "description": "Low-level system memory mapping/manipulation"
+    }
+  ]
+}

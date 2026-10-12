@@ -1,0 +1,75 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains code to modify its own resource section (XORing data with 0xCD), check for a specific RPC mutex ('GlobalRPCMutex'), and copy/move itself (potentially as a system-like process). It performs advanced operations such as kernel-level service descriptor table modifications and uses undocumented NT-level APIs, strongly indicating a rootkit-like persistence mechanism and stealth operation.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based payload obfuscation",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress"
+    ],
+    "details": "The routine at fcn.100015f7 and fcn.100017a0 demonstrate decryption of a resource using a 0xCD XOR mask and updating resource data, which are classic techniques for loading concealed payloads."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-level Manipulation",
+      "description": "Functions like fcn.1000b369 perform manipulation of the System Service Descriptor Table (SSDT), a common technique for rootkits to hook system calls."
+    },
+    {
+      "name": "Process Injection/Stealth",
+      "description": "The binary includes code to copy itself to system-like paths and manipulate registry keys (e.g., in fcn.100017a0) suggesting an attempt to masquerade as legitimate system services or files."
+    },
+    {
+      "name": "Mutex Mutex Synchronization",
+      "description": "Checks and creates a mutex named 'GlobalRPCMutex' to ensure only one instance of the malware runs on the system."
+    }
+  ],
+  "details": {
+    "reasoning": "While some components like GetProcAddress are common in packers, the combination of SSDT modification (fcn.1000b369), XOR-based self-modification of the resource section, and the use of hardcoded system service names strongly indicates malicious intent rather than a legitimate software protector. The high-intent capability of hooking kernel services for system stealth confirms a malicious verdict.",
+    "general": "Evidence of high intent includes: 1) fcn.1000b369 (SSDT hooking), 2) fcn.100017a0 (modifying registry values and copying files to masquerade as 'lsass'), 3) the 0xCD XOR loop used in fcn.10001697 to de-obfuscate hidden payload data, and 4) mutex creation 'GlobalRPCMutex' in fcn.10002109.",
+    "uncertainties": "The exact nature of the decrypted resource payload is unknown as it is dynamically reconstructed at runtime. However, the operational patterns strongly suggest it is the core malicious component.",
+    "conditions": "The primary execution flow requires the system environment to be standard, and it appears designed to persist across reboots via registry modifications and potential system service installation.",
+    "sandbox_recommendations": "Run with administrative privileges. Monitor registry keys related to service start and file system modifications. Use a debugger to breakpoint at fcn.1000b369 to observe the exact SSDT modification before the system crashes or becomes unresponsive."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used to detect or prevent multiple instances."
+        },
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\",
+          "description": "Likely target registry path for persistence via service installation."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "lsass",
+          "description": "String used in registry value modification to masquerade as system process."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "SSDT (System Service Descriptor Table) hooking and modification function."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Performs file copy operations and registry modifications to establish persistence."
+    },
+    {
+      "address": "0x10001697",
+      "name": "fcn.10001697",
+      "description": "Main routine responsible for resource decryption and payload preparation."
+    }
+  ]
+}

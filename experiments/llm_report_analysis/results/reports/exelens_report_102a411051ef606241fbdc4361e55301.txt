@@ -1,0 +1,75 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality consistent with a kernel-mode rootkit, including driver loading, system service descriptor table (SSDT) hooking, and process injection techniques targeting critical system files like lsass.exe.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation of resource data",
+      "Dynamic API resolution through GetProcAddress and manual library loading"
+    ],
+    "details": "Resource sections (101, 102, 103) contain obfuscated data (XOR 0xCD) that is decrypted at runtime using routines in fcn.100015f7 and fcn.10001697. The file structure is not fully packed, but critical configuration/payload data is stored in encrypted resources."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Utilizes SSDT hooking techniques via NtQuerySystemInformation and attempts to locate kernel functions."
+    },
+    {
+      "name": "Persistence and Evasion",
+      "description": "Modifies Windows registry keys (Run keys) and attempts to copy malicious files into system directories."
+    },
+    {
+      "name": "Process Injection",
+      "description": "Uses CreateRemoteThread and related APIs to manipulate external processes, specifically targeting 'lsass.exe'."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level API usage (NtQuerySystemInformation, SSDT modifications) and specific targeting of critical system components (lsass.exe, system32 directory) demonstrates malicious intent beyond mere software protection. The presence of mutex checks (GlobalRPCMutex, prkMtx) is characteristic of malware attempting to avoid redundant infection or detection.",
+    "general": "High-intent evidence includes SSDT modification routines at fcn.1000b369 (KeServiceDescriptorTable), process injection targeting lsass.exe at fcn.100017a0, and registry-based persistence mechanisms at fcn.10001000.",
+    "uncertainties": "The exact nature of the encrypted payload in the RCDATA resources could not be fully analyzed, but the loader code strongly implies a driver-based payload.",
+    "conditions": "The malware requires an environment with specific system registry keys (Run keys) and likely administrative privileges to perform the observed system-level modifications.",
+    "sandbox_recommendations": "Run in a virtual environment with kernel-mode monitoring tools enabled. Monitor registry activity for modifications to 'CurrentVersion\\Run'. Isolate the machine from the internet as it attempts network-like communication structures."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Targeted for driver/service installation"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for synchronization"
+        },
+        {
+          "value": "lsass.exe",
+          "description": "Process targeted for injection"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Contains code for SSDT hooking via KeServiceDescriptorTable"
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Injects code into processes, specifically targeting lsass.exe"
+    },
+    {
+      "address": "0x10001000",
+      "name": "fcn.10001000",
+      "description": "Registry manipulation for persistence"
+    }
+  ]
+}

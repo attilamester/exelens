@@ -1,0 +1,89 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to perform direct system calls (via int 0x2e), modify kernel data structures (such as KeServiceDescriptorTable), perform process injection (OpenProcess/WriteFile), and persistence through registry modifications (Run keys). It also contains a self-decrypting payload.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based payload decryption (0xcd)",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress",
+      "Resource-based loading of encrypted data (RCDATA)"
+    ],
+    "details": "The file uses FindResourceA and LoadResource to load a resource (likely the encrypted payload), which is then decrypted using a 0xcd XOR routine in fcn.100015f7 and fcn.10001723."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Attempts to locate and modify KeServiceDescriptorTable, suggesting rootkit functionality."
+    },
+    {
+      "name": "Process Injection",
+      "description": "Uses OpenProcess and CreateProcess to interact with and spawn system processes like lsass."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies registry keys (e.g., Run keys) to ensure execution across reboots."
+    },
+    {
+      "name": "Self-Protection/Evasion",
+      "description": "Uses Mutexes ('prkMtx', 'GlobalRPCMutex') to prevent multiple instances and check for existing security software."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode structure modification (fcn.1000b369 targeting KeServiceDescriptorTable) and process injection techniques (CreateProcessA, OpenProcess, modifying lsass registry) clearly indicates malicious intent. Legitimate software does not need to perform direct syscalls or modify kernel service tables.",
+    "general": "High-intent evidence includes the direct modification of KeServiceDescriptorTable at fcn.1000b369 (RVA 0x1000b369) to potentially hook system calls, and the use of 'int 0x2e' in fcn.1000b46f (RVA 0x1000b46f) to bypass standard user-mode APIs.",
+    "uncertainties": "While the binary clearly contains malicious components and kernel-level manipulation routines, the full extent of the rootkit's functionality may be dynamically loaded or dependent on specific kernel versions not fully visible in the static analysis.",
+    "conditions": "The sample uses Mutexes to check for environmental state; it likely expects to be run with high privileges (necessary for kernel-mode modifications) and checks for specific environment variables (e.g., 'temp').",
+    "sandbox_recommendations": "Run in an environment that monitors kernel-mode API calls. Use a debugger to step over the decryption routine at 0x100015f7 before attempting to dump the payload."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Registry key targeted for persistence."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "_system32\\win32k.sys",
+          "description": "System path targeted for operations."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for instance tracking."
+        },
+        {
+          "value": "lsass",
+          "description": "Targeted system process name."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Attempts to locate and hook KeServiceDescriptorTable."
+    },
+    {
+      "address": "0x10001723",
+      "name": "fcn.10001723",
+      "description": "Decrypts/updates the payload resource using an XOR 0xcd key."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Main routine responsible for file creation and process spawning."
+    }
+  ]
+}

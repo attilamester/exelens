@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple high-intent indicators of rootkit or kernel-level malicious behavior, specifically the installation of custom system service tables and attempts to overwrite kernel functions like KeRaiseIrqlToDpcLevel and KeGetCurrentIrql. It uses dynamic API resolution and process injection techniques to evade detection and maintain persistence in system processes like 'lsass'.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR decryption",
+      "Resource-based payload hiding"
+    ],
+    "details": "The file uses a custom XOR routine (with 0xcd as a key) found in fcn.10001697 to decrypt embedded resources in section .rsrc. The entry point triggers the decryption routine to unpack code before execution."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Uses undocumented APIs and direct memory access to modify System Service Descriptor Table (KeServiceDescriptorTable)."
+    },
+    {
+      "name": "Process Injection",
+      "description": "Attempts to inject code into system-level processes (lsass.exe)."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies system registry keys to ensure execution on boot and creates mutexes (GlobalRPCMutex, prkMtx) to prevent multiple instances."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Includes checks for debuggers and anti-VM environments by querying system-specific information."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level hooking (modifying the SSDT, overriding KeRaiseIrqlToDpcLevel) and the targeted modification of sensitive system processes (lsass) unequivocally indicates malicious intent. Benign software protectors might use some of these techniques (like dynamic API loading), but they do not hook critical kernel functions, which is the hallmark of a rootkit.",
+    "general": "Evidence is found in fcn.1000b369, which locates the KeServiceDescriptorTable, and fcn.10009d28, which patches kernel functions to redirect execution flow. The interaction with 'lsass' in fcn.100017a0 clearly indicates high-intent credential or process-level manipulation.",
+    "uncertainties": "The exact nature of the payload being injected into lsass remains partially obscured without dynamic execution, but the code manipulation is sufficient for a malicious verdict.",
+    "conditions": "The malware checks for existing instances via mutexes ('GlobalRPCMutex', 'prkMtx'). It also likely requires elevated administrative or SYSTEM privileges to perform the kernel hooks, as these operations would fail in a standard user context.",
+    "sandbox_recommendations": "The sample should be executed in a virtual machine environment with kernel-level monitoring (e.g., ProcMon with driver logging) enabled. It is recommended to provide administrator privileges, as it likely expects these for its kernel-level hooks."
+  },
+  "ioc": [
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for kernel-level synchronization."
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "lsass",
+          "description": "Targeted registry key for modification."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Locates the KeServiceDescriptorTable to perform kernel hooks."
+    },
+    {
+      "address": "0x10009d28",
+      "name": "fcn.10009d28",
+      "description": "Identifies kernel function addresses (e.g., KeRaiseIrqlToDpcLevel) for patching."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Handles process injection into lsass."
+    }
+  ]
+}

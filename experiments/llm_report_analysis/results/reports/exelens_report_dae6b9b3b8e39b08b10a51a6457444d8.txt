@@ -1,0 +1,64 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This is a kernel-mode rootkit driver. It performs direct kernel object manipulation (DKOM) by hooking system service dispatch tables and modifying kernel objects to hide its presence and operations.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Dynamic API resolution",
+      "Function hooking via SSDT modification",
+      "Control flow obfuscation",
+      "Encrypted data (overlay)"
+    ],
+    "details": "The file uses custom XOR loops (e.g., fcn.00012ca0, fcn.000125c6) for decoding and modifying code at runtime. The overlay has high entropy (7.10), suggesting encrypted configuration or secondary payloads."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode Rootkit",
+      "description": "Modifies kernel objects to intercept system calls and hide activity."
+    },
+    {
+      "name": "SSDT Hooking",
+      "description": "Uses KeServiceDescriptorTable to redirect system services like ZwSaveKey and ZwQueryValueKey."
+    },
+    {
+      "name": "Memory Manipulation",
+      "description": "Uses MmProbeAndLockPages and cr0 register modifications to write to read-only kernel memory (DKOM)."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of SSDT hooking (KeServiceDescriptorTable), modification of CR0 register (to disable write protection), and the use of hardcoded system service dispatch mechanisms in functions like fcn.000124ea and fcn.00012390 constitutes clear, high-intent malicious behavior for a kernel driver. These are not legitimate administrative or installer actions, but rather indicative of rootkit behavior.",
+    "general": "High-intent indicators include the modification of the CR0 register in fcn.000124ea to bypass write protection, the direct interaction with KeServiceDescriptorTable in fcn.00012390, and the hooking of system services via function pointers and code patching (e.g., overwriting function entry points with JMP instructions).",
+    "uncertainties": "The exact nature of the encrypted payload in the overlay is unknown, though it is likely a configuration file or additional malicious modules.",
+    "conditions": "The driver must be loaded into the kernel space, typically as a system service. It interacts with specific registry paths via ZwQueryValueKey and appears to monitor system events.",
+    "sandbox_recommendations": "Deploy in a kernel-mode debugger (e.g., WinDbg) connected to a guest VM. Set breakpoints on KeServiceDescriptorTable access and kernel memory writes."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "KeServiceDescriptorTable",
+          "description": "Kernel structure targeted for hooking."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00012390",
+      "name": "fcn.00012390",
+      "description": "Locates and hooks system services in the SSDT."
+    },
+    {
+      "address": "0x000124ea",
+      "name": "fcn.000124ea",
+      "description": "Performs memory patching by disabling CR0 write protection."
+    },
+    {
+      "address": "0x000128d4",
+      "name": "fcn.000128d4",
+      "description": "Handles driver/service object modification and hooking."
+    }
+  ]
+}

@@ -1,0 +1,72 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a remote shell backdoor. It installs itself as a Windows Service, connects to a remote server using WinINet to receive commands, and executes arbitrary shell commands (cmd.exe) while piping output back to the remote attacker. It includes capabilities for process termination, service control, and drive information retrieval.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed; it is a standard Windows Service binary with visible control flow and import symbols."
+  },
+  "capabilities": [
+    {
+      "name": "Backdoor/Reverse Shell",
+      "description": "Uses CreatePipe and CreateProcessA to spawn an interactive shell with redirected I/O."
+    },
+    {
+      "name": "Service Installation/Control",
+      "description": "Uses ADVAPI32 functions to register, start, and uninstall services to maintain persistence."
+    },
+    {
+      "name": "Command & Control",
+      "description": "Utilizes WININET.dll for HTTP-based communication and URLDownloadToFileA for file retrieval."
+    },
+    {
+      "name": "Process Management",
+      "description": "Capable of listing processes via Toolhelp32 and killing processes via TerminateProcess."
+    }
+  ],
+  "details": {
+    "reasoning": "The application exhibits clear malicious intent through the combination of its 'install' service functionality, persistent HTTP C2 communication (WININET), and the spawning of a hidden cmd.exe shell redirected via named pipes. The naming conventions (e.g., 'shell', 'kill', 'list') and the specific implementation of service manipulation strongly characterize it as a remote access trojan.",
+    "general": "The function fcn.10001570 is the primary C2 loop. fcn.10001fb0 (invoked by the shell command) utilizes CreatePipe and CreateProcessA to launch cmd.exe. Persistence is handled via fcn.100031a0 (install) using RegSetValueExA to modify ServiceDll registry keys.",
+    "uncertainties": "The remote C2 server address is not hardcoded in the visible assembly; it is likely retrieved or dynamically configured, requiring network analysis during detonation.",
+    "conditions": "The file requires specific service-control arguments to trigger its primary modules. Execution typically follows a service-installed lifecycle where it expects commands from the C2 server over HTTP.",
+    "sandbox_recommendations": "Deploy in a controlled environment with internet simulation. Use a fake HTTP server to respond to requests. The sample may require installation as a service before it fully activates its C2 loop."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SYSTEM\\CurrentControlSet\\Services\\%s",
+          "description": "Registry key used for service persistence."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "cmd.exe",
+          "description": "The shell spawned for remote execution."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001570",
+      "name": "fcn.10001570",
+      "description": "Main C2 loop handling HTTP communications and command dispatching."
+    },
+    {
+      "address": "0x100031a0",
+      "name": "fcn.100031a0",
+      "description": "Installs the malware as a service by modifying the Windows Registry."
+    },
+    {
+      "address": "0x10001fb0",
+      "name": "fcn.10001fb0",
+      "description": "Spawns cmd.exe and handles process redirection for the reverse shell."
+    }
+  ]
+}

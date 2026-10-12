@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple functionalities typical of kernel-level rootkit or driver-loading malware. It attempts to load kernel-mode modules ('ntoskrnl.exe', 'win32k.sys', 'HAL.dll'), accesses kernel structures ('KeServiceDescriptorTable', 'KeAddSystemServiceTable'), and utilizes anti-analysis techniques including memory mapping of system drivers and mutex checks.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation of resource data",
+      "Dynamic API resolution through GetProcAddress",
+      "Memory manipulation of system drivers"
+    ],
+    "details": "The file uses custom XOR routines (e.g., fcn.100075ce) to decrypt resource data (resources 101, 102, 103). The presence of kernel-related symbol names in the code indicates hidden functionality meant to interact with the OS kernel."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-Mode Interaction",
+      "description": "Attempts to interact with 'KeServiceDescriptorTable' and 'KeAddSystemServiceTable', indicating intent to modify or hook system calls."
+    },
+    {
+      "name": "Driver Loading/Manipulation",
+      "description": "Utilizes 'NtQuerySystemInformation', 'NtQueryObject', and manual mapping of 'win32k.sys' and 'ntoskrnl.exe'."
+    },
+    {
+      "name": "Persistence and Evasion",
+      "description": "Modifies registry keys (Run keys) to maintain persistence and checks for debuggers or specific environments (mutex 'prkMtx')."
+    },
+    {
+      "name": "System File Modification",
+      "description": "Uses 'BeginUpdateResourceA' and 'UpdateResourceA' to modify file resources, likely for self-patching or payload embedding."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent kernel-mode operations (hooking SSDT, accessing undocumented Ntdll functions) and the specific targetting of critical drivers ('win32k.sys', 'ntoskrnl.exe') confirms malicious intent beyond a dual-use software protector. The file is designed to inject code or hook the kernel on affected systems.",
+    "general": "High-intent evidence includes calls to 'fcn.1000b369' (KeServiceDescriptorTable access), 'fcn.1000b46f' (system-level modification), and 'fcn.100096ce' (NtQuerySystemInformation). The function 'fcn.1000c492' implements low-level memory operations (MmMapLockedPagesSpecifyCache) characteristic of kernel driver loading.",
+    "uncertainties": "While the kernel-mode interaction is confirmed, the specific primary payload (the actual malicious function) is likely decrypted and executed in memory from the modified resource 102.",
+    "conditions": "Requires administrative privileges to load/manipulate kernel drivers. Execution likely triggers a check for the 'prkMtx' mutex to prevent concurrent execution.",
+    "sandbox_recommendations": "Run in a kernel-aware sandbox capable of logging SSDT modifications and driver loading events. Set the system time to a standard date and simulate a typical user environment with active system processes."
+  },
+  "ioc": [
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for process synchronization and possibly anti-analysis."
+        },
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used to ensure single-instance execution."
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "DMWI",
+          "description": "Registry key/value used for persistence or configuration storage."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Resolves and accesses kernel addresses like KeServiceDescriptorTable."
+    },
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Performs system-level modifications, including unregistering windows classes."
+    },
+    {
+      "address": "0x1000c492",
+      "name": "fcn.1000c492",
+      "description": "Maps kernel memory and handles MDLs (Memory Descriptor Lists) for driver manipulation."
+    }
+  ]
+}

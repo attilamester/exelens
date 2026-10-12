@@ -1,0 +1,72 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample is a modular malware that installs a malicious driver ('usbmsg.sys') via registry persistence, establishes communication with a C2 server using a custom encrypted protocol, and performs process injection/monitoring.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code appears to be compiled C++ with significant manual assembly optimizations and custom obfuscation loops, but it is not packed."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence via Service Installation",
+      "description": "Modifies Windows Registry to register a new system service (e.g., 'usbmsg') and points to an image path for auto-execution."
+    },
+    {
+      "name": "Network Communication (Custom Protocol)",
+      "description": "Utilizes Winsock (ws2_32.dll) to initiate network connections and uses a custom packet encryption/decryption routine (fcn.1000d860)."
+    },
+    {
+      "name": "Process Injection/Monitoring",
+      "description": "Uses ToolHelp32 APIs to enumerate processes and injects or manipulates them via CreateProcess and other handle-based operations."
+    },
+    {
+      "name": "System Data Exfiltration",
+      "description": "Collects system information (username, computer name, processor info) and exfiltrates it."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistent driver installation, dynamic API resolution for networking (ws2_32.dll), and the presence of clearly identified malicious functions like 'usbmsg.sys' deployment, high-intent Registry modification, and process injection confirms malicious intent. It acts as a backdoor/spyware.",
+    "general": "High-intent malicious evidence is found in: fcn.100034d0 (RVA 0x100034d0) which modifies Registry keys for services; fcn.10004160 (RVA 0x10004160) which writes a driver file to the system directory and sets its file time; and fcn.10008d80 which initiates network communication using socket APIs.",
+    "uncertainties": "While the functionality is clear, the exact destination IP/Domain is dynamically constructed/decrypted and not visible as a plain string in the static analysis.",
+    "conditions": "Execution is likely triggered by its registration as a system service or its invocation via the 'maintest' entry point. The presence of 'Lscsvc.dll' and 'usbmsg.sys' suggests it expects these files to be present or created.",
+    "sandbox_recommendations": "Ensure that the sandbox supports monitoring Registry modifications on HKLM\\System\\CurrentControlSet\\Services. Monitor for new files being created in System32\\drivers."
+  },
+  "ioc": [
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "C:\\Windows\\System32\\drivers\\usbmsg.sys",
+          "description": "Target path for the installed malicious driver."
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\usbmsg",
+          "description": "Registry path used for persistence."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100034d0",
+      "name": "fcn.100034d0",
+      "description": "Handles service registration and registry modifications for persistence."
+    },
+    {
+      "address": "0x10004160",
+      "name": "fcn.10004160",
+      "description": "Performs file system operations to install the malicious driver."
+    },
+    {
+      "address": "0x10008d80",
+      "name": "fcn.10008d80",
+      "description": "Initializes network-related structures and C2 connectivity logic."
+    }
+  ]
+}

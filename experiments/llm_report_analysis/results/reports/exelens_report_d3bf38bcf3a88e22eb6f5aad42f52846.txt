@@ -1,0 +1,68 @@
+{
+  "verdict": "inconclusive",
+  "confidence": "low",
+  "summary": "The sample is a highly obfuscated, multi-layered packer that uses a complex, non-standard custom runtime-unpacking routine to transfer control to an encrypted payload. The entrypoint redirects to a highly metamorphic routine that performs continuous environment checks and code decryption at runtime.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "UPX",
+      "Custom metamorphic unpacking routine",
+      "Control flow flattening",
+      "Self-modifying code"
+    ],
+    "details": "The file exhibits clear signs of heavy packing. The section '.UPX1' has an entropy of 7.93, suggesting encrypted or compressed data. The entrypoint at 0x100edd09 immediately jumps to a routine that performs complex register manipulations, stack pivoting (e.g., 'lea esp, [esp + 0x2c]'), and calls to other highly obfuscated functions ('fcn.10110ffd')."
+  },
+  "capabilities": [
+    {
+      "name": "Self-Unpacking / Loader",
+      "description": "The presence of sections like .UPX0/.UPX1, high entropy in .UPX1, and the entrypoint's immediate jump to complex runtime-decryption logic identifies it as a loader."
+    },
+    {
+      "name": "Anti-Analysis / Anti-Debugging",
+      "description": "Numerous instructions involving 'pushfd', 'popfd', 'cpuid', and calls to functions that perform environment checks, suggest anti-debugging and anti-VM capabilities."
+    },
+    {
+      "name": "Dynamic API Resolution",
+      "description": "The presence of a small import table (KERNEL32, Uniscribe) coupled with deep, obfuscated recursive calls (fcn.1013...) strongly indicates that the code dynamically resolves needed API functions at runtime."
+    }
+  ],
+  "details": {
+    "reasoning": "The sample is essentially a loader. The visible code is almost exclusively dedicated to decrypting, relocating, and executing a secondary payload. Due to the high level of metamorphic code and control flow flattening, it is impossible to determine the maliciousness of the final payload from the static analysis of the loader alone. The default classification is INCONCLUSIVE because no definitive high-intent malicious indicator (like specific process injection or C2 communication) can be confirmed in the provided execution path.",
+    "general": "Evidence of a loader includes the entropy of section .UPX1 (7.93) and the entrypoint's jump to 'fcn.10110ffd' which initializes a complex, iterative decryption sequence. The code contains patterns typical of protection software, such as 'cpuid' and 'pushfd' used in anti-VM/anti-debugging checks throughout 'fcn.1013e3ca' and 'fcn.1013e082'.",
+    "uncertainties": "The extreme degree of code obfuscation and metamorphic instruction generation makes it impossible to trace the full logic flow, meaning potential malicious behaviors may exist in the branches not taken during the hypothetical execution flow.",
+    "conditions": "The execution depends on a successful self-decryption loop. If environment checks (anti-VM/anti-debug) fail, the code is designed to jump to dummy routines or hang, preventing the extraction of the real payload.",
+    "sandbox_recommendations": "Use a hardened environment that is not detectable as a VM. Ensure the system time is set to a common recent date. Monitor for process creation or memory allocation patterns if the loader attempts to execute an extracted payload."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "PerfectWorld",
+          "description": "String reference found in Uniscribe.dll imports; possibly related to a specific product or obfuscation string."
+        },
+        {
+          "value": "ServiceMain",
+          "description": "String import; indicates potential service-based execution."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100f74d3",
+      "name": "fcn.100f74d3",
+      "description": "Highly complex routine with deep nesting, likely a central point for payload management or decryption."
+    },
+    {
+      "address": "0x1013e3ca",
+      "name": "fcn.1013e3ca",
+      "description": "Routine containing 'cpuid' instruction, indicative of hardware-based environment/anti-VM checks."
+    },
+    {
+      "address": "0x10134d14",
+      "name": "fcn.10134d14",
+      "description": "Large, complex function likely handling core unpacking logic."
+    }
+  ]
+}

@@ -1,0 +1,91 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable extracts encrypted resource data (IDR_ICOFILE2) into a temporary file on the disk, utilizing custom XOR-based decryption and a mutex to ensure single-instance execution. It targets files with specific naming conventions (including 'DaumCleans.exe') and uses file manipulation APIs to perform its operations.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based decryption of resource data"
+    ],
+    "details": "The application contains an encrypted payload within the .rsrc section (IDR_ICOFILE2). Function 0x00401310 performs XOR-based decryption on this resource data before writing it to a file."
+  },
+  "capabilities": [
+    {
+      "name": "Resource Extraction",
+      "description": "Uses FindResource, LoadResource, and LockResource to access embedded data."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Uses CreateFile, WriteFile, MoveFile, and DeleteFile to manage temporary payloads."
+    },
+    {
+      "name": "Synchronization",
+      "description": "Uses CreateMutex to ensure only one instance of the process is active."
+    },
+    {
+      "name": "String/Path Processing",
+      "description": "Manipulates file paths, including environment-specific paths like _tmp_ and _temp_."
+    }
+  ],
+  "details": {
+    "reasoning": "The application performs non-standard operations for a utility executable. It decrypts a large embedded resource (77KB) using a custom XOR routine and writes the result to a temporary file, while actively checking for and manipulating files associated with 'DaumCleans.exe'. The use of CreateMutex to limit execution and the deliberate renaming/moving of temporary files is characteristic of a dropper or loader mechanism rather than a standard resource or icon utility.",
+    "general": "The function 0x00401390 orchestrates the decryption of the resource IDR_ICOFILE2 using the XOR loop in 0x00401310. The main function 0x004016a0 creates a mutex 'mark01' to restrict execution. File manipulation targeting 'DaumCleans.exe' is explicitly handled in fcn.004014b0.",
+    "uncertainties": "The exact function of the decrypted binary (the extracted file) cannot be determined without runtime monitoring of the file dropped to the temp directory.",
+    "conditions": "The code requires the presence of resources and specifically executes its payload-dropping logic when the environment allows writing to temp folders and interacting with the file system.",
+    "sandbox_recommendations": "Monitor file system activity in the %TEMP% directory. Observe the content written to the file created via fcn.00401390/fcn.00401630. Intercept the call to MoveFileA to see where the decrypted payload is ultimately relocated."
+  },
+  "ioc": [
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "mark01",
+          "description": "Mutex name used for single-instance check"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "c:\\tmp\\",
+          "description": "Temporary directory target"
+        },
+        {
+          "value": "c:\\temp\\",
+          "description": "Temporary directory target"
+        },
+        {
+          "value": "c:\\intel\\",
+          "description": "Temporary directory target"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "DaumCleans.exe",
+          "description": "Targeted filename or process string"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401310",
+      "name": "fcn.00401310",
+      "description": "Custom XOR decryption routine for embedded resources"
+    },
+    {
+      "address": "0x00401390",
+      "name": "fcn.00401390",
+      "description": "Orchestrates decryption and file creation from embedded resources"
+    },
+    {
+      "address": "0x004014b0",
+      "name": "fcn.004014b0",
+      "description": "Logic for string manipulation targeting specific filenames"
+    }
+  ]
+}

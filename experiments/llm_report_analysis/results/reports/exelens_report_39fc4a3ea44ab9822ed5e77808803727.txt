@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a persistent backdoor that gathers system and network information, exfiltrates this data to a remote server, and establishes persistence via registry keys.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed; however, it uses string obfuscation and custom XOR transformation routines for network communication."
+  },
+  "capabilities": [
+    {
+      "name": "Data Exfiltration/C2",
+      "description": "Utilizes WININET.dll (HttpOpenRequestA, HttpSendRequestA) to communicate with a remote server."
+    },
+    {
+      "name": "Persistence",
+      "description": "Registers itself in the Windows startup registry key (SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run)."
+    },
+    {
+      "name": "System Profiling",
+      "description": "Gathers hardware IDs, username, computer name, and network adapter info."
+    },
+    {
+      "name": "Process Injection/Execution",
+      "description": "Uses CreateProcessA to spawn processes and execute commands."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistent registry modification, systematic collection of PII (username, machine name, processor ID), and unsolicited C2 network communication via standard HTTP APIs indicates malicious intent consistent with a backdoor/spyware, rather than legitimate software functionality.",
+    "general": "High-intent evidence includes fcn.00401f90 (writing to Windows\\CurrentVersion\\Run), fcn.00402e40 (C2 communication loop), and fcn.00402db0 (calling CreateProcessA), alongside the clear data-gathering routine in fcn.00402c90.",
+    "uncertainties": "The exact C2 destination URL is obfuscated via an XOR transformation (fcn.004030a0), so the specific endpoint is not visible without runtime decryption.",
+    "conditions": "The malware checks for a running instance using a Mutex (e.g., 'sfmntcr.exe' and others). Execution of the main payload requires a successful connection to the C2 and proper environment variable setup via DoEnvironmentSubstA.",
+    "sandbox_recommendations": "Provide an active Internet connection to allow the C2 communication to proceed. Use a tool to intercept network traffic and monitor registry access to HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Registry key used for persistence."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "%APPDATA%\\MicrosoftIME",
+          "description": "Directory created for storage."
+        },
+        {
+          "value": "PHIME2002A.exe",
+          "description": "File name observed in copy/execution operations."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401f90",
+      "name": "fcn.00401f90",
+      "description": "Establishes persistence by modifying registry Run keys."
+    },
+    {
+      "address": "0x00402e40",
+      "name": "fcn.00402e40",
+      "description": "Implements HTTP-based C2 communication logic."
+    },
+    {
+      "address": "0x00402db0",
+      "name": "fcn.00402db0",
+      "description": "Wrapper for process creation/execution."
+    }
+  ]
+}

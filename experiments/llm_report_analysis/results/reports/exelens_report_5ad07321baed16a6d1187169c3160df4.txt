@@ -1,0 +1,89 @@
+{
+  "verdict": "benign",
+  "confidence": "high",
+  "summary": "The executable is a resource dropper/installer for 'DaumCleans.exe'. It extracts icons/payloads from its resource section (IDR_ICOFILE1/2), writes them to a temporary directory ('C:\\temp', 'C:\\intel', etc.), and executes them using ShellExecuteEx. It utilizes basic thread management and mutexes for single-instance control.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed. The entropy of the .text section is low (5.08), and the function control flow is straightforward, following standard MSVC startup and resource handling routines."
+  },
+  "capabilities": [
+    {
+      "name": "Resource Extraction",
+      "description": "Reads embedded icons and payload data from the .rsrc section using FindResource/LoadResource."
+    },
+    {
+      "name": "File System Operations",
+      "description": "Creates temporary directories and files using CreateDirectoryA and CreateFileA."
+    },
+    {
+      "name": "Process Execution",
+      "description": "Spawns child processes using ShellExecuteExA/ShellExecuteA."
+    },
+    {
+      "name": "Mutex Creation",
+      "description": "Uses CreateMutexA to ensure a single instance of the application is running."
+    }
+  ],
+  "details": {
+    "reasoning": "The application exhibits standard behavior for an installer or a self-extracting archive. It uses Windows API functions (CreateFile, ShellExecute, FindResource) to drop files from its resource section to a temp folder and launch them. The presence of 'DaumCleans.exe' strings and icon resources indicates it is managing an external application. No malicious intent, such as process injection, network exfiltration, or persistence, is observed in the disassembly.",
+    "general": "The function fcn.00401600 explicitly calls ShellExecuteExA, and fcn.004014c0/fcn.00401290 handle the extraction of resources (IDR_ICOFILE1/2) to disk. Mutex usage is standard ('mark01').",
+    "uncertainties": "No significant uncertainties. The code follows standard patterns for an installer/wrapper.",
+    "conditions": "The program checks for an existing instance via a mutex named 'mark01'. If already running, it exits. It relies on standard environment variables (COMSPEC) to determine temporary path locations.",
+    "sandbox_recommendations": "Provide write access to the C:\\ directory or ensure C:\\temp exists. The sample should be run without an existing 'mark01' mutex."
+  },
+  "ioc": [
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "C:\\temp",
+          "description": "Target directory for dropped files."
+        },
+        {
+          "value": "C:\\intel",
+          "description": "Target directory for dropped files."
+        },
+        {
+          "value": "C:\\tmp",
+          "description": "Target directory for dropped files."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "DaumCleans.exe",
+          "description": "Name of the dropped/executed file."
+        },
+        {
+          "value": "mark01",
+          "description": "Mutex name."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401000",
+      "name": "main",
+      "description": "Application entry point; initiates single-instance check (mutex)."
+    },
+    {
+      "address": "0x00401600",
+      "name": "fcn.00401600",
+      "description": "Handles process execution via ShellExecuteExA and priority management."
+    },
+    {
+      "address": "0x004014c0",
+      "name": "fcn.004014c0",
+      "description": "Extracts binary resource (IDR_ICOFILE2) to disk."
+    },
+    {
+      "address": "0x00401290",
+      "name": "fcn.00401290",
+      "description": "Extracts binary resource (IDR_ICOFILE1) to disk."
+    }
+  ]
+}

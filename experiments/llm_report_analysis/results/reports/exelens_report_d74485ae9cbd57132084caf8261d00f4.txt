@@ -1,0 +1,74 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a kernel-mode rootkit component that attempts to disable system monitoring and security mechanisms. It performs process enumeration, hooks system calls, and modifies kernel structures to evade detection.",
+  "packed": {
+    "status": "false",
+    "techniques": [
+      "String Obfuscation via custom byte-level XOR routines",
+      "Dynamic API Resolution (GetProcAddress/LoadLibrary)"
+    ],
+    "details": "The binary is not packed, but it heavily relies on dynamic API resolution and custom, multi-stage XOR decryption loops to hide its functional strings and kernel-related API targets."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-Mode Rootkit Behavior",
+      "description": "Uses undocumented kernel functions (NtQuerySystemInformation, NtQueryObject) and interacts with kernel structures to enumerate processes and monitor system activity."
+    },
+    {
+      "name": "Kernel Hooking/Modification",
+      "description": "Locates KeServiceDescriptorTable and attempts to modify system call tables (SSDT) or related kernel memory structures."
+    },
+    {
+      "name": "Persistence and Evasion",
+      "description": "Interacts with security-related registry keys and attempts to modify system file attributes to hide its presence."
+    },
+    {
+      "name": "Process Injection/System Threading",
+      "description": "Creates processes and threads; includes code to locate and manipulate the environment for kernel-level operations."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of specific capabilities—targeting the KeServiceDescriptorTable, using NtQuerySystemInformation, and attempting to modify system registry keys associated with security—constitutes clear evidence of malicious intent. These actions are not representative of standard system software or installers and demonstrate a clear goal of system compromise at the rootkit level.",
+    "general": "High-intent indicators include: fcn.1000ab6f and fcn.1000b46f, which target KeServiceDescriptorTable; fcn.1000c932, which uses NtQuerySystemInformation; and the explicit presence of string references like 'KeRaiseIrqlToDpcLevel' and 'KeServiceDescriptorTable' in the binary's code space.",
+    "uncertainties": "The sample contains complex code paths for environment-specific kernel versions (e.g., checks for 'win32k.sys' or 'ntkrnlpa.exe'). While some paths may not trigger on every Windows version, the intent is clearly present throughout.",
+    "conditions": "The payload executes its primary kernel-hooking routines when run with sufficient privileges (required to access kernel structures/drivers) and after completing environment validation checks (verifying the Windows kernel version).",
+    "sandbox_recommendations": "Run in a controlled, isolated kernel-debugging environment. Do not execute on a standard host. Use Process Monitor to track registry operations on HKLM and attempt to intercept calls to NtQuerySystemInformation."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "KeServiceDescriptorTable",
+          "description": "Target of rootkit hooking."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Likely mutex name used for single-instance enforcement."
+        },
+        {
+          "value": "win32k.sys",
+          "description": "Target system file for modification/hooking."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Primary function targeting SSDT and system service dispatch tables."
+    },
+    {
+      "address": "0x1000c932",
+      "name": "fcn.1000c932",
+      "description": "Wrapper function used to invoke NtQuerySystemInformation for process enumeration."
+    },
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Manages registry modifications related to system service configuration."
+    }
+  ]
+}

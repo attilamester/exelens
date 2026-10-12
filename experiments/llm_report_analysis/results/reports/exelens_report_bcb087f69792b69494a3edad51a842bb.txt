@@ -1,0 +1,83 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a downloader and service installer. It attempts to register itself as a Windows service named 'dlserver', connects to a hard-coded IP address (10.166.1.182:8080) to download remote payloads, and uses XOR-based obfuscation to decrypt downloaded content before executing or processing it.",
+  "packed": {
+    "status": "false",
+    "techniques": [
+      "Custom XOR-based obfuscation/decryption"
+    ],
+    "details": "The file uses a custom XOR decryption routine visible in fcn.00401cd0 and fcn.00401770, used to process files read from disk. It is not packed with a standard packer."
+  },
+  "capabilities": [
+    {
+      "name": "Network Communication",
+      "description": "Uses WININET.dll (InternetOpenA, InternetOpenUrlA) to download data from a remote server."
+    },
+    {
+      "name": "Persistence",
+      "description": "Uses ADVAPI32.dll (CreateServiceA, StartServiceA) to install the executable as a Windows service."
+    },
+    {
+      "name": "File Manipulation",
+      "description": "Downloads files, saves them to temp directories, and deletes files using KERNEL32.dll_DeleteFileA."
+    },
+    {
+      "name": "Data Obfuscation",
+      "description": "Uses XOR-based decoding (e.g., in fcn.00401cd0) to process configuration data or downloaded payloads."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of service creation for persistence, remote network communication with a hard-coded IP, and routines to download, decrypt, and manipulate files strongly indicates malicious intent. This behavior is consistent with a dropper or downloader Trojan.",
+    "general": "The function fcn.00401e50 contains the service registration logic (CreateServiceA, StartServiceA). fcn.00401a10 performs network communication to '10.166.1.182:8080'. The routine at 0x401cd0 implements XOR decryption on downloaded files.",
+    "uncertainties": "The exact nature of the final payload downloaded is unknown as it is fetched at runtime; the current analysis only covers the downloader logic.",
+    "conditions": "The malware checks for an existing service 'dlserver' and attempts to control or start it. It likely requires network access to the specified IP for the downloader loop to function.",
+    "sandbox_recommendations": "Provide an emulated network environment that resolves the IP 10.166.1.182. Monitor for service installation attempts and observe the creation of files in the temporary directory."
+  },
+  "ioc": [
+    {
+      "type": "ip",
+      "values": [
+        {
+          "value": "10.166.1.182:8080",
+          "description": "Command and control or download server"
+        }
+      ]
+    },
+    {
+      "type": "registry/service",
+      "values": [
+        {
+          "value": "dlserver",
+          "description": "Name of the Windows service created for persistence"
+        }
+      ]
+    },
+    {
+      "type": "url",
+      "values": [
+        {
+          "value": "Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 5.1; Trident/4.0)",
+          "description": "User-Agent string used for network requests"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401e50",
+      "name": "fcn.00401e50",
+      "description": "Primary service installation and control logic"
+    },
+    {
+      "address": "0x00401a10",
+      "name": "fcn.00401a10",
+      "description": "Network downloader routine"
+    },
+    {
+      "address": "0x00401cd0",
+      "name": "fcn.00401cd0",
+      "description": "XOR decryption routine for payload processing"
+    }
+  ]
+}

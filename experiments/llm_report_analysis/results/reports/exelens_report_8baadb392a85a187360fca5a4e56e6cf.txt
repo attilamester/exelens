@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The file is a kernel-mode driver/rootkit installer. It uses process injection, hooks low-level kernel functions (NtShutdownSystem, KeServiceDescriptorTable), and manipulates driver/system-file attributes to maintain persistence and evade detection.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation of resource data",
+      "Dynamic API resolution via GetProcAddress",
+      "Manual IAT reconstruction/import hiding"
+    ],
+    "details": "The sample contains resource data (e.g., resource 102) that is decrypted at runtime using a XOR loop (found in fcn.100015f7). It also performs extensive dynamic loading of system libraries and manual resolution of kernel-related functions."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Modifies system registry keys and copies malicious files to system folders to ensure execution upon reboot."
+    },
+    {
+      "name": "Kernel-mode Rootkit",
+      "description": "Attempts to hook kernel functions like NtShutdownSystem and manipulates the System Service Descriptor Table (SSDT)."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Includes checks for debuggers, uses mutexes to prevent multiple instances, and employs specific environmental checks to verify if it is running in a sandbox."
+    },
+    {
+      "name": "Privilege Escalation",
+      "description": "Uses token duplication (OpenProcessToken/DuplicateTokenEx) and checks SIDs to bypass UAC or gain elevated privileges."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode hooking (SSDT modification, IRP hooking), persistence in system directories via registry manipulation, and the use of rootkit-like techniques (hiding files/processes, kernel memory access) confirms malicious intent. While individual APIs like CreateThread or VirtualAlloc are dual-use, their application here in the context of kernel-level hooking and unauthorized modification of system files provides clear evidence of a malicious rootkit.",
+    "general": "High-intent indicators include: the use of 'KeServiceDescriptorTable' and 'NtShutdownSystem' for hooking (fcn.1000ab6f, fcn.1000b46f), and the use of 'DuplicateTokenEx' alongside 'LookupAccountSid' to manipulate security tokens for privilege elevation (fcn.1000788e, fcn.1000745e).",
+    "uncertainties": "The sample appears to be a multi-stage component. The exact nature of the final payload, which is likely stored in the decrypted resources, depends on the environment, which might limit the scope of observed behavior in a static analysis context.",
+    "conditions": "Execution is gated by the presence of a specific environment variable, the existence of specific registry keys (e.g., 'DMWI'), and a mutex check ('prkMtx') which may serve as a anti-sandbox/anti-analysis check. It also expects the system to be a Windows NT-based environment.",
+    "sandbox_recommendations": "The analyst should simulate a standard Windows environment, ensure the registry key 'DMWI' is not present before execution, and use a kernel-mode debugger (like WinDbg) to monitor the attempt to hook the SSDT."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\DMWI",
+          "description": "Service key used for persistence."
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used to prevent multiple instances."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex associated with kernel-mode synchronization."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Kernel-mode hook installer for NtShutdownSystem and SSDT."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Performs token manipulation and SID lookups for privilege escalation."
+    },
+    {
+      "address": "0x10004d5c",
+      "name": "fcn.10004d5c",
+      "description": "Primary payload decryption and kernel-mode injector."
+    }
+  ]
+}

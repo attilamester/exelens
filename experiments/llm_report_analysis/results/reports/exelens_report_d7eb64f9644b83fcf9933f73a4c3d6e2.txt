@@ -1,0 +1,85 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a malicious dropper or installer for a driver-related rootkit or system-level implant. It extracts an embedded payload from resources, checks the system architecture, and performs manual system service modifications (e.g., KeServiceDescriptorTable patching) to achieve persistence or evasion.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource-based payload storage",
+      "Manual API resolving via GetProcAddress",
+      "XOR-based payload decryption",
+      "Dynamic system service modification"
+    ],
+    "details": "The payload is embedded within resource section '102'. The code includes decryption logic (using a 0xcd key in `fcn.100015f7`) and attempts to manually resolve system functions like `NtQuerySystemInformation` and `KeServiceDescriptorTable` for kernel-mode operations."
+  },
+  "capabilities": [
+    {
+      "name": "Resource Decryption",
+      "description": "Decrypts embedded resources to extract a secondary payload."
+    },
+    {
+      "name": "Persistence via Registry",
+      "description": "Uses registry keys (e.g., 'DMWH') to maintain presence across reboots."
+    },
+    {
+      "name": "Driver/Kernel Manipulation",
+      "description": "Attempts to interact with ntoskrnl.exe and manipulate service tables."
+    },
+    {
+      "name": "Mutex-based Execution Control",
+      "description": "Uses global mutexes (e.g., 'GlobalRPCMutex', 'prkMtx') to ensure single execution."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent API usage (e.g., `KeServiceDescriptorTable` manipulation, `NtQuerySystemInformation`, `VirtualAlloc` for driver code, and registry modification) with anti-analysis routines like mutex checks and string obfuscation confirms malicious intent. This is clearly a sophisticated tool intended for unauthorized system modification, likely a rootkit installer.",
+    "general": "Specific evidence includes `fcn.1000b369` which directly targets the `KeServiceDescriptorTable` for hooking, and `fcn.10009d28` which performs driver-like operations including `RtlImageDirectoryEntryToData` and targeting `hal.dll`/`ntoskrnl.exe` functions.",
+    "uncertainties": "While the high-level intent is clear, the exact nature of the decrypted payload (the second stage) cannot be fully determined from the dropper's code alone. The impact of the truncated analysis is minimal for the overall verdict.",
+    "conditions": "The malware requires administrative privileges (necessary for `KeServiceDescriptorTable` modifications). It checks for environment variables and specific registry keys to trigger execution flow.",
+    "sandbox_recommendations": "Run in an environment that permits kernel-level debugging. Ensure the sandbox can monitor registry write operations and handle potential system-wide crashes (BSOD) caused by driver-level hooking attempts."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "DMWH",
+          "description": "Registry key used for persistence."
+        },
+        {
+          "value": "DMWI",
+          "description": "Registry key/value prefix used during operation."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used to detect concurrent instances."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for synchronization."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Modifies system service tables, indicative of rootkit behavior."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Resource decryption routine used to unpack the malicious payload."
+    },
+    {
+      "address": "0x10009d28",
+      "name": "fcn.10009d28",
+      "description": "Driver-level operation handler interacting with ntoskrnl.exe and hal.dll."
+    }
+  ]
+}

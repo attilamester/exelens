@@ -1,0 +1,75 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a downloader/dropper that performs environment reconnaissance (MAC address, registry keys), communicates with remote servers via HTTP (POST), and executes downloaded code through process injection using CreateProcess.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "String obfuscation via custom XOR/loop routine",
+      "API dynamic resolution"
+    ],
+    "details": "The overlay section (entropy 7.07) likely contains encrypted payload components. String decoding is performed by fcn.00401280, which is called throughout the code to resolve URLs, registry paths, and command-and-control markers."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "Uses CreateProcess (via dynamic resolution in fcn.00401370) to inject/execute payloads."
+    },
+    {
+      "name": "Persistence",
+      "description": "Adds its path to HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce."
+    },
+    {
+      "name": "Command & Control",
+      "description": "Performs HTTP POST requests to remote servers (InternetOpenA, InternetConnectA, HttpSendRequestA)."
+    },
+    {
+      "name": "Reconnaissance",
+      "description": "Collects MAC address (GetAdaptersInfo) and hardware identifier (registry keys: ProcessorNameString, Identifier)."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistence, network communication, hardware-based target profiling (MAC/CPU), and the presence of process injection routines (CreateProcess/GetThreadContext/WriteProcessMemory) confirms high-intent malicious behavior consistent with a modular downloader/backdoor.",
+    "general": "The function fcn.00401000 implements the HTTP C2 communication loop. fcn.00401370 dynamically resolves 'CreateProcess' from kernel32.dll to launch downloaded payloads. Persistence is established via RegCreateKeyExA in fcn.00401400 targeting the RunOnce registry key.",
+    "uncertainties": "The exact content of the payload downloaded from the C2 is not visible statically, but the mechanism for execution is clear.",
+    "conditions": "The execution requires a valid network connection to the hardcoded C2 servers or patterns, and it explicitly checks for environment strings like 'not_found' or specific CPU identifiers to decide whether to proceed.",
+    "sandbox_recommendations": "Simulate a live network environment with Internet access. Monitor registry keys under HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce and set process creation hooks for injected threads."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce",
+          "description": "Used for persistence"
+        },
+        {
+          "value": "HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0",
+          "description": "Used for system profiling"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401000",
+      "name": "fcn.00401000",
+      "description": "Implements HTTP communication (InternetOpenA, HttpSendRequestA, etc.)"
+    },
+    {
+      "address": "0x00401370",
+      "name": "fcn.00401370",
+      "description": "Dynamically resolves and invokes process execution functions"
+    },
+    {
+      "address": "0x00401400",
+      "name": "fcn.00401400",
+      "description": "Establishes persistence via registry"
+    },
+    {
+      "address": "0x00401280",
+      "name": "fcn.00401280",
+      "description": "String decryption/de-obfuscation routine"
+    }
+  ]
+}

@@ -1,0 +1,70 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple system-level capabilities, including kernel-mode API interaction (e.g., KeServiceDescriptorTable), service creation, registry manipulation, and file system modification, strongly indicating a rootkit-like or advanced persistent threat (APT) payload.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Custom XOR obfuscation (0xCD)",
+      "Resource-based payload hiding"
+    ],
+    "details": "The file uses RCDATA resources (101, 102, 103) and performs XOR decoding (0xCD) on loaded resources within functions like fcn.100015f7 and fcn.10001723."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode exploitation",
+      "description": "Attempts to resolve and modify system structures like KeServiceDescriptorTable (SSDT) to hook system calls."
+    },
+    {
+      "name": "Persistence & Evasion",
+      "description": "Creates system services, manipulates registry Run keys, and performs process environment checks."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Copies, deletes, and hides files, including system-critical files like win32k.sys."
+    }
+  ],
+  "details": {
+    "reasoning": "While the binary employs some legitimate capabilities (file copying, registry operations), the combination of SSDT hooking (KeServiceDescriptorTable), low-level memory modification (MmMapLockedPagesSpecifyCache), and the deliberate attempt to hide/modify system drivers (win32k.sys) is not characteristic of legitimate software. The presence of 'fanny.bmp' and 'Q:_____.lnk' alongside system-level hooks indicates the intent is to subvert operating system security features.",
+    "general": "High-intent evidence includes calls to KeServiceDescriptorTable (fcn.1000b369), MmBuildMdlForNonPagedPool (fcn.1000c492), and direct registry modifications aiming to load malicious components. Functions like fcn.1000d330 perform stack pivoting, a common anti-analysis technique.",
+    "uncertainties": "The exact nature of the decrypted resource payload is inferred from functional markers like IoAllocateMdl and KeGetCurrentIrql, which are hallmarks of malicious driver behavior.",
+    "conditions": "The payload requires administrative privileges to interact with system descriptors and drivers. It may also perform environment checks to verify if it is running in a target Windows environment (e.g., GetVersionExA checks).",
+    "sandbox_recommendations": "Run in a controlled Windows environment with kernel debugging enabled (WinDbg). Monitor registry write operations to HKLM\\SYSTEM\\CurrentControlSet\\Services and track all file system operations targeting %SYSTEMROOT%\\system32."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for synchronization."
+        },
+        {
+          "value": "KeServiceDescriptorTable",
+          "description": "System symbol targeted for hooking."
+        },
+        {
+          "value": "win32k.sys",
+          "description": "System driver targeted for modification."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "SSDT hooking routine."
+    },
+    {
+      "address": "0x1000c492",
+      "name": "fcn.1000c492",
+      "description": "Memory descriptor list (MDL) manipulation for kernel memory access."
+    },
+    {
+      "address": "0x10009d28",
+      "name": "fcn.10009d28",
+      "description": "Kernel-mode IRQL and driver processing routine."
+    }
+  ]
+}

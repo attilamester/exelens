@@ -1,0 +1,88 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to perform registry-based persistence, file system manipulation, and potential kernel-mode interaction via driver loading or communication. It uses resource-based packing and mutex checks for anti-re-execution.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource-based unpacking (FindResourceA/LoadResource/LockResource)",
+      "Simple XOR obfuscation for resources"
+    ],
+    "details": "The entrypoint (entry0) initializes the program environment, while functions like fcn.100015f7 retrieve XOR-encoded data (XOR key 0xcd) from RCDATA resources and store/execute the resulting file. Sections .rsrc and .text have high entropy (6.38 and 6.20 respectively), suggesting encrypted or compressed payloads."
+  },
+  "capabilities": [
+    {
+      "name": "Process Persistence",
+      "description": "Writes registry keys to ensure execution on system startup."
+    },
+    {
+      "name": "File System Modification",
+      "description": "Copies, deletes, and modifies attributes of system files, targeting directories like _system32."
+    },
+    {
+      "name": "Kernel-Level Interaction",
+      "description": "Uses APIs like NtQuerySystemInformation, NtQueryObject, and interacts with ntoskrnl.exe/hal.dll, suggesting rootkit-like or driver-loading behavior."
+    },
+    {
+      "name": "Mutex Creation",
+      "description": "Creates a mutex (e.g., 'GlobalRPCMutex', 'prkMtx') to prevent multiple concurrent instances of the malicious process."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistent registry modifications, stealthy file system manipulation (copying to _system32), and direct attempts to communicate with kernel-level interfaces (ntoskrnl, NtQuerySystemInformation) provides clear evidence of malicious intent. This behavior goes beyond standard software installation, as it attempts to subvert system integrity by manipulating kernel objects and system drivers.",
+    "general": "High-intent indicators include the use of ADVAPI32 functions to query and write to registry keys, the interaction with kernel-mode APIs (NtQuerySystemInformation, NtQueryObject), and the use of 'GlobalRPCMutex' to ensure only one instance runs. The code in fcn.1000b46f and fcn.1000ab6f suggests active tampering with system structures.",
+    "uncertainties": "While the code contains clear indications of rootkit-like activity and persistence, the complete payload is partially obscured by the initial XOR-based resource decoding. The exact target system version/OS details might influence which branches of the kernel-interaction code (fcn.100082ce) are executed.",
+    "conditions": "The malware checks for a mutex 'prkMtx' and specific environment variables like 'system32'. It is highly sensitive to the operating system version and attempts to identify specific kernel service descriptors to hook them.",
+    "sandbox_recommendations": "Simulate a Windows environment with system-level access. Monitor registry 'Run' keys and observe any activity in 'C:\\Windows\\System32'. Monitor for new driver loads or modifications to existing system files."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "DMWH",
+          "description": "Registry key used for potential configuration or persistence"
+        },
+        {
+          "value": "DMWI",
+          "description": "Registry key/data identifier used in persistence mechanism"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used to enforce single instance"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Another mutex used for synchronization"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000d41b",
+      "name": "entry0",
+      "description": "Main entrypoint responsible for initializing internal structures."
+    },
+    {
+      "address": "0x10002109",
+      "name": "fcn.10002109",
+      "description": "Performs persistence checks and mutex creation."
+    },
+    {
+      "address": "0x1000b73a",
+      "name": "fcn.1000b73a",
+      "description": "Handles kernel-mode interaction and system manipulation."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Drops and executes secondary malicious payloads."
+    }
+  ]
+}

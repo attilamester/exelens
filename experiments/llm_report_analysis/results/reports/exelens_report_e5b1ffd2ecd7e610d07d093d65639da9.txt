@@ -1,0 +1,47 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains a large overlay (approx. 500KB) and performs file extraction, reading data from its own body at a specific offset (0x1800) and writing it to a temporary file in the system temp directory, which is subsequently executed via WinExec.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Overlay-based payload delivery"
+    ],
+    "details": "The file contains a large overlay (504,320 bytes, entropy 6.47) that holds the actual payload. The entrypoint routine extracts this data by opening its own file path, seeking to 0x1800, reading chunks, and writing them to a dynamically generated temporary file."
+  },
+  "capabilities": [
+    {
+      "name": "File Extraction/Dropper",
+      "description": "Reads data from the executable's own overlay and writes it to a temporary file on disk."
+    },
+    {
+      "name": "Process Execution",
+      "description": "Uses WinExec to run the newly dropped temporary file."
+    }
+  ],
+  "details": {
+    "reasoning": "While installers often extract files to a temp directory, the combination of a high-entropy large overlay, an explicit jump to an internal offset (0x1800), and immediate execution via WinExec without any user-facing UI or manifest-driven installation logic is indicative of a malicious dropper/loader rather than a standard application installer.",
+    "general": "The function entry0 explicitly opens its own file (GetModuleFileNameA), calls SetFilePointer to 0x1800, and loops with ReadFile/WriteFile to drop a payload to a path returned by GetTempFileNameA, followed by an immediate call to WinExec on that temporary file.",
+    "uncertainties": "The exact nature of the dropped payload is unknown as it resides in the overlay, but its behavior of extracting and executing internal data is inherently suspicious.",
+    "conditions": "The file must be able to read its own path on disk to extract the payload from the overlay; it likely requires sufficient permissions in the temporary directory.",
+    "sandbox_recommendations": "Monitor file system activity for the creation of files in the %TEMP% directory and intercept the execution triggered by WinExec."
+  },
+  "ioc": [
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "%TEMP%\\*",
+          "description": "The target directory for the dropped executable payload."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001000",
+      "name": "entry0",
+      "description": "Main routine responsible for extracting the overlay payload and launching it via WinExec."
+    }
+  ]
+}

@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a persistence mechanism and potential rootkit/driver loader. It checks for system environment variables, manipulates registry keys, and performs process-level operations using NtQuerySystemInformation and NtQueryObject. It incorporates code patterns consistent with anti-analysis and kernel-level interaction.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based encoding of resources",
+      "Dynamic API resolution via LdrGetProcedureAddress and GetProcAddress"
+    ],
+    "details": "Resources containing configuration data and driver paths are decoded using a simple 0xCD XOR loop (found in fcn.10001723 and fcn.10001697)."
+  },
+  "capabilities": [
+    {
+      "name": "Process/Driver Interaction",
+      "description": "Utilizes NtQuerySystemInformation, NtQueryObject, and direct memory manipulation (NtQuerySystemInformation, NtQueryObject) to inspect system state."
+    },
+    {
+      "name": "Persistence",
+      "description": "Manipulates registry keys (ADVAPI32.dll_RegCreateKeyExA, RegSetValueExA) to ensure execution."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Uses IsDebuggerPresent-like checks and environmental variable checks (system32 path validation) to thwart detection."
+    },
+    {
+      "name": "Mutex-based synchronization",
+      "description": "Uses mutexes (GlobalRPCMutex, prkMtx) to ensure single-instance execution and avoid collisions."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level API usage (NtQuerySystemInformation, NtQueryObject, KeServiceDescriptorTable manipulation), registry persistence, and anti-analysis gates clearly exceeds legitimate dual-use functionality. The binary appears to be a sophisticated persistence tool or driver loader that specifically targets kernel structures to hide its presence and maintain control.",
+    "general": "Specific high-intent evidence includes calls to ADVAPI32.dll_RegSetValueExA in fcn.10001000 and fcn.100017a0, and the manual manipulation of kernel-level descriptors in fcn.1000b369 (KeServiceDescriptorTable). The function fcn.10009d28 explicitly probes and modifies kernel structures, which is characteristic of rootkit behavior.",
+    "uncertainties": "The exact nature of the payload inside the UNKNOWN resources remains partially opaque, though the decoded assembly confirms it is a driver-loading routine. The exact interaction with the kernel requires a live environment to fully map.",
+    "conditions": "The sample performs environmental checks: it verifies the presence of 'system32' in the environment variables and checks for the existence of specific mutexes (GlobalRPCMutex, prkMtx). It may require specific registry paths to be present on the host to proceed.",
+    "sandbox_recommendations": "The sample should be executed in a Windows 10/11 environment with monitoring enabled for registry keys and file system operations. Simulating a 'system' environment with standard user folders (specifically system32) will be required to trigger the main logic branch."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Registry key targeted for persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for system synchronization."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Manipulates the system call service descriptor table (KeServiceDescriptorTable)."
+    },
+    {
+      "address": "0x10009d28",
+      "name": "fcn.10009d28",
+      "description": "Performs driver-level memory and structure modification."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Registry modification and persistence routine."
+    }
+  ]
+}

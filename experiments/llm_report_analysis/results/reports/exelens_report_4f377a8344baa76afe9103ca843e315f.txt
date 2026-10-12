@@ -1,0 +1,75 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample exhibits typical trojan/downloader behavior: it establishes persistence via the registry, performs environmental checks (computer name, adapters info), and communicates with a C2 server via HTTP to download and potentially execute secondary payloads.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based string/data obfuscation",
+      "Dynamic API resolution (GetProcAddress/GetModuleHandleA)"
+    ],
+    "details": "The file contains a significant overlay (entropy 7.10) and uses multiple XOR routines (fcn.00401280) to deobfuscate configuration strings and network parameters at runtime."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Writes to the RunOnce registry key (fcn.00401400) to ensure execution on system startup."
+    },
+    {
+      "name": "Network Communication",
+      "description": "Uses WININET to send POST requests (fcn.00401000) for C2 communication."
+    },
+    {
+      "name": "Information Gathering",
+      "description": "Collects system information including adapter details (iphlpapi.dll_GetAdaptersInfo) and registry-based processor/identifier strings."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistence installation (RegCreateKeyExA + RunOnce), environmental fingerprinting (GetAdaptersInfo, processor strings), and encrypted C2 communication (WININET, XORed command processing) clearly indicates malicious intent. While individual functions like GetAdaptersInfo are dual-use, their orchestration here to identify the host and retrieve remote instructions is characteristic of malware.",
+    "general": "High-intent malicious activity is evidenced in fcn.00401000 (HTTP communication via InternetOpenA/HttpSendRequestA) and fcn.00401400 (registry manipulation at SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce). The routine fcn.00401e30 performs file deletions and writes, consistent with payload staging.",
+    "uncertainties": "The exact content of the payload downloaded from the C2 server is unknown, as it is retrieved dynamically at runtime.",
+    "conditions": "The malware requires an active internet connection and will terminate if specific environment checks (like host identification or file existence) fail. It also includes a timing delay (sub.MSVCRT.dll__sleep) to evade initial sandbox analysis.",
+    "sandbox_recommendations": "Simulate a live internet connection with access to the specified C2 infrastructure. Use an automated monitoring tool to track registry modifications in 'RunOnce' and file system changes in the temp directory."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce",
+          "description": "Registry key used for persistence."
+        },
+        {
+          "value": "HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0",
+          "description": "Registry key queried for system fingerprinting."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "kernel32.dll",
+          "description": "System DLL loaded for function resolution."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401fa0",
+      "name": "main",
+      "description": "Primary entry point; orchestrates persistence, environment setup, and C2 communication."
+    },
+    {
+      "address": "0x00401000",
+      "name": "fcn.00401000",
+      "description": "Handles C2 communication using WININET APIs for HTTP POST requests."
+    },
+    {
+      "address": "0x00401400",
+      "name": "fcn.00401400",
+      "description": "Establishes persistence by writing to the RunOnce registry key."
+    }
+  ]
+}

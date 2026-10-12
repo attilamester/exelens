@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a sophisticated dropper that unpacks a malicious payload, employs anti-analysis techniques (kernel-mode driver manipulation), establishes persistence via registry keys, and performs process hollowing or injection to execute its core functionality.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR decryption",
+      "Resource-based payload hiding"
+    ],
+    "details": "The file uses FindResourceA/LoadResource and a custom byte-wise XOR loop (0xCD) in fcn.100015f7 to decrypt its primary executable content from resources."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "Utilizes CreateProcessA and writes files/code into system-sensitive locations."
+    },
+    {
+      "name": "Persistence",
+      "description": "Extensive use of Registry operations (RegCreateKeyExA, RegSetValueExA) to manipulate system configurations."
+    },
+    {
+      "name": "Anti-Analysis / Kernel Manipulation",
+      "description": "Contains complex code referencing 'ntkrnlpa.exe', 'KeServiceDescriptorTable', and 'NtQuerySystemInformation', suggesting an attempt to hide or manipulate kernel-level structures."
+    },
+    {
+      "name": "Mutex usage",
+      "description": "Creates system-wide mutexes (GlobalRPCMutex, prkMtx) to prevent concurrent execution or signify active infections."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level structure modification (fcn.1000b369 accessing KeServiceDescriptorTable), registry persistence, and the usage of hidden resources that are decrypted at runtime (fcn.100015f7) is characteristic of a malicious rootkit/dropper. The presence of functions interacting with system kernel drivers (NtQuerySystemInformation, NtQueryObject) explicitly moves the intent beyond standard installer functionality.",
+    "general": "High-intent evidence found in fcn.1000b369 (manipulating KeServiceDescriptorTable), fcn.10001b34 (dropping file and creating a process), and fcn.100028d6/fcn.10007f49 (modifying Run/Registry keys for persistence).",
+    "uncertainties": "The exact nature of the final injected payload remains obscured by the runtime decryption, but its interaction with kernel tables strongly indicates high-threat activity.",
+    "conditions": "The malware checks for administrative privileges via token information (fcn.100071d7) and may require specific registry keys or environment variables (SystemDirectory) to be present to avoid crashing or early exit.",
+    "sandbox_recommendations": "Use a fully instrumented kernel-aware sandbox. Ensure the environment simulates a Windows system with active registry keys for common user software to trigger the registry-based persistence logic."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Likely persistence path targeted by registry manipulation functions"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used to ensure single-instance execution"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name related to kernel or process-level synchronization"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Decrypts and extracts payload from resources using XOR 0xCD"
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Drops an external payload and launches it via CreateProcessA"
+    },
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Attempts to locate and hook system service descriptor tables (SSDT)"
+    }
+  ]
+}

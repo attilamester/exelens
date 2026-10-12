@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This sample acts as a kernel-mode rootkit component or installer, performing system-level hooks and registry modifications to maintain persistence. It attempts to load its payload from resources, decrypt it, and interact with low-level Windows kernel structures.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR decryption",
+      "Resource-based payload hiding"
+    ],
+    "details": "The file contains a large RCDATA resource (106KB) that is decrypted at runtime using an XOR operation with 0xCD. This decrypted data is likely an executable payload or a driver."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode interaction",
+      "description": "Attempts to interact with ntkrnlpa.exe/ntoskrnl.exe and modifies system call tables (KeServiceDescriptorTable)."
+    },
+    {
+      "name": "Registry Persistence",
+      "description": "Extensively modifies registry keys in the `SYSTEM` hive (often HKLM\\System\\CurrentControlSet\\Services) to achieve stealth and persistence."
+    },
+    {
+      "name": "Process Injection/Hooking",
+      "description": "Contains code to manipulate process memory and potentially hook kernel APIs."
+    },
+    {
+      "name": "Self-Protection",
+      "description": "Uses mutexes (`GlobalRPCMutex`, `prkMtx`) to ensure only one instance of the infection runs and to coordinate activities."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent malicious capabilities, such as modifying the KeServiceDescriptorTable (SSDT) and interacting with ntoskrnl.exe, coupled with the decryption of a hidden resource, clearly distinguishes this from a benign installer or protector. The behavior is indicative of a rootkit targeting Windows kernel structures.",
+    "general": "High-intent evidence includes functions `fcn.1000b369` (modifying KeServiceDescriptorTable) and `fcn.10009bd3` (loading ntoskrnl.exe functions). The XOR decryption loop in `fcn.100015f7` on the resource payload is the clear activation point for the secondary stage.",
+    "uncertainties": "While the kernel-level code is clearly visible, the full scope of the payload's ultimate function remains slightly obscured by the complexity of the internal kernel-mode API calls, though the malicious intent is unambiguous.",
+    "conditions": "The execution flow requires administrative or SYSTEM privileges to perform registry modifications and access kernel-mode interfaces. It also appears to perform environment checks via `GetEnvironmentVariableA` for specific system paths.",
+    "sandbox_recommendations": "Run in an isolated Windows virtual machine environment with kernel debugging enabled (WinDbg). Do not simulate network connections unless required, as the malware may look for specific hardcoded registry keys or file paths to exist before fully detonating."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\lsass",
+          "description": "Registry key modified for persistence or process masquerading."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for inter-process synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name often associated with rootkit installation."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Performs critical modifications to the KeServiceDescriptorTable (SSDT)."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Resource decryption routine utilizing XOR 0xCD."
+    },
+    {
+      "address": "0x10009bd3",
+      "name": "fcn.10009bd3",
+      "description": "Loads and interacts with kernel-mode images (ntoskrnl.exe)."
+    }
+  ]
+}

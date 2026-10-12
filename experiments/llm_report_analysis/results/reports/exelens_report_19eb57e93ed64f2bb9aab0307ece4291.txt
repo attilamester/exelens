@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The file is a sophisticated modular installer that performs system-level modifications, including registry manipulation and potential kernel-level interaction. It uses obfuscation (XOR 0xcd), dynamic API loading, and checks for specific environment strings to avoid sandbox detection.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Custom XOR decryption loop",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress",
+      "Kernel-level structure manipulation (ServiceDescriptorTable)"
+    ],
+    "details": "The file employs a custom XOR 0xcd decryption routine in functions like fcn.100015f7 to unpack resources. Many APIs are resolved dynamically by reading encrypted/obfuscated strings from memory, indicating a multi-stage loading process."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Hooking",
+      "description": "Utilizes CreateRemoteThread, WriteProcessMemory, and potentially modifies kernel service tables (ServiceDescriptorTable) for persistence and evasion."
+    },
+    {
+      "name": "Environment Evasion",
+      "description": "Checks for specific registry keys, mutexes ('GlobalRPCMutex'), and system directory paths before execution."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies Windows registry keys (e.g., 'lsass' registry modifications) to maintain activity across reboots."
+    },
+    {
+      "name": "File System Operations",
+      "description": "Copies, deletes, and sets attributes for system files, likely as part of a dropper mechanism."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level API hooking (fcn.1000b369 targeting ServiceDescriptorTable), registry-based persistence (fcn.100017a0), and the use of obfuscated resource loading makes this highly malicious. Legitimate software does not routinely attempt to modify the system's ServiceDescriptorTable or search for specific kernel-mode drivers like 'win32k.sys' for hooking.",
+    "general": "High-intent evidence includes calls to fcn.1000b369, which interacts with KeServiceDescriptorTable, and fcn.100017a0 which performs registry modifications. The presence of XOR 0xcd-based decryption and the subsequent execution of decrypted code (fcn.10001697) confirms a loader/dropper pattern.",
+    "uncertainties": "The exact nature of the decrypted binary data (resources 101, 102, 103) is not visible, so the final payload remains abstract, though the loader behavior is clear.",
+    "conditions": "Execution is gated by the creation and check of a mutex 'GlobalRPCMutex' (fcn.10002109) and the existence of specific environment variables (GetEnvironmentVariable).",
+    "sandbox_recommendations": "Ensure a clean environment that satisfies environment variable checks. Use a debugger to bypass the 'GlobalRPCMutex' check or pre-create the mutex to allow the process to proceed. Monitor for registry changes at 'HKLM\\SYSTEM\\CurrentControlSet' or similar sensitive keys."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\",
+          "description": "Potential persistence target"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for single-instance check"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for synchronization"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Primary dispatcher for registry operations and security descriptor manipulation."
+    },
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Kernel-mode hook implementation for ServiceDescriptorTable."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Main routine for loading and XOR-decrypting embedded resources."
+    }
+  ]
+}

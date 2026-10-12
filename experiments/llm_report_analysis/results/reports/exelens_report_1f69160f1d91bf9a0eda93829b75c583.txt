@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a kernel-mode driver installer or controller that injects malicious code into the system, likely to bypass security mechanisms or escalate privileges by manipulating kernel data structures.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based payload obfuscation",
+      "Dynamic API resolution"
+    ],
+    "details": "The file contains resource sections (RVA 0x10001600) where data is XOR-decrypted (XOR 0xCD) at runtime before being loaded or executed. Several functions resolve kernel-level APIs dynamically at runtime, typical for rootkit-like behavior."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Attempts to manipulate kernel data structures (e.g., KeServiceDescriptorTable, KeGetCurrentIrql, NtQuerySystemInformation)."
+    },
+    {
+      "name": "Persistence / Registry manipulation",
+      "description": "Modifies system registry keys (e.g., RegCreateKeyExA, RegSetValueExA) related to service control."
+    },
+    {
+      "name": "File system operations",
+      "description": "Creates, modifies, and deletes system files (e.g., CopyFileA, DeleteFileA) in system directories."
+    },
+    {
+      "name": "Process/Service control",
+      "description": "Creates processes and services, likely to execute the payload in elevated contexts."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode API imports (KeServiceDescriptorTable, KeAddSystemServiceTable) and functions targeting system file integrity (win32k.sys, ntkrnlpa.exe) is characteristic of a rootkit. The file explicitly attempts to resolve sensitive kernel functions, suggesting the intent is to hook or patch these structures for evasion or privilege escalation.",
+    "general": "High-intent indicators include fcn.10001000 and fcn.100017a0, which manipulate system registry keys for persistence, and fcn.1000b369, which interacts directly with KeServiceDescriptorTable. The use of NtQuerySystemInformation and attempts to locate kernel modules like ntkrnlpa.exe strongly suggest malicious kernel-level interference.",
+    "uncertainties": "The sample performs complex kernel-level interactions; the exact effect on the OS depends on the target OS version and the data loaded from resources, which may vary.",
+    "conditions": "Execution likely requires elevated administrative or SYSTEM privileges. The payload activation appears dependent on registry configurations (e.g., registry keys like DMWH) being present in the system.",
+    "sandbox_recommendations": "Run in a controlled VM environment with full kernel monitoring. Simulate an environment that allows service installation. Capture all file/registry I/O."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "DMWH",
+          "description": "Registry key used for configuration or persistence."
+        },
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used to synchronize execution."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "win32k.sys",
+          "description": "Target system file for modification/hooking."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Main routine for registry manipulation and file persistence."
+    },
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Kernel-mode manipulation function (KeServiceDescriptorTable modification)."
+    },
+    {
+      "address": "0x1000d060",
+      "name": "fcn.1000d060",
+      "description": "Decompression routine for the obfuscated resource payload."
+    }
+  ]
+}

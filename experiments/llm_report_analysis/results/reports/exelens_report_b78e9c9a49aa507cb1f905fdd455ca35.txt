@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a modular rootkit/kernel-mode driver installer. It utilizes custom XOR-obfuscation and dynamic API resolution to hide its behavior. It performs malicious actions including registry manipulation to hijack system processes (e.g., lsass), persistence via service/driver installation, and direct kernel memory manipulation (`KeServiceDescriptorTable` patching).",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation of resource data",
+      "Dynamic API resolution (GetProcAddress/LoadLibrary)",
+      "System Service Descriptor Table (SSDT) patching"
+    ],
+    "details": "The sample contains encrypted/XORed resources (RVA 0x1000788e) which are decrypted at runtime into memory before execution or injection."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Attempts to patch SSDT (KeServiceDescriptorTable) to intercept system calls."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies system registry keys, likely to ensure automatic startup or to hook into critical OS processes like lsass."
+    },
+    {
+      "name": "Process Injection/Hooking",
+      "description": "Uses APIs like CreateRemoteThread, CopyFileA, and direct registry writes to modify process behavior."
+    },
+    {
+      "name": "File System Modification",
+      "description": "Creates, modifies, and sets attributes for system files, potentially replacing legitimate system binaries."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of SSDT patching, injecting code into `lsass`, and the presence of low-level kernel routines (KeRaiseIrqlToDpcLevel, KeGetCurrentIrql) confirms malicious intent designed for system compromise and rootkit capability. This goes beyond standard software protection or installation.",
+    "general": "High-intent evidence includes SSDT modification logic (fcn.1000ab6f), registry hijacking of `lsass` (fcn.100017a0), and the use of undocumented kernel functions for memory manipulation, which are classic behaviors of kernel-level rootkits.",
+    "uncertainties": "The truncated nature of some functions (e.g., fcn.100028d6) limits the visibility into exact hardcoded C2 strings or specific target file names, though the behavioral profile is clear.",
+    "conditions": "Requires execution with administrative privileges to successfully load drivers, modify registry keys under HKLM, and patch kernel structures. It also checks for the existence of specific mutexes (e.g., GlobalRPCMutex, prkMtx).",
+    "sandbox_recommendations": "Run in an environment with Kernel Debugger monitoring (WinDbg). Use Process Monitor to track registry modifications and file system changes to the Windows directory."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa",
+          "description": "Registry key targeted for modification, typical of lsass-related rootkit activity."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for inter-process communication or infection synchronization."
+        },
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Potential mutex used to ensure only one instance of the installer runs."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Kernel-mode SSDT patching function."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Registry hijacking routine targeting system services."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Main decryption/loader routine for resource payloads."
+    }
+  ]
+}

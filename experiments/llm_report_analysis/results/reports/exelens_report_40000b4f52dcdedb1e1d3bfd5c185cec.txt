@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains a sophisticated multi-stage installer and rootkit-like driver deployment routine. It uses mutex checks, resource extraction, registry manipulation for persistence, and low-level system interactions, including direct modification of kernel-mode service descriptor tables (SSDT hooking).",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR encoding",
+      "Resource-based payload storage",
+      "Dynamic API resolution (GetProcAddress/LoadLibrary)"
+    ],
+    "details": "The sample contains encrypted/encoded resources (identified by XOR loops in fcn.100015f7). Critical system APIs are resolved dynamically at runtime using custom obfuscated string decryption routines."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Uses registry keys (RegCreateKeyExA, RegSetValueExA) for system-level persistence."
+    },
+    {
+      "name": "Kernel-mode Modification",
+      "description": "Modifies system service descriptor tables (KeServiceDescriptorTable) and invokes kernel-mode functions (KeRaiseIrqlToDpcLevel, NtShutdownSystem)."
+    },
+    {
+      "name": "Process Injection",
+      "description": "Uses CreateProcessA to launch child processes, likely for injection or sideloading."
+    },
+    {
+      "name": "Environment Evasion",
+      "description": "Checks system versions and registry keys for specific anti-analysis markers (e.g., v.2055, ntkrnlpa.exe)."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent malicious actions—specifically the code to manipulate 'KeServiceDescriptorTable' and dynamic loading of driver files like 'win32k.sys'—indicates a rootkit behavior. While some functions like mutex checks are dual-use, their application here in protecting a kernel-hooking deployment flow confirms malicious intent. The binary does not perform any visible legitimate utility functions.",
+    "general": "Evidence is found in fcn.1000ab6f and fcn.1000a2cd, which explicitly resolve 'KeServiceDescriptorTable' and 'KeAddSystemServiceTable'. The instruction sequences in these functions perform direct memory manipulation on kernel-space data structures.",
+    "uncertainties": "The exact nature of the payload inside the resource '102' is obscured by XOR routines, but the deployment mechanism targeting system files is definitively malicious.",
+    "conditions": "Execution is gated by successful mutex creation (GlobalRPCMutex or prkMtx) and environment checks (e.g., GetVersionExA, GetComputerNameA). It also requires specific registry states (e.g., 'cnFormSyncExFBC').",
+    "sandbox_recommendations": "Run in a kernel-mode debugger environment. Spoof the registry values 'cnFormSyncExFBC' and 'cnFormVoidFBC'. Ensure the environment mimics a standard Windows workstation to satisfy the version/system checks."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\...",
+          "description": "Targeted registry keys for persistence and status checking."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used to ensure single instance infection."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Secondary mutex observed during rootkit deployment phase."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Core function responsible for SSDT hooking/patching (KeServiceDescriptorTable)."
+    },
+    {
+      "address": "0x10002109",
+      "name": "fcn.10002109",
+      "description": "Main entry point for payload extraction and synchronization via Mutex."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Resource extraction and decryption routine."
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a malicious driver installer or system-level rootkit loader. It decrypts embedded resources, copies itself or payload components to system directories, modifies system registry keys, and attempts to hook system functions (e.g., KeRaiseIrqlToDpcLevel) using low-level memory manipulation (Direct Kernel Object Manipulation/Memory Mapped Files). It also performs environment checks for specific system configurations.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR encoding for embedded resources",
+      "Dynamic API resolution via GetProcAddress",
+      "Manual system function hooking"
+    ],
+    "details": "The file contains resource sections with entropy suggesting encoded payloads (e.g., '6.54' entropy in .rsrc). Decryption is performed at runtime using simple XOR routines (e.g., fcn.100075ce) before resources are accessed or executed."
+  },
+  "capabilities": [
+    {
+      "name": "System Modification",
+      "description": "Modifies system registry keys and copies files to system32, often using 'lsass' or other misleading names."
+    },
+    {
+      "name": "Kernel-mode Hooking",
+      "description": "Uses low-level APIs and manual memory patching to hook system functions like KeRaiseIrqlToDpcLevel, indicating rootkit-like intent."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Checks for debugger presence and uses timing loops (Sleep) to delay execution."
+    },
+    {
+      "name": "Process Injection/Manipulation",
+      "description": "Uses CreateProcess, VirtualAlloc, and memory mapping to interact with other system processes."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of low-level kernel API calls (KeRaiseIrqlToDpcLevel), manual modification of the KeServiceDescriptorTable, and the deceptive naming of system registry keys ('lsass') provides clear evidence of malicious intent beyond simple protection or installation. The sample actively hooks sensitive kernel functions to hide its presence and maintain persistence.",
+    "general": "High-intent evidence is found in fcn.1000a2cd, fcn.1000ab6f, and fcn.1000b46f, which demonstrate kernel function hooking (KeRaiseIrqlToDpcLevel, KeServiceDescriptorTable manipulation). The use of 'lsass' as a registry key value is a well-documented persistence technique used by malware.",
+    "uncertainties": "While the kernel-mode interaction is clear, the exact nature of the final payload remains obfuscated by the runtime decryption and dynamic resolution. It is possible the code acts as a platform for multiple malicious modules.",
+    "conditions": "Execution likely requires elevated administrative privileges to modify kernel-mode structures and system registry keys. The sample checks for specific OS versions via GetVersionExA before attempting sensitive hooks.",
+    "sandbox_recommendations": "Run in an isolated environment with kernel debugging enabled (WinDbg). Monitor registry modifications, especially in HKLM\\System\\CurrentControlSet. Use tools like Procmon to detect file drops in System32."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\System\\CurrentControlSet\\Services\\lsass",
+          "description": "Persistence registry key entry using a deceptive name."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "%SYSTEM32%\\win32k.sys",
+          "description": "Target path for file operations used in system component modification."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Main installation routine, manages registry keys and component loading."
+    },
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Handles kernel-mode memory manipulation and system call hooking."
+    },
+    {
+      "address": "0x100060e6",
+      "name": "fcn.100060e6",
+      "description": "Driver component installation and configuration logic."
+    }
+  ]
+}

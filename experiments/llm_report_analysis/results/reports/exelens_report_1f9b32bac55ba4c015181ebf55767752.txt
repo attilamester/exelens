@@ -1,0 +1,68 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a downloader. It registers itself for persistence, beacons to a remote IP address (66.17.70.149) via HTTP, downloads an encrypted file, decrypts it using an AES-like algorithm, and executes the resulting payload using CreateProcessA.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed. It uses standard library functions and a custom AES implementation for decryption."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Writes to the Windows Registry Run key (Software\\Microsoft\\Windows\\NT\\CurrentVersion\\Windows)."
+    },
+    {
+      "name": "Network Communication",
+      "description": "Uses WININET to perform HTTP GET requests to a remote host."
+    },
+    {
+      "name": "Payload Execution",
+      "description": "Decrypts a downloaded file and uses CreateProcessA to execute it."
+    }
+  ],
+  "details": {
+    "reasoning": "While the file uses standard WinINET and Registry APIs, the combination of beaconing to a hardcoded IP, decrypting a payload, and using CreateProcessA to launch it constitutes clear malicious intent characteristic of a Trojan downloader/dropper.",
+    "general": "In fcn.00403255, the sample downloads a file via InternetReadFile and passes the data to fcn.00403564, which contains an AES encryption/decryption routine (fcn.004012b0). Finally, it calls CreateProcessA to run the decrypted result.",
+    "uncertainties": "The exact nature of the final payload is unknown as it is retrieved from an external server, but the loader behavior is definitive.",
+    "conditions": "The sample performs network communication and looks for a specific index file (index.htm). Execution may be gated by server-side response content.",
+    "sandbox_recommendations": "Provide internet access to the sandbox to allow the initial request to 66.17.70.149, or mock the HTTP response with an encrypted payload."
+  },
+  "ioc": [
+    {
+      "type": "ip",
+      "values": [
+        {
+          "value": "66.17.70.149",
+          "description": "C2 server used for downloading encrypted payloads"
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\NT\\CurrentVersion\\Windows",
+          "description": "Registry key used for persistence"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00403255",
+      "name": "fcn.00403255",
+      "description": "Main downloader logic: network retrieval and payload file handling"
+    },
+    {
+      "address": "0x00403564",
+      "name": "fcn.00403564",
+      "description": "Wrapper for the decryption routine and process creation"
+    },
+    {
+      "address": "0x004012b0",
+      "name": "fcn.004012b0",
+      "description": "AES decryption implementation"
+    }
+  ]
+}

@@ -1,0 +1,87 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a dropper/loader. It extracts embedded files (an EXE and a DLL) from its own data section, writes them to the temporary directory, and uses shell automation to install a shortcut in the Windows Startup folder for persistence. It also contains logic to check for security software (Kaspersky).",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation of embedded payloads"
+    ],
+    "details": "The function fcn.004014e6 performs a simple XOR 0x3E operation on data read from the file. This is consistent with a loader decrypting a payload before writing it to disk."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Creates a shortcut (.lnk) in the Startup folder using COM automation."
+    },
+    {
+      "name": "File Dropper",
+      "description": "Writes embedded binary data to disk as 'netmgr.exe' and 'netmgr.dll' in the system temp directory."
+    },
+    {
+      "name": "Anti-Security/Evasion",
+      "description": "Scans directories for 'Kaspersky_Lab' to evade detection."
+    },
+    {
+      "name": "Process Creation",
+      "description": "Spawns the dropped executable using CreateProcessA."
+    }
+  ],
+  "details": {
+    "reasoning": "While the binary uses legitimate system APIs, the combination of self-extracting embedded payloads, forced persistence in the Startup folder, and evasion logic targeting security software (Kaspersky) indicates a high-intent malicious nature. It is not an installer for a known legitimate product, but rather a dropper for secondary components (netmgr.exe/dll).",
+    "general": "The function fcn.00401508 identifies the presence of security software. The main function contains logic to write files to C:\\DOCUME_1\\URNXYM...\\Temp_ and uses OLE/COM interfaces (fcn.0040142c) to create a shortcut in the Windows Startup folder. The XOR routine (fcn.004014e6) confirms the obfuscation of the dropped files.",
+    "uncertainties": "The exact nature of the dropped 'netmgr.exe' and 'netmgr.dll' is not visible, though their structure and the way they are handled confirm they are the secondary stage of the infection.",
+    "conditions": "Execution proceeds immediately upon launch. It expects a standard Windows environment with write access to the temporary folder and paths defined by the hardcoded strings (C:\\Documents and Settings\\...).",
+    "sandbox_recommendations": "Monitor file system writes to %TEMP% and check for modifications to the Startup folder. Emulate the file path 'C:\\Documents and Settings\\URNXYM\\Start Menu\\Programs\\Startup\\'."
+  },
+  "ioc": [
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "C:\\DOCUME_1\\URNXYM~1\\LOCALS~1\\Temp\\netmgr.exe",
+          "description": "Dropped executable payload"
+        },
+        {
+          "value": "C:\\DOCUME_1\\URNXYM~1\\LOCALS~1\\Temp\\netmgr.dll",
+          "description": "Dropped library payload"
+        },
+        {
+          "value": "C:\\Documents and Settings\\URNXYM\\Start Menu\\Programs\\Startup\\netmgr.lnk",
+          "description": "Persistence shortcut"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "Kaspersky_Lab",
+          "description": "Targeted security software for evasion"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x004010b1",
+      "name": "main",
+      "description": "Coordinates file dropping, persistence installation, and process execution."
+    },
+    {
+      "address": "0x00401508",
+      "name": "fcn.00401508",
+      "description": "Checks for security software (Kaspersky) and manages payload decryption/writing."
+    },
+    {
+      "address": "0x0040142c",
+      "name": "fcn.0040142c",
+      "description": "Uses COM objects to create a startup shortcut."
+    },
+    {
+      "address": "0x004014e6",
+      "name": "fcn.004014e6",
+      "description": "XOR decryption routine for embedded data."
+    }
+  ]
+}

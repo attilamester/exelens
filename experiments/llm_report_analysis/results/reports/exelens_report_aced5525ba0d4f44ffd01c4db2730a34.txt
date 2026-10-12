@@ -1,0 +1,72 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a modular backdoor/stealer that performs process injection, registry persistence, screen capture, and exfiltration. It uses custom string obfuscation, dynamic API resolution via CRC-like hashing, and communicates with a remote server using HTTP.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Dynamic API resolution",
+      "String decryption",
+      "Memory injection"
+    ],
+    "details": "The sample uses a technique of resolving DLL functions by hash at runtime rather than relying on the Import Address Table. It also uses XOR-based decryption for strings and likely payloads."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "Utilizes CreateRemoteThread, WriteProcessMemory (injected implicitly via flow), and VirtualAllocEx/VirtualAlloc to execute malicious code in other process contexts."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies system registry keys via RegCreateKeyExA and RegSetValueExA to ensure execution on system boot."
+    },
+    {
+      "name": "Data Exfiltration",
+      "description": "Collects information (screenshots via GDI+, system info) and uploads it to a remote server using WinINet (HttpSendRequestA)."
+    },
+    {
+      "name": "Environment Discovery",
+      "description": "Enumerate processes, check OS version, get volume information, and network adapter addresses."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of screen capture capabilities (GDI+), network exfiltration (WinINet), persistence (Registry), and process injection (CreateRemoteThread) in a single binary is characteristic of a malicious payload. The use of custom API hashing (seen in fcn.10002680) and decryption loops indicates active efforts to evade static analysis.",
+    "general": "The function fcn.1000410a uses GDI+ to capture the screen and store it to a stream. fcn.100047b0 and fcn.1000499b implement HTTP communications to C2. The pattern of CreateToolhelp32Snapshot followed by CreateRemoteThread in fcn.10001555 is a classic process injection pattern.",
+    "uncertainties": "The exact C2 URL is dynamically constructed via string decryption and obfuscation, and while the logic is visible, the runtime result of the URL generation was not fully emulated, though network capabilities are clear.",
+    "conditions": "The sample requires no specific command-line arguments but relies on environment-specific registry keys and potentially an active internet connection to receive instructions.",
+    "sandbox_recommendations": "Run in an isolated environment with network simulation (fake DNS/HTTP response). Observe file system and registry modifications for persistence triggers."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Suspected persistence location used in RegSetValueExA calls."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000410a",
+      "name": "fcn.1000410a",
+      "description": "Captures screen content using GDI+ libraries."
+    },
+    {
+      "address": "0x100047b0",
+      "name": "fcn.100047b0",
+      "description": "Primary network communication handler using WinINet."
+    },
+    {
+      "address": "0x10001555",
+      "name": "fcn.10001555",
+      "description": "Implements process injection via CreateRemoteThread."
+    },
+    {
+      "address": "0x10002680",
+      "name": "fcn.10002680",
+      "description": "Used for dynamic API resolution based on hashed import names."
+    }
+  ]
+}

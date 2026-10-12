@@ -1,0 +1,62 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a loader/dropper. It downloads a data file from a remote server, decrypts it using a simple XOR operation (key 0x58), and performs manual PE loading of the decrypted payload directly into memory using techniques like VirtualAlloc and GetProcAddress to resolve dependencies.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR encryption",
+      "Manual PE loading"
+    ],
+    "details": "The overlay section contains high-entropy data (7.32) which is downloaded at runtime. The executable implements a custom XOR decryption loop (key 0x58) to process the downloaded content before mapping it into memory."
+  },
+  "capabilities": [
+    {
+      "name": "Network Communication",
+      "description": "Uses WININET.dll to download data from a remote URL."
+    },
+    {
+      "name": "Manual PE Loading",
+      "description": "Implements a custom loader that maps PE sections into allocated memory and resolves imports using GetProcAddress."
+    },
+    {
+      "name": "Memory Manipulation",
+      "description": "Uses VirtualAlloc and memset to allocate and prepare memory regions for the injected payload."
+    }
+  ],
+  "details": {
+    "reasoning": "While loading libraries or making network connections are dual-use, the combination of downloading a high-entropy payload, performing a custom XOR decryption, and subsequently mapping that payload as a new executable image (PE header validation 'MZ', section allocation, import resolution) provides clear evidence of malicious intent consistent with a malware dropper/loader.",
+    "general": "The function fcn.004014df implements the manual mapping of a PE file. It validates the 'MZ' and 'PE' headers, allocates memory via KERNEL32.dll_VirtualAlloc, and resolves function addresses via KERNEL32.dll_GetProcAddress. The decryption loop (XOR 0x58) occurs in the main flow before the payload is passed to fcn.004014df.",
+    "uncertainties": "The exact nature of the payload is unknown as it is fetched at runtime from a remote host.",
+    "conditions": "The malware requires an active internet connection to download the payload from the hardcoded URL. It performs a specific check for the status code 200 (c8 in hex) via HttpQueryInfoA before proceeding.",
+    "sandbox_recommendations": "Use a fake internet/DNS sinkhole to serve the payload, or intercept the WININET.dll traffic. Ensure the environment allows connectivity to 142.91.76.134."
+  },
+  "ioc": [
+    {
+      "type": "url",
+      "values": [
+        {
+          "value": "http://142.91.76.134/p.dat",
+          "description": "Hardcoded URL for downloading the encrypted payload."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x004014df",
+      "name": "fcn.004014df",
+      "description": "Primary manual PE loader logic responsible for mapping the decrypted payload into memory."
+    },
+    {
+      "address": "0x00401000",
+      "name": "section..text",
+      "description": "Handles the initial network download and triggers the decryption/loading sequence."
+    },
+    {
+      "address": "0x004013c4",
+      "name": "fcn.004013c4",
+      "description": "Resolves API imports for the loaded payload using GetProcAddress."
+    }
+  ]
+}

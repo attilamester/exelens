@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a remote access trojan (RAT) or spyware that monitors user activity, interacts with the browser's proxy settings, and performs data exfiltration. It hooks into system events, captures screen content, and sends captured data to a remote command and control server.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The file is not packed, showing a standard MFC-based structure. While the code is complex, it is not obfuscated by a packer."
+  },
+  "capabilities": [
+    {
+      "name": "Data Exfiltration (Networking)",
+      "description": "Sends captured data (screen, keystrokes, browser info) to a remote C2 server using WinINet and Winsock APIs."
+    },
+    {
+      "name": "Screen/Input Capture",
+      "description": "Uses GDI32 (BitBlt, GetPixel) and USER32 (mouse_event, keybd_event) for monitoring and simulation."
+    },
+    {
+      "name": "Persistence/System Modification",
+      "description": "Modifies Internet Settings registry keys (`ProxyEnable`) and attempts to install files in system directories."
+    },
+    {
+      "name": "Process/Module Enumeration",
+      "description": "Uses PSAPI.dll to enumerate processes and inject or monitor specific system activity."
+    }
+  ],
+  "details": {
+    "reasoning": "The application exhibits high-intent malicious behavior. It continuously monitors system events (keyboard, mouse) and captures screen data, which is then encrypted/encoded and exfiltrated over HTTP. The presence of functions like fcn.00407760 (MD5 hashing) and complex networking logic (using WinINet) to communicate with a remote server confirms the intent to steal information. The modification of registry keys related to proxy settings further suggests an attempt to manipulate or intercept traffic.",
+    "general": "High-intent evidence is found in fcn.0040af30 (mouse/keyboard event monitoring), fcn.0040dc30 (system information discovery via NtQuerySystemInformation), and fcn.0040b820 (screen capture loop using BitBlt and GDI). Networking functions (fcn.00401970) clearly demonstrate connection to a remote host.",
+    "uncertainties": "While the code structure is highly indicative of a RAT, the exact C2 server address is dynamically resolved or constructed from multiple segments, so the specific target is not visible without runtime emulation.",
+    "conditions": "The malware checks for specific registry keys ('ProxyEnable') and environment variables/configurations before activating its primary exfiltration routines. It likely requires a connection to a specific remote host to complete its initialization phase.",
+    "sandbox_recommendations": "Use a sandbox that provides a fake Internet connection and logs HTTP(S) traffic. Ensure the sandbox simulates a full Windows desktop environment with realistic user activity (keyboard/mouse input) to trigger the monitoring hooks."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings",
+          "description": "Key modified to alter proxy settings."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "System.dat",
+          "description": "A file used for local storage of captured data before exfiltration."
+        },
+        {
+          "value": "System.exe",
+          "description": "A common location for persistence."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x0040af30",
+      "name": "fcn.0040af30",
+      "description": "Monitors system events, likely capturing keyboard/mouse activity."
+    },
+    {
+      "address": "0x0040b820",
+      "name": "fcn.0040b820",
+      "description": "Handles screen capture logic using BitBlt and DIBits."
+    },
+    {
+      "address": "0x00401970",
+      "name": "fcn.00401970",
+      "description": "Primary communication loop for C2 connectivity and data exfiltration."
+    }
+  ]
+}

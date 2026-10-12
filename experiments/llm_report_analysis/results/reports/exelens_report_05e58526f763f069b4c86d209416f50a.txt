@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a kernel-mode driver dropper/installer. It uses hidden resources (RCDATA 102) to extract and copy malicious files, attempts to register services or modify registry values related to 'lsass', and contains sophisticated anti-analysis techniques including kernel-mode API hooking and direct memory manipulation (e.g., searching for 'KeServiceDescriptorTable').",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR encryption of embedded resources",
+      "Dynamic API resolution via GetProcAddress",
+      "Kernel-mode function hooking"
+    ],
+    "details": "The file contains a large encrypted RCDATA resource. Routine fcn.100015f7 performs an XOR operation with 0xcd on the loaded resource, which appears to be a driver or a payload."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode hook implementation",
+      "description": "Attempts to locate and modify kernel structures like KeServiceDescriptorTable to hide processes or intercept system calls."
+    },
+    {
+      "name": "Persistence and Evasion",
+      "description": "Modifies 'lsass' registry entries and uses registry manipulation to potentially persist as a system service."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Copies files into system directories and uses SetFileTime to timestomp the malicious files."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode structures (KeServiceDescriptorTable, KeGetCurrentIrql, KeRaiseIrqlToDpcLevel) being accessed via dynamic resolution, paired with the persistent registry manipulation and the deliberate attempt to drop/replace system files, strongly indicates malicious rootkit-like activity rather than legitimate installer behavior.",
+    "general": "High-intent evidence includes the access to 'KeServiceDescriptorTable' in fcn.1000b369 and the use of 'Zw' style or kernel-mode-equivalent APIs mapped via DbgPrint/LoadLibraryEx in kernel-related functions (e.g., fcn.1000b46f). The code explicitly copies files into system paths and attempts to hide/register them via registry keys.",
+    "uncertainties": "While the specific functionality of the decrypted resource remains shielded by runtime unpacking, the surrounding code clearly defines a rootkit loader.",
+    "conditions": "The sample checks for existing mutexes ('prkMtx') and potentially environment variables ('_system32'). It likely requires administrative privileges as it attempts registry operations and access to system-critical files.",
+    "sandbox_recommendations": "Run in an environment with kernel-mode debugging capabilities (e.g., WinDbg attached to the target VM). Use a system that monitors file system and registry changes for persistent malicious indicators."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\lsass",
+          "description": "Targeted registry path for persistence manipulation"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for synchronization"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name related to kernel-mode operations"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Extracts RCDATA resource and writes it to disk, then sets file time."
+    },
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Attempts to locate and hook KeServiceDescriptorTable in kernel memory."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Driver installer routine; handles SID/ACL lookups for system services."
+    }
+  ]
+}

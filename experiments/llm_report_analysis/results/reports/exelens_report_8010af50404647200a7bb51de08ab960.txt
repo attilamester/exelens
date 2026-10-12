@@ -1,0 +1,75 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a kernel-mode driver loader and persistence mechanism. It uses resource modification, registry manipulation, and kernel API hooking (e.g., KeServiceDescriptorTable) to maintain persistence, hide its activity, and likely inject malicious code into system processes like lsass.exe.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation of resource data",
+      "Dynamic API resolution (GetProcAddress/LoadLibrary)"
+    ],
+    "details": "The sample uses simple XOR (0xcd) routines to decode resources (RVA 0x1000167b, 0x1000173d) and dynamically loads functions from system DLLs (ntdll.dll, user32.dll) to interact with kernel structures."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode API Hooking",
+      "description": "Attempts to hook KeServiceDescriptorTable (SSDT) to intercept system calls."
+    },
+    {
+      "name": "Process Injection/Modification",
+      "description": "Modifies entries in registry keys linked to critical processes like lsass.exe."
+    },
+    {
+      "name": "Persistence",
+      "description": "Uses RegSetValueExA to ensure the binary or its payload runs on system startup."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Includes checks against known debugger-related window classes and process names."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode structures access (KeServiceDescriptorTable), modification of critical system registry keys (lsass.exe path), and obfuscated resource loading indicates a high-intent malicious rootkit or loader. The Dual-Use Rule is mitigated because these specific patterns (SSDT modification, registry hijacking for persistence) have no legitimate application usage in a standard user-space executable.",
+    "general": "High-intent evidence includes SSDT modification logic in fcn.1000ab6f and fcn.1000b46f, and registry persistence targeting lsass.exe at RVA 0x10001915 (fcn.100017a0). Resource manipulation with XOR key 0xcd at 0x1000167b confirms deliberate payload hiding.",
+    "uncertainties": "While the kernel-mode interaction is confirmed, the specific nature of the final payload (which appears to be a driver or secondary shellcode) is only fully known when extracted from the resource section during runtime.",
+    "conditions": "The main payload activates when the process is run with sufficient privileges to modify system registry keys. The mutex 'GlobalRPCMutex' (fcn.10002109) ensures only one instance runs.",
+    "sandbox_recommendations": "Run in an environment with administrative privileges. Monitor registry write attempts to 'HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services' and 'Winlogon' keys. Use a kernel-aware debugger or driver monitoring tool."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "lsass.exe",
+          "description": "Target of persistent registry modification"
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Execution guard mutex"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Performs SSDT hooking (KeServiceDescriptorTable)."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Modifies registry keys for persistence in lsass.exe."
+    },
+    {
+      "address": "0x1000167b",
+      "name": "Resource Decryptor",
+      "description": "XOR-based decoding of resources using key 0xcd."
+    }
+  ]
+}

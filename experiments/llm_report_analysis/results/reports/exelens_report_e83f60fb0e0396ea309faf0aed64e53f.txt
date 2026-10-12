@@ -1,0 +1,86 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This sample acts as a backdoor/remote administration tool (RAT). It establishes persistence via registry keys, creates a hidden console or command pipe, and communicates with a remote server over HTTP to receive and execute commands, including file system manipulation, process management, and shell command execution.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed; the logic is clearly visible in the disassembly."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Modifies 'Run' registry keys to launch itself on system startup."
+    },
+    {
+      "name": "Remote Command Execution",
+      "description": "Spawns command shells ('cmd.exe') via CreateProcess and pipes input/output to remote network connections."
+    },
+    {
+      "name": "Network Communication",
+      "description": "Uses WININET APIs to perform HTTP requests to a remote server, likely for C2 (Command & Control) operations."
+    },
+    {
+      "name": "Process Injection/Control",
+      "description": "Includes capability to terminate processes and list system processes via toolhelp32 snapshots."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistence, remote command execution, and HTTP-based C2 communication is a definitive indicator of malicious intent. While individual APIs like 'CreateProcess' or 'InternetOpen' are dual-use, their integration here is specifically designed to facilitate remote control, including the 'shell' command functionality and registry modification for persistence.",
+    "general": "Evidence of high intent includes: 1) Usage of 'CreateProcessA' to launch 'cmd.exe' with redirected pipes in fcn.00401bf7. 2) Usage of 'RegCreateKeyExA' and 'RegDeleteValueA' targeting the 'Software\\Microsoft\\Windows\\CurrentVersion\\Run' registry key in fcn.004030d8 for persistence. 3) HTTP communication via 'HttpSendRequestA' and 'InternetReadFile' to receive commands from a remote server.",
+    "uncertainties": "While the C2 URL/IP is not hardcoded as a single string (likely constructed at runtime or fetched), the operational patterns are consistent with known backdoor families.",
+    "conditions": "The executable must have network connectivity to the C2 server to receive commands. It also checks for the existence of a mutex ('GLOBALADR32') to ensure only one instance runs.",
+    "sandbox_recommendations": "Provide an internet simulation (or dummy C2 endpoint) to observe command polling. The sandbox should also monitor registry operations, specifically the Run keys, and process creation for 'cmd.exe'."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Registry key modified for persistence."
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GLOBALADR32",
+          "description": "Mutex used to ensure single instance execution."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "cmd.exe",
+          "description": "Shell process spawned for remote command execution."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401406",
+      "name": "fcn.00401406",
+      "description": "Main C2 loop handling network communication and command dispatching."
+    },
+    {
+      "address": "0x004030d8",
+      "name": "fcn.004030d8",
+      "description": "Persistence logic involving registry modification and file system deployment."
+    },
+    {
+      "address": "0x00401bf7",
+      "name": "fcn.00401bf7",
+      "description": "Spawns 'cmd.exe' and facilitates remote interaction via redirected pipes."
+    },
+    {
+      "address": "0x00402807",
+      "name": "main",
+      "description": "Entry point: initializes mutex, environment checks, and triggers persistence logic."
+    }
+  ]
+}

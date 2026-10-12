@@ -1,0 +1,63 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This sample acts as a downloader/RAT that beacons to a hardcoded domain (ks.petrotdl.com.ar) using WinHTTP, then proceeds to execute commands via a hidden cmd.exe pipe.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed. It exhibits standard C-runtime initialization and legitimate WinHTTP API usage for network communication."
+  },
+  "capabilities": [
+    {
+      "name": "Network Communication",
+      "description": "Utilizes WINHTTP.dll to perform HTTP GET/POST requests."
+    },
+    {
+      "name": "Process Execution",
+      "description": "Uses CreatePipe and CreateProcessA to launch cmd.exe and redirect output."
+    },
+    {
+      "name": "Base64 Encoding/Decoding",
+      "description": "Contains routines to decode incoming commands and encode outgoing telemetry."
+    },
+    {
+      "name": "Environment Fingerprinting",
+      "description": "Retrieves the computer name via GetComputerNameA to send to the C2."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of specific C2 activity (beaconing to 'ks.petrotdl.com.ar') with the redirection of cmd.exe input/output via pipes clearly indicates malicious intent. This is a common pattern for interactive command-and-control shells, exceeding the functionality of standard system tools.",
+    "general": "The main function (RVA 0x401000) initializes a request to 'ks.petrotdl.com.ar'. Function fcn.00401840 (RVA 0x401840) invokes CreatePipe and CreateProcessA to spawn a shell, which is then managed via PeekNamedPipe and ReadFile/WriteFile in the command processing loop.",
+    "uncertainties": "While the binary is clearly a downloader/RAT, the full extent of the commands available to the C2 could not be fully enumerated due to the server-side nature of the command dispatch.",
+    "conditions": "Requires internet connectivity to reach the hardcoded domain 'ks.petrotdl.com.ar'. The payload is activated after the successful completion of the HTTP GET request.",
+    "sandbox_recommendations": "Ensure the sandbox environment permits external network connections to the target domain or simulate a response to the beacon. Observe the creation of pipes and the spawning of cmd.exe subprocesses."
+  },
+  "ioc": [
+    {
+      "type": "url",
+      "values": [
+        {
+          "value": "http://ks.petrotdl.com.ar",
+          "description": "C2 domain observed in main function"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401000",
+      "name": "main",
+      "description": "Initializes C2 connection and initiates network communication."
+    },
+    {
+      "address": "0x00401840",
+      "name": "fcn.00401840",
+      "description": "Handles process spawning (cmd.exe) and pipe redirection."
+    },
+    {
+      "address": "0x00401e90",
+      "name": "fcn.00401e90",
+      "description": "Implements command execution/processing loop."
+    }
+  ]
+}

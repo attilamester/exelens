@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple components for system-level persistence and credential theft, including modifying LSA (lsass) registry settings and injecting code into system processes. It utilizes a custom obfuscation routine, embedded resources, and dynamic API resolution to hinder analysis.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR obfuscation (0xcd)",
+      "Dynamic API resolution (LoadLibrary/GetProcAddress)",
+      "PE resource-based payload storage"
+    ],
+    "details": "The sample uses a custom XOR routine (fcn.100015f7) to decrypt payload data extracted from RCDATA resources. It further relies on dynamic API resolution to obfuscate its intent, commonly seen in complex loaders."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/System modification",
+      "description": "Utilizes CreateProcess and memory manipulation to interact with system components."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies Windows Registry Run keys or system configurations to ensure execution."
+    },
+    {
+      "name": "Credential Theft Evasion",
+      "description": "Attempts to interact with LSASS (lsass) and manipulate system security descriptors."
+    },
+    {
+      "name": "Environment Awareness",
+      "description": "Checks system version, volume information, and environment variables to tailor execution."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistence mechanisms (registry modification), high-intent targeting of system components (LSASS access, registry subkeys like LSA), and self-injection/loader routines confirms malicious intent. The dual-use nature of APIs like VirtualAlloc is superseded here by the context of targeting specific system-critical processes and registry keys for persistence.",
+    "general": "Evidence is found in fcn.100017a0 (RegCreateKeyExA used on LSA subkeys), fcn.1000b46f (injecting/loading into system processes), and fcn.100028d6 (persistence loop). The routine fcn.100015f7 provides clear evidence of deobfuscation before payload activation.",
+    "uncertainties": "While the core malicious functionality is identified, the specific nature of the final payload remains slightly abstracted due to the dynamic decryption, but the behavioral outcome is clear.",
+    "conditions": "The sample performs environment checks (GetVersionExA, GetVolumeInformationA) and requires specific mutex names (GlobalRPCMutex) for execution continuity. Execution flow is driven by resource decryption in fcn.100015f7.",
+    "sandbox_recommendations": "Run in a controlled Windows environment with administrative privileges. Ensure network monitoring is enabled, though the primary activity appears host-focused, and monitor registry activity specifically around HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa",
+          "description": "Registry path targeted for persistent modification."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used to ensure single instance execution."
+        },
+        {
+          "value": "lsass",
+          "description": "Credential-related process target."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Primary resource loader and decryption routine."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Implements registry persistence and LSA modification."
+    },
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Manages system-level process interaction."
+    }
+  ]
+}

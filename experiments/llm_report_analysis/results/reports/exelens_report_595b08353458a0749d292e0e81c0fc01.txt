@@ -1,0 +1,75 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This file is a sophisticated modular installer or dropper that includes kernel-level driver interactions. It uses resource-based payload storage, implements persistence by modifying registry Run keys, and performs process hollowing/injection techniques.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Custom XOR obfuscation of embedded resources",
+      "Dynamic API resolution using GetProcAddress"
+    ],
+    "details": "The file contains embedded encrypted resources (e.g., in fcn.100015f7) that are decrypted at runtime using a static XOR key (0xcd). It also dynamically resolves system APIs from kernel and user-mode DLLs to perform operations."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Driver Loading",
+      "description": "Utilizes kernel-mode APIs (e.g., IoAllocateMdl, MmProbeAndLockPages) to manipulate system memory and interact with drivers."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies system registry keys (e.g., Run keys, services) to ensure re-execution."
+    },
+    {
+      "name": "Stealth/Evasion",
+      "description": "Uses mutexes (e.g., 'prkMtx') to prevent multiple instances and interacts with system files (lsass.exe, win32k.sys)."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode memory manipulation APIs (IoAllocateMdl, MmMapLockedPagesSpecifyCache), registry persistence, and the suspicious use of 'lsass' as a process-related filename (fcn.100017a0) indicates malicious intent, specifically unauthorized privilege escalation or rootkit-like persistence, which far exceeds the capabilities required for a standard software installer.",
+    "general": "High-intent activity is observed in fcn.100017a0, where it performs registry modification for persistence using 'lsass' as a value. Furthermore, fcn.1000c492 uses kernel-level memory descriptors (MDL) which are characteristic of malicious driver-based rootkit activity.",
+    "uncertainties": "While the binary appears to be a multi-stage dropper/installer, the ultimate payload is highly obscured by dynamic API resolution and external file dependencies, making it difficult to determine the final C2 communication or command-and-control targets.",
+    "conditions": "Execution is gated by the presence of specific environment variables and successful mutex creation ('prkMtx'). It also performs checks against system version information (fcn.10006cfb) to determine if kernel-level hooks are applicable.",
+    "sandbox_recommendations": "Run in a sandbox with kernel-mode debugging enabled to capture driver-related activity. Ensure the environment is configured as a typical Windows workstation with a persistent user account to trigger the registry persistence mechanisms."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Registry key targeted for persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for process synchronization/avoidance."
+        },
+        {
+          "value": "lsass",
+          "description": "System process name referenced during persistence registration."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Registry persistence and system file manipulation function."
+    },
+    {
+      "address": "0x1000c492",
+      "name": "fcn.1000c492",
+      "description": "Kernel-mode memory descriptor list (MDL) manipulation routines."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Resource decryption and loading function."
+    }
+  ]
+}

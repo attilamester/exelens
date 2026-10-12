@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a dropper or kernel-mode loader. It decrypts and executes an embedded resource (likely a driver or kernel component), performs system-wide registry modifications to ensure persistence, and attempts to bypass kernel-mode security restrictions (e.g., modifying system call tables like KeServiceDescriptorTable).",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR encoding",
+      "Dynamic API resolution via GetProcAddress",
+      "Embedded encrypted resources"
+    ],
+    "details": "Routines like fcn.100015f7 and fcn.10001697 handle the decryption (XOR 0xCD) of embedded resources (RCDATA/UNKNOWN) loaded via FindResourceA. Dynamic loading is heavily used to interact with NTDLL and kernel structures."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Modifies registry keys (e.g., Run keys or similar) via RegSetValueExA."
+    },
+    {
+      "name": "Kernel-mode Evasion",
+      "description": "Attempts to locate and modify kernel structures (e.g., KeServiceDescriptorTable) for potentially hooking or bypassing security checks."
+    },
+    {
+      "name": "Process Injection/Execution",
+      "description": "Uses CreateProcessA to spawn processes, likely for hollowing or payload execution."
+    },
+    {
+      "name": "Resource Modification",
+      "description": "Uses BeginUpdateResourceA/UpdateResourceA/EndUpdateResourceA to modify or inject resources into itself or other files."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level structure modification (KeServiceDescriptorTable manipulation in fcn.1000b369), the use of undocumented system calls, and resource modification capabilities (BeginUpdateResourceA) constitutes a high-intent malicious payload. These are not typical behaviors for benign applications.",
+    "general": "High-intent malicious intent is evident in fcn.1000b369 (modifying system service tables) and fcn.1000b46f, which uses undocumented instructions (int 2e) and modifies kernel-mode structures to hide or redirect execution.",
+    "uncertainties": "The exact nature of the payload being dropped (the 106KB unknown resource) is identified only by its behavior in memory; the specific kernel-mode exploit logic is highly specialized.",
+    "conditions": "Payload activation requires the presence of certain environment variables (checked in fcn.10001b34) and potentially existing system files (checked in fcn.100010a1).",
+    "sandbox_recommendations": "Run in a kernel-capable sandbox (e.g., DRAKVUF or a specialized Cuckoo configuration). Simulate a Windows NT-based environment. Monitor for registry access to HKLM\\SYSTEM\\CurrentControlSet."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for synchronization."
+        },
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for synchronization."
+        },
+        {
+          "value": "lsass",
+          "description": "Target process name frequently associated with credential dumping/stealth."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "system32",
+          "description": "Target directory for file drops."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Modifies KeServiceDescriptorTable (kernel system call table)."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Decrypts and loads embedded resources."
+    },
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Executes kernel-level operations using int 2e."
+    }
+  ]
+}

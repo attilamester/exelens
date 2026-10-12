@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The file is a malicious kernel-mode driver installer/loader. It uses anti-analysis techniques, manipulates system registry keys (lsass), and performs direct kernel-mode modification (SSDT patching) to bypass security controls.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "XOR-based payload obfuscation",
+      "Dynamic API resolution (GetProcAddress/LoadLibrary)"
+    ],
+    "details": "The file uses custom XOR loops (0xcd, 0x5a, etc.) to obfuscate its payload and resources (e.g., in fcn.100015f7 and fcn.100075ce). It dynamically resolves essential imports for system modification at runtime."
+  },
+  "capabilities": [
+    {
+      "name": "SSDT Patching/Kernel Modification",
+      "description": "Modifies system service descriptor tables in kernel memory to intercept system calls."
+    },
+    {
+      "name": "Persistence via Registry",
+      "description": "Modifies 'lsass' registry keys to maintain persistence."
+    },
+    {
+      "name": "Privileged Resource Modification",
+      "description": "Uses BeginUpdateResourceA/EndUpdateResourceA to modify binaries on disk."
+    },
+    {
+      "name": "Mutex-based Evasion",
+      "description": "Checks for existing mutexes ('prkMtx', 'GlobalRPCMutex') to ensure only one instance runs and to avoid sandboxes."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode memory manipulation (SSDT patching), persistence on the LSASS service key, and explicit attempts to modify system drivers (win32k.sys) constitutes clear malicious intent that cannot be attributed to legitimate installer behavior.",
+    "general": "High-intent evidence includes SSDT patching in fcn.1000b369 (KeServiceDescriptorTable manipulation), LSASS registry manipulation in fcn.100017a0, and direct driver-level modifications (win32k.sys) observed in fcn.1000a0fc.",
+    "uncertainties": "While the core malicious intent is clear, the exact payload being injected from the 0x10010028 resource is encrypted, requiring manual decryption to fully attribute the final goal (e.g., rootkit vs spyware).",
+    "conditions": "The malware requires administrative privileges to modify kernel memory. It also uses a mutex ('prkMtx') to check for execution; if already present, it terminates.",
+    "sandbox_recommendations": "Run as Administrator. Monitor registry keys under HKLM\\SYSTEM\\CurrentControlSet\\Services. The sample may check for specific environment variables; ensure the sandbox name and environment are clean."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\lsass",
+          "description": "Persistence key modified for malicious payload loading."
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Used to ensure single instance and avoid sandbox detection."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Used to synchronize malicious kernel operations."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Primary SSDT patching logic."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Persistence logic involving LSASS registry keys."
+    },
+    {
+      "address": "0x1000a0fc",
+      "name": "fcn.1000a0fc",
+      "description": "Driver-level file access and potential win32k.sys manipulation."
+    }
+  ]
+}

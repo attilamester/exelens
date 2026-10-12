@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains a rootkit-like payload designed to perform kernel-mode manipulation. It attempts to locate system tables (KeServiceDescriptorTable), perform process memory injection (MapViewOfFile, WriteFile), and maintain persistence by creating mutexes and modifying registry keys (Run keys).",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation",
+      "Dynamic API resolution (GetProcAddress, LoadLibrary)",
+      "Dynamic system table patching"
+    ],
+    "details": "The file uses custom XOR routines (e.g., fcn.100075ce) to decrypt resource data at runtime, and resolves critical kernel/system functions dynamically at runtime."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Attempts to locate and modify KeServiceDescriptorTable (SSDT) to hook system calls."
+    },
+    {
+      "name": "Process Injection/Hooking",
+      "description": "Uses VirtualAlloc and WriteFile to inject code into memory and potentially other processes."
+    },
+    {
+      "name": "Registry Persistence",
+      "description": "Modifies Windows Registry keys to ensure execution on system startup."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Checks for debugger presence and uses timing loops to delay execution."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of specific capabilities like SSDT hooking (KeServiceDescriptorTable), dynamic modification of system tables (fcn.1000b369), and the use of hardcoded strings related to system-level persistence (e.g., 'prkMtx') indicates clear malicious intent consistent with a rootkit or kernel-level malware.",
+    "general": "The function fcn.1000b369 explicitly searches for 'KeServiceDescriptorTable' and attempts to modify system service tables. The usage of 'NtShutdownSystem' and 'KeRaiseIrqlToSynchLevel' strongly suggests malicious kernel-mode activity.",
+    "uncertainties": "While the binary is obviously malicious, the exact nature of the payload inside the encrypted resources (102, 101, 103) cannot be fully determined without runtime decryption.",
+    "conditions": "Execution is gated by mutex checks (e.g., 'prkMtx') and potentially environment variables ('temp'). The primary payload appears to trigger after ensuring no other instance is running and confirming OS versions via GetVersionExA.",
+    "sandbox_recommendations": "Disable internet access, provide a simulated environment that mimics a Windows kernel development environment, and monitor for registry changes, particularly under HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Potential persistence location"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "prkMtx",
+          "description": "Global mutex name used to check for infection"
+        },
+        {
+          "value": "KeServiceDescriptorTable",
+          "description": "Target of rootkit hooking"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Locates and hooks the System Service Descriptor Table (SSDT)."
+    },
+    {
+      "address": "0x100028d6",
+      "name": "fcn.100028d6",
+      "description": "Primary driver for registry modification and persistence."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Handles resource loading and process creation."
+    }
+  ]
+}

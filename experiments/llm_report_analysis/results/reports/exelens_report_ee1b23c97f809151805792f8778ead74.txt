@@ -1,0 +1,74 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a downloader/dropper. It uses mutex-based anti-analysis, modifies its own file attributes/persistence, and dynamically loads 'Urlmon.dll' to execute URLDownloadToFileA to retrieve secondary payloads.",
+  "packed": {
+    "status": "false",
+    "techniques": [
+      "String obfuscation via XOR (subtraction by 4)"
+    ],
+    "details": "The binary is not packed, but uses a simple XOR-like obfuscation (subtraction) for its internal strings. The routines appear in fcn.0040135b."
+  },
+  "capabilities": [
+    {
+      "name": "Mutex-based Anti-Analysis",
+      "description": "Uses OpenMutexA to check for the presence of existing instances ('Qmgvswsjxn') to avoid redundant execution."
+    },
+    {
+      "name": "Dynamic API Resolution",
+      "description": "Loads 'Urlmon.dll' and 'KERNEL32.dll' dynamically to resolve 'URLDownloadToFileA' and 'CreateProcessA'."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Copies itself, modifies file attributes (SetFileAttributesA), and deletes files (DeleteFileA) to maintain persistence or clean up."
+    },
+    {
+      "name": "External Payload Retrieval",
+      "description": "Uses URLDownloadToFileA to fetch data from the internet."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of self-copying, attribute modification, mutex checks to ensure single-instance infection, and the dynamic loading of URLmon to download external files constitutes high-intent malicious behavior typical of a dropper/downloader.",
+    "general": "High-intent evidence includes the call to URLDownloadToFileA in fcn.00401270, the use of OpenMutexA to prevent multi-instance execution in fcn.00401405, and the modification of file attributes in fcn.0040124f.",
+    "uncertainties": "The exact URLs/IPs being downloaded are obfuscated and were not fully resolved during static analysis, limiting knowledge of the final payload.",
+    "conditions": "The binary executes upon running, but uses a Mutex check ('Qmgvswsjxn') to exit if a previous instance is already running. It performs a sleep delay (0xEA60/60 seconds) before attempting the network download.",
+    "sandbox_recommendations": "Provide an active internet connection, simulate a system environment with common Windows folders, and ensure no existing mutexes with the same name are present."
+  },
+  "ioc": [
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "Qmgvswsjxn",
+          "description": "Primary mutex used to ensure single-instance execution."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "Urlmon.dll",
+          "description": "Library loaded for network downloading capabilities."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401270",
+      "name": "fcn.00401270",
+      "description": "Main execution logic for network downloads and secondary process creation."
+    },
+    {
+      "address": "0x00401405",
+      "name": "fcn.00401405",
+      "description": "Mutex check used for anti-analysis and instance control."
+    },
+    {
+      "address": "0x0040136e",
+      "name": "fcn.0040136e",
+      "description": "Handles path manipulation and file system operations."
+    }
+  ]
+}

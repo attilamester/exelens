@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a remote access or file-transfer tool. It establishes persistence via Windows Registry run keys, connects to a remote server, and performs file operations, including receiving and writing files to the host system.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation",
+      "Dynamic API resolution"
+    ],
+    "details": "The overlay has high entropy (7.39) suggesting an encrypted payload. The function at 0x401000 implements a simple XOR-based decryption loop, likely used to obfuscate strings or configuration data."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Writes to the 'Software\\Microsoft\\Windows\\CurrentVersion\\Run' registry key to ensure execution at system startup."
+    },
+    {
+      "name": "Networking",
+      "description": "Uses Winsock (WS2_32.dll) to establish network connections, perform socket operations, and transmit/receive data."
+    },
+    {
+      "name": "File Manipulation",
+      "description": "Capable of creating files, deleting them, and writing received data to the disk via dynamically resolved APIs."
+    },
+    {
+      "name": "Dynamic API Resolution",
+      "description": "Uses GetProcAddress/LoadLibrary to resolve functions like 'WriteFile' at runtime."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistence mechanisms (registry run keys) and remote command/file execution capabilities confirms malicious intent. Legitimate software typically does not use obscure registry keys to self-register for startup while simultaneously opening a network socket to receive and write arbitrary files to disk.",
+    "general": "The function fcn.00401b90 is central, coordinating network socket connection (fcn.00401c00 block) and subsequent file writing logic. The use of RegSetValueExA on the 'Run' key (RVA 0x402170) is a hallmark of persistence. The code also dynamically resolves 'WriteFile' (RVA 0x401e93) to perform hidden file operations on the host.",
+    "uncertainties": "The exact C2 server address and full command set are not visible as strings; they are likely stored in the encrypted overlay or received over the socket.",
+    "conditions": "The program requires a network connection to a listener that understands its custom socket protocol (or expects the sample to initiate a connect-back).",
+    "sandbox_recommendations": "Use a network simulator to act as a C2 server, intercepting socket traffic. Monitor registry access to 'Software\\Microsoft\\Windows\\CurrentVersion\\Run'."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Persistence registry key"
+        },
+        {
+          "value": "Google_Update",
+          "description": "Registry value name used for persistence"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "_007981T",
+          "description": "Temporary file template used during operations"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401b90",
+      "name": "fcn.00401b90",
+      "description": "Main orchestrator for network operations, file receiving, and writing."
+    },
+    {
+      "address": "0x00402170",
+      "name": "fcn.00402170",
+      "description": "Registry persistence mechanism using RegSetValueExA."
+    },
+    {
+      "address": "0x00401000",
+      "name": "section..text",
+      "description": "XOR-based decryption routine."
+    }
+  ]
+}

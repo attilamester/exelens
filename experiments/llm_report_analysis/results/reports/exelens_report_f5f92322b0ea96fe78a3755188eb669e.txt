@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample exhibits self-replication (copying itself to system directories), persistence (modifying registry keys to launch on system startup), and process injection (hollowing into system processes like lsass). It also includes capabilities for low-level system interaction (e.g., direct kernel object manipulation using KeServiceDescriptorTable).",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation of data/resources",
+      "Dynamic API resolution (GetProcAddress/LoadLibrary)"
+    ],
+    "details": "The file uses simple XOR (0xcd) to obfuscate data retrieved from resources, and manually resolves system API functions, a common technique to evade static import analysis."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "Uses WriteProcessMemory and CreateRemoteThread-like patterns (implied by memory manipulation and file system injection) into sensitive system processes."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies Windows Registry keys to achieve autostart capabilities."
+    },
+    {
+      "name": "Evasion",
+      "description": "Utilizes resource hiding and system file attribute modification to avoid detection."
+    },
+    {
+      "name": "Low-level Kernel Interaction",
+      "description": "Attempts to interact with kernel-mode structures like KeServiceDescriptorTable, suggesting a rootkit-like or advanced persistence intent."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistent registry modifications, self-replication into system folders (system32), and the manipulation of low-level kernel structures (KeServiceDescriptorTable) constitutes clear malicious intent. Legitimate software does not routinely tamper with kernel service tables or inject code into lsass.",
+    "general": "High-intent evidence includes RegCreateKeyExA/RegSetValueExA calls for persistence, CopyFileA for replication to system directories, and the use of functions like fcn.1000b369 which directly modifies KeServiceDescriptorTable pointers, a classic rootkit indicator.",
+    "uncertainties": "While the code structure is highly indicative of advanced malware, some kernel-mode operations are truncated in the analysis; however, the intent is sufficiently clear.",
+    "conditions": "The malware checks for a GlobalRPCMutex and specific environment variables; it also performs system version checks to tailor its injection strategy.",
+    "sandbox_recommendations": "Run in a controlled Windows environment with an active registry monitor. Ensure network monitoring is enabled to observe callback traffic."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Persistence mechanism target"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "C:\\Windows\\system32\\",
+          "description": "Target directory for file replication"
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used to ensure single instance execution"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100010a1",
+      "name": "fcn.100010a1",
+      "description": "Handles environment-based file path generation and replication"
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Manages registry persistence and file copying"
+    },
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Direct manipulation of system service descriptor table"
+    }
+  ]
+}

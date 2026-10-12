@@ -1,0 +1,75 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample exhibits capabilities consistent with a rootkit or kernel-level malicious tool, including attempting to modify system call tables (SSDT) and interacting with kernel objects (e.g., ntoskrnl.exe, win32k.sys). It performs file and registry operations to maintain persistence and hide its presence.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Custom XOR decryption loop",
+      "Resource-based payload storage"
+    ],
+    "details": "The file contains encrypted resources in the .rsrc section, which are decrypted at runtime using a XOR 0xCD operation, likely to conceal the payload or secondary components."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-level hooking",
+      "description": "Uses APIs like NtQuerySystemInformation and attempts to manipulate the System Service Descriptor Table (KeServiceDescriptorTable)."
+    },
+    {
+      "name": "Process Hollowing/Injection",
+      "description": "Utilizes CreateProcessA and potentially writes to remote memory (WriteFile to specific targets)."
+    },
+    {
+      "name": "Persistence",
+      "description": "Manipulates registry keys related to system services and autoruns."
+    },
+    {
+      "name": "Evasion",
+      "description": "Checks for debugger presence and uses timing checks to bypass analysis."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode API imports (NtQuerySystemInformation, KeServiceDescriptorTable manipulation), file hiding (deleting files, modifying attributes), and registry persistence mechanisms targeting system files like win32k.sys confirms a malicious intent. These are not dual-use in a standard installer context.",
+    "general": "High-intent malicious evidence is found in functions like fcn.1000b369 (manipulating KeServiceDescriptorTable) and fcn.1000c492 (mapping locked memory), which are techniques for rootkit-style kernel modification.",
+    "uncertainties": "While the kernel-level behavior is clear, the exact secondary payload delivered via the registry remains slightly obscured due to the encrypted resource nature.",
+    "conditions": "The primary execution requires elevated privileges (administrator) and potentially the presence of specific system drivers to successfully hook kernel functions.",
+    "sandbox_recommendations": "Run in a kernel-aware debugger (e.g., WinDbg) on a Windows XP or Windows 7 guest, as the code contains specific legacy Windows system checks (e.g., win32k.sys)."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Potential persistence location"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "_system32",
+          "description": "System directory manipulation"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Targeted manipulation of KeServiceDescriptorTable (kernel system call hooking)"
+    },
+    {
+      "address": "0x1000c492",
+      "name": "fcn.1000c492",
+      "description": "Memory mapping and locking for kernel-space access"
+    },
+    {
+      "address": "0x10003c04",
+      "name": "fcn.10003c04",
+      "description": "Persistence installation routine using system file modification"
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains a COM component (DLL) that performs registry manipulation, persistence check using mutexes, and file system operations, consistent with a dropper or shellcode loader. It attempts to read from a file path related to 'All_Users' (a common persistence target).",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Dynamic API resolution (GetProcAddress)",
+      "Runtime code decryption",
+      "Staged loading"
+    ],
+    "details": "The sample uses a series of dynamic API resolution calls through custom structure lookups. Several functions (e.g., fcn.10008b60, fcn.10006470) appear to handle data decompression/decryption before invocation."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Uses RegCreateKeyW and RegSetValueExW to potentially register as a system service or startup item."
+    },
+    {
+      "name": "Process Injection/Execution",
+      "description": "Utilizes GetProcAddress and LoadLibrary to dynamically resolve and execute functions from external DLLs, including potential shellcode execution."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Uses IsDebuggerPresent and SetUnhandledExceptionFilter to detect and thwart debugging attempts."
+    },
+    {
+      "name": "Mutex Check",
+      "description": "Checks for the existence of 'AZZYMutex' to ensure only one instance of the malware runs."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of specific mutex checks ('AZZYMutex'), anti-debugging techniques, and writing to 'C:UsersAll_Usersmsd' points to high-intent malware. While some functions resemble standard C++ runtime boilerplate, the logic in fcn.10006f70 and fcn.100076f0 clearly indicates registry-based persistent payload delivery rather than legitimate application functionality.",
+    "general": "High-intent indicators include the call to `CreateMutexA` with 'AZZYMutex' at RVA 0x100020f9, the registry writing sequence in fcn.10006f70 targeting 'All_Users', and anti-debugging logic at 0x1000ad0c. The use of 'advstorshell_1.dll' suggests an attempt to masquerade as legitimate storage shell extension code.",
+    "uncertainties": "While the functionality is clear, the exact nature of the payload being written to the file system is obscured by the custom de-obfuscation routine at fcn.10003eb0, preventing identification of the final payload.",
+    "conditions": "The primary execution flow requires the system to be free of the 'AZZYMutex' mutex. Registry operations are triggered upon successful startup if the file-check for the payload in All_Users fails.",
+    "sandbox_recommendations": "Run in an environment with simulated user activity and internet access (for potential C2 communication). Create the mutex 'AZZYMutex' to block execution, or leave it absent to observe the dropping/persistence behavior."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "C:UsersAll_Usersmsd",
+          "description": "Path written to/used for persistent data storage."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "AZZYMutex",
+          "description": "Mutex name used for single-instance check."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10006f70",
+      "name": "fcn.10006f70",
+      "description": "Primary driver for registry operations and file persistence."
+    },
+    {
+      "address": "0x100020a0",
+      "name": "fcn.100020a0",
+      "description": "Contains the 'AZZYMutex' check and initial process logic."
+    },
+    {
+      "address": "0x10003eb0",
+      "name": "fcn.10003eb0",
+      "description": "Custom de-obfuscation/decryption routine."
+    }
+  ]
+}

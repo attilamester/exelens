@@ -1,0 +1,75 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple high-intent indicators of kernel-level rootkit functionality. It dynamically resolves undocumented NT kernel functions (e.g., NtQuerySystemInformation, NtQueryObject), hooks kernel-mode structures like the System Service Descriptor Table (SSDT) or manipulates kernel objects via MDL (Memory Descriptor List) and memory mapping, suggesting intent to hide processes, files, or registry keys.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR decryption",
+      "Dynamic API resolution (GetProcAddress/LoadLibrary)"
+    ],
+    "details": "The file uses FindResourceA/LoadResource to retrieve an encrypted or compressed payload (Size 106496), which is subsequently decrypted using a XOR key loop (0xcd) in fcn.100015f7 before execution/injection."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-Mode Hooking",
+      "description": "Uses NtQuerySystemInformation to potentially enumerate and intercept system calls."
+    },
+    {
+      "name": "Memory Manipulation",
+      "description": "Utilizes IoAllocateMdl, MmProbeAndLockPages, and MmMapLockedPagesSpecifyCache to manipulate kernel-mode memory addresses."
+    },
+    {
+      "name": "Registry Persistence",
+      "description": "Writes to registry keys under HKLM\\SYSTEM\\CurrentControlSet to ensure startup persistence."
+    },
+    {
+      "name": "File/Process Evasion",
+      "description": "Performs file system operations to mask its own presence in system directories."
+    }
+  ],
+  "details": {
+    "reasoning": "While some components (registry operations, resource loading) appear dual-use, the convergence of NtQuerySystemInformation with direct memory mapping (MDL functions) and the targeted hook-like manipulation of kernel tables (e.g., KeServiceDescriptorTable) is characteristic of rootkits. The intent is to gain stealthy control at the system level rather than simple application functionality.",
+    "general": "The function fcn.1000b369 explicitly references 'KeServiceDescriptorTable' and contains logic for finding and modifying its entries in memory. Function fcn.1000c492 provides the necessary MDL primitives (MmProbeAndLockPages, MmMapLockedPagesSpecifyCache) for a driver-like approach to system manipulation, indicating malicious kernel-level intent.",
+    "uncertainties": "The exact nature of the payload inside the resource 102 remains unknown as the code is decrypted at runtime, but the framework surrounding it is clearly malicious.",
+    "conditions": "Execution is likely triggered by the system startup mechanism if the installer successfully modifies the registry keys observed in fcn.100028d6 and fcn.1000788e.",
+    "sandbox_recommendations": "Use a kernel-mode debugger (e.g., WinDbg) to monitor access to SSDT. Do not execute in a standard user-mode sandbox as it will likely fail to trigger the kernel-level code paths."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet",
+          "description": "Persistence registry hive path"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "system32\\win32k.sys",
+          "description": "File system path targeted for manipulation"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Contains logic for finding and modifying KeServiceDescriptorTable"
+    },
+    {
+      "address": "0x1000c492",
+      "name": "fcn.1000c492",
+      "description": "Wrapper for kernel-mode MDL and memory mapping functions"
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Orchestrates registry manipulation and payload activation"
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains a sophisticated system-level rootkit/driver-injection component. It uses kernel memory manipulation (system service descriptor table modification) and dynamic module loading to interact with kernel-mode drivers like 'win32k.sys'. It also employs anti-analysis techniques and attempts to persist by modifying registry keys associated with system services.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR-based resource decryption",
+      "Dynamic API resolution through GetProcAddress",
+      "Dynamic loading of encrypted modules"
+    ],
+    "details": "The sample uses a custom routine (fcn.10001697) to load and decrypt resources (e.g., resource 0x65, 0x66) via XORing with 0xCD. This indicates a packed payload that is decrypted only in memory at runtime."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode service modification",
+      "description": "Uses fcn.1000ab6f and fcn.1000b369 to manipulate the System Service Descriptor Table (SSDT), a common technique for rootkits to intercept system calls."
+    },
+    {
+      "name": "Persistence and Evasion",
+      "description": "Sets registry keys (fcn.100017a0, fcn.100028d6) to ensure persistence, and uses Mutexes ('GlobalRPCMutex', 'prkMtx') to prevent multiple instances or indicate infected state."
+    },
+    {
+      "name": "File Manipulation",
+      "description": "Uses CopyFileA, DeleteFileA and SetFileAttributesA to manipulate sensitive system files, specifically interacting with 'system32'."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of SSDT modification (fcn.1000ab6f), dynamic loading of kernel-related modules, and the use of hardcoded strings and registry keys related to system persistence makes this clearly malicious. These behaviors are not typical of legitimate software and align with high-intent rootkit activity.",
+    "general": "fcn.1000ab6f and fcn.1000b369 perform memory writes to the KeServiceDescriptorTable. fcn.100017a0 modifies registry keys under HKLM\\SYSTEM to point to injected payloads. These actions demonstrate clear intent to compromise the operating system kernel.",
+    "uncertainties": "While the binary is clearly malicious, the full extent of the rootkit payload delivered by the decrypted resources remains partially hidden without sandbox emulation of the decrypted code.",
+    "conditions": "The malware checks for existing Mutexes ('GlobalRPCMutex') and specific registry keys. If these are already present or restricted, execution may be aborted. It also checks OS versions and environment variables like 'temp'.",
+    "sandbox_recommendations": "Use an isolated Windows environment (VM). Simulate a standard user environment, enable kernel debugging, and monitor registry changes to HKLM\\SYSTEM\\CurrentControlSet. Specifically monitor access to 'win32k.sys'."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\lsass",
+          "description": "Registry key path targeted for persistence."
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for synchronization or infection signaling."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for synchronization."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Primary function responsible for modifying kernel service tables (SSDT)."
+    },
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Performs memory patching on system structures."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Handles registry-based persistence and file system manipulation."
+    }
+  ]
+}

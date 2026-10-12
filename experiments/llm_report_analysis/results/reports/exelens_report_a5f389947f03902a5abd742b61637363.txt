@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple components designed for system-level persistence, process hollowing, and direct kernel-mode interaction via the `KeServiceDescriptorTable`. It attempts to load kernel drivers, modify system registry keys, and perform process injection.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-encoded resources",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress"
+    ],
+    "details": "The file uses XOR loops (e.g., in fcn.10001697 and fcn.100017a0) to decode resources. These are then used as payloads, often by transferring execution to them or writing them to disk."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Hollowing",
+      "description": "Utilizes CreateProcess and WriteFile to inject code or overwrite system files."
+    },
+    {
+      "name": "Persistence Mechanisms",
+      "description": "Modifies Windows registry keys (Run keys) to maintain execution across reboots."
+    },
+    {
+      "name": "Kernel-Mode Interaction",
+      "description": "Accesses `KeServiceDescriptorTable` and system-level functions like `NtShutdownSystem`, indicating rootkit-like capabilities."
+    },
+    {
+      "name": "Evasion",
+      "description": "Uses Mutexes to ensure only one instance runs and performs checks on system configuration."
+    }
+  ],
+  "details": {
+    "reasoning": "While some functions (like `VirtualAlloc` or registry operations) are dual-use, the combination of modifying the `KeServiceDescriptorTable` (system call hook), using `CreateProcess` for malicious file replication, and registry-based persistence is characteristic of advanced malware targeting system integrity. The file's logic revolves around preparing, deploying, and hooking system processes.",
+    "general": "High-intent evidence includes calls to `fcn.1000b369` (targeting `KeServiceDescriptorTable`), the usage of `ADVAPI32.dll_RegSetValueExA` for persistence, and `KERNEL32.dll_CreateProcessA` in `fcn.10001b34` for payload deployment.",
+    "uncertainties": "The exact nature of the encrypted resource at RVA 0x10010028 could not be fully statically analyzed without runtime extraction, but the code surrounding its use confirms it is a malicious payload.",
+    "conditions": "The execution flow is gated by several environment checks (e.g., GetEnvironmentVariable, GetVersionExA). The payload primarily activates upon successfully locating and opening resources and performing a specific mutex check (GlobalRPCMutex).",
+    "sandbox_recommendations": "Ensure the sandbox provides a standard Windows environment. Monitor registry modifications in `HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run` and kernel memory access attempts. Simulate network connectivity if required for the payload's C2 communication."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Persistence key for automatic execution."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for single-instance execution."
+        },
+        {
+          "value": "lsass",
+          "description": "Targeted process for manipulation."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Handles payload deployment via CreateProcess."
+    },
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Performs system call table hooking (KeServiceDescriptorTable)."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Manages registry-based persistence."
+    }
+  ]
+}

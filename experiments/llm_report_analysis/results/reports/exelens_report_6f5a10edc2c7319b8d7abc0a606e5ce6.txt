@@ -1,0 +1,63 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "A kernel-mode driver that performs inline hooking of system functions. It uses dynamic API resolution and memory manipulation to intercept kernel activity, likely for stealth or unauthorized monitoring.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed but utilizes manual, low-level manipulation of system structures and inline patching to achieve its objective."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode hook injection",
+      "description": "Patches memory in kernel space (e.g., fcn.00011d3a) using assembly stubs to intercept function calls."
+    },
+    {
+      "name": "Manual System Routine Resolution",
+      "description": "Resolves system function addresses using MmGetSystemRoutineAddress (fcn.0001131e)."
+    },
+    {
+      "name": "Bypass Write Protection",
+      "description": "Modifies CR0 register to disable write protection (fcn.00010dca/fcn.000105d6)."
+    },
+    {
+      "name": "OS Version Identification",
+      "description": "Queries NtBuildNumber to determine target kernel version for specific patching offsets."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of CR0 modification, memory page remapping (MDL), and inline hook creation (patching system functions with jump instructions) is characteristic of malicious rootkit behavior. Legitimate drivers do not typically perform inline patching of kernel functions without sanctioned APIs.",
+    "general": "The function fcn.00011d3a (hooking routine) performs binary replacement of instruction bytes with JMP/PUSH+RET stubs to redirect control flow. The use of MmBuildMdlForNonPagedPool, MmMapLockedPagesSpecifyCache, and KeRaiseIrqlToDpcLevel to safely modify code segments is evidence of sophisticated kernel-mode subversion.",
+    "uncertainties": "The exact target system routines are resolved dynamically based on Windows version checks, making the specific intercepted functionality dependent on the environment.",
+    "conditions": "The driver requires a specific kernel environment and is designed to execute as a system-loaded driver (SYS). It checks for environment variables and specific build numbers via NtBuildNumber before activation.",
+    "sandbox_recommendations": "Load in a kernel-mode debugger (WinDbg) environment. Do not execute on a production machine. Monitor kernel symbols and check for modified instruction prefixes (0xE9, 0xFF) at kernel entry points."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "\\Registry\\Machine\\System\\CurrentControlSet\\Control\\Class",
+          "description": "Common target for driver registry interactions observed in system information queries."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00011d3a",
+      "name": "fcn.00011d3a",
+      "description": "Primary hooking engine that installs patches into kernel code."
+    },
+    {
+      "address": "0x00011132",
+      "name": "fcn.00011132",
+      "description": "Memory manipulation utility used for reading/writing protected kernel pages."
+    },
+    {
+      "address": "0x0001131e",
+      "name": "fcn.0001131e",
+      "description": "Dynamic function resolution via MmGetSystemRoutineAddress."
+    }
+  ]
+}

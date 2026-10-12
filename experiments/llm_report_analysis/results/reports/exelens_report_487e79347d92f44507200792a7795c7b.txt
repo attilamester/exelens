@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The file is an installer/loader that performs kernel-mode exploitation (targeting syscall tables like KeServiceDescriptorTable) and installs persistence by modifying the Windows registry to run a malicious payload, likely disguised as a system component.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based payload decryption",
+      "Dynamic API resolution (GetProcAddress)",
+      "Resource-based payload storage"
+    ],
+    "details": "The file uses FindResourceA, LoadResource, and LockResource to extract embedded data, which is then decrypted using an XOR routine (0xcd key). It dynamically resolves APIs from kernel-related libraries (e.g., ntdll, ntkrnlpa)."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Registers services/keys (e.g., RegCreateKeyExA, RegSetValueExA) to ensure execution at system startup."
+    },
+    {
+      "name": "Kernel-mode Modification",
+      "description": "Attempts to locate and modify kernel structures (KeServiceDescriptorTable, KeAddSystemServiceTable) to potentially hook system calls."
+    },
+    {
+      "name": "Process Injection/System manipulation",
+      "description": "Attempts to find and modify system-critical files (win32k.sys) and uses CreateProcessA to launch processes."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Checks for debugger/environment conditions, specifically referencing 'GlobalRPCMutex' and potentially anti-sandbox checks in the kernel-targeting functions."
+    }
+  ],
+  "details": {
+    "reasoning": "While the file contains installer-like behavior (resources, registry manipulation), the clear intent to target kernel-level structures like the KeServiceDescriptorTable (SSDT) and system files like win32k.sys definitively points to malicious exploitation rather than legitimate software installation.",
+    "general": "The function fcn.1000b369 specifically targets 'KeServiceDescriptorTable' and 'KeAddSystemServiceTable'. The use of CreateProcessA with resources (102/103) and registry modification (RegSetValueExA) to redirect service paths strongly demonstrates high-intent malicious behavior for rootkit or persistent backdoor functionality.",
+    "uncertainties": "The exact nature of the final payload remains slightly obscured due to the dynamically loaded nature of the kernel-mode operations, but the target (SSDT) confirms malicious intent.",
+    "conditions": "Execution likely requires elevated privileges (administrator) due to kernel-mode memory modifications and registry access. It may also perform environment checks based on the presence of specific system files or registry keys.",
+    "sandbox_recommendations": "Run in an environment with kernel-debugging disabled but with kernel-mode instrumentation. Monitor registry key modifications for the persistence mechanism and file system activity targeting drivers in System32."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Likely registry key for persistence"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for single-instance enforcement"
+        },
+        {
+          "value": "win32k.sys",
+          "description": "Target system file for modification"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Kernel structure hooker targeting KeServiceDescriptorTable."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Loader/Process starter function extracting embedded payloads."
+    },
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "System file modification and process manipulation routine."
+    }
+  ]
+}

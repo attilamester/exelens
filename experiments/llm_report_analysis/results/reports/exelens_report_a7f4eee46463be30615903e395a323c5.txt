@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a malware loader that performs system-level modifications, including registry manipulation to target system processes (e.g., 'lsass'), file system operations, and potentially kernel-level driver or system-table hooks to ensure persistence and evasion.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based payload decryption",
+      "Dynamic API resolution (GetProcAddress)",
+      "Resource-based payload storage"
+    ],
+    "details": "The binary stores an encrypted payload in its resources (RVA 0x10001600 routines). It uses a custom XOR key (0xcd) to decrypt the payload in memory and dynamically resolves critical system APIs via LoadLibrary/GetProcAddress."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Hooking",
+      "description": "Utilizes NtQuerySystemInformation, NtQueryObject, and attempts to modify system tables (KeServiceDescriptorTable, KeAddSystemServiceTable) to potentially hook system calls."
+    },
+    {
+      "name": "Registry Manipulation",
+      "description": "Extensive use of RegCreateKeyExA and RegSetValueExA to manipulate system registry keys for persistence and stealth."
+    },
+    {
+      "name": "File System Persistence",
+      "description": "Uses CopyFileA, SetFileAttributesA (hiding files), and DeleteFileA to manage malicious components and evade detection."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Contains routines that attempt to identify debugger/VM presence and uses multiple Mutex checks (GlobalRPCMutex, prkMtx) to ensure single instance and evade automated analysis."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level system table manipulation (KeServiceDescriptorTable), process hollowing/registry hooking (targeting 'lsass'), and the use of encrypted resources confirms malicious intent rather than dual-use protection. The binary actively attempts to hide its components in system directories and maintain a footprint through registry modifications.",
+    "general": "High-intent indicators include the routine 'fcn.1000ab6f' which targets KeServiceDescriptorTable, and 'fcn.100017a0' which modifies registry values associated with 'lsass'. The presence of DbgPrint/DbgPrintEx calls suggests an intent to debug or interact with the kernel-mode environment directly.",
+    "uncertainties": "While the kernel-level hooks are highly indicative of advanced malicious behavior (likely Rootkit functionality), the exact payload decrypted from the resources remains obscured, which is common in complex multi-stage threats.",
+    "conditions": "Execution relies on specific registry key conditions and the ability to load/query ntdll.dll and ntoskrnl.exe. It also performs mutex checks (GlobalRPCMutex) to prevent concurrent execution.",
+    "sandbox_recommendations": "The sandbox environment should provide full administrator privileges, simulate a standard Windows environment, and monitor all registry write operations for persistence keys (Run keys)."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\lsass",
+          "description": "Registry key targeted for modification"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for process synchronization"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used by malicious logic"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Kernel-mode system service descriptor table (SSDT) hooker"
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Registry manipulation routine targeting critical system processes"
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Payload decryption and resource extraction utility"
+    }
+  ]
+}

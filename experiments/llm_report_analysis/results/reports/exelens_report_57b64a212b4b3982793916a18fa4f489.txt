@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to manipulate system internals, including potentially modifying the System Service Descriptor Table (SSDT) in kernel mode. It uses obfuscated string constants, custom XOR-based decoding, and resource-based loading to hide its payload.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Custom XOR-based string/data decoding",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress",
+      "Resource-based loading (custom RCDATA/unknown types)"
+    ],
+    "details": "The sample uses a custom obfuscation routine (fcn.100075ce) to XOR-decode various strings and data blobs at runtime. Several sections, particularly the .rsrc section, exhibit entropy consistent with packed or encrypted data."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Functions like fcn.1000b369 and fcn.1000ab6f attempt to locate and modify the KeServiceDescriptorTable, indicative of rootkit behavior or stealthy system hooking."
+    },
+    {
+      "name": "Process/Service hiding",
+      "description": "Uses RegOpenKeyEx and RegSetValueEx to modify registry keys related to system services, potentially to hide its presence."
+    },
+    {
+      "name": "File system manipulation",
+      "description": "Uses CreateFile, WriteFile, and CopyFile to drop or move files, including specific attempts to hide files by setting attributes (SetFileAttributesA)."
+    },
+    {
+      "name": "Evasion and Anti-Analysis",
+      "description": "Contains routines to detect debuggers and virtualized environments via registry and timing checks (e.g., GetTickCount-like logic and GetVersionExA)."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode structures (KeServiceDescriptorTable) modification, persistent registry manipulation, and the deliberate use of obfuscation for sensitive strings (e.g., NtShutdownSystem, DbgPrint) strongly indicates malicious intent rather than legitimate system utility or protection. The presence of routines to load system drivers or hook kernel functions is a high-intent indicator.",
+    "general": "High-intent indicators found include fcn.1000b369 (modifying SSDT/Service Descriptor Table), fcn.1000b73a (attempting to trigger system shutdown/hook via NtShutdownSystem), and the use of fcn.1000788e to lookup account SIDs, which is typically used for privilege manipulation.",
+    "uncertainties": "While the kernel-level code is highly suspicious, the impact of truncated assembly means some specific hook targets were not fully visible. The analysis assumes standard Windows kernel structure offsets (e.g., in fcn.1000b369).",
+    "conditions": "The payload appears to be triggered upon registry key modifications related to service installation and potentially requires elevated (administrator) privileges for successful kernel modification.",
+    "sandbox_recommendations": "Use a kernel-mode debugger (e.g., WinDbg) in a virtualized Windows environment. Monitor registry keys specifically under HKLM\\SYSTEM\\CurrentControlSet\\Services. Ensure the sandbox environment simulates a domain-joined machine to satisfy potential environment-specific code paths."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used to ensure single-instance execution."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name related to kernel-level locking/synchronization."
+        },
+        {
+          "value": "lsass",
+          "description": "Registry string constant, potentially used for process hollowing or persistence."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "win32k.sys",
+          "description": "Target system file for path-based operations."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Kernel-mode structure manipulation, likely targeting the SSDT."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Main logic controller involving SID manipulation and registry interaction."
+    },
+    {
+      "address": "0x100075ce",
+      "name": "fcn.100075ce",
+      "description": "The primary XOR-based decryption routine for obfuscated strings."
+    }
+  ]
+}

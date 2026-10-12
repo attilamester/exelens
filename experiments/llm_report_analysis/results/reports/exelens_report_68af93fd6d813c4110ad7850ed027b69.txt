@@ -1,0 +1,66 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable extracts two embedded resources identified as IDR_ICOFILE1 and IDR_ICOFILE2. It uses a custom XOR-based decryption routine (fcn.004017a0) to process the second resource before writing both to the disk in a temporary directory structure.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource-based payload storage",
+      "Custom XOR obfuscation"
+    ],
+    "details": "The file contains high-entropy (.rsrc and overlay) data. The code performs resource extraction and applies a custom XOR transformation to the data retrieved from IDR_ICOFILE2, which is indicative of a loader pattern."
+  },
+  "capabilities": [
+    {
+      "name": "Resource Extraction",
+      "description": "Utilizes FindResourceA, LoadResource, and LockResource to access embedded binary data."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Creates temporary directories and files using CreateDirectoryA and CreateFileA to store extracted payloads."
+    },
+    {
+      "name": "Data Obfuscation/Decoding",
+      "description": "Implements a custom XOR routine (fcn.004017a0) to transform payload data."
+    }
+  ],
+  "details": {
+    "reasoning": "The application exhibits a clear loader pattern. It extracts two distinct binary resources (which are mislabeled as ICOFILE) and performs a XOR-based decryption operation on the second resource (IDR_ICOFILE2) before writing the result to a temporary file. Since these resources are not standard icons and the code explicitly treats them as binary payloads to be written to disk, this demonstrates malicious intent to stage a payload, rather than legitimate functionality.",
+    "general": "The sequence in fcn.00401820 calls fcn.004017a0 (the XOR function) to process the result of LoadResource on IDR_ICOFILE2, followed by WriteFile to save the decrypted content to the disk. This confirms the intentional decryption and deployment of an embedded payload.",
+    "uncertainties": "The exact nature of the decrypted payload (the code inside the extracted file) cannot be determined without runtime execution, but the loader logic itself is confirmed.",
+    "conditions": "The execution requires the availability of the resources IDR_ICOFILE1 and IDR_ICOFILE2 within the binary. It also relies on the ability to write to the system temporary directory returned by GetTempPathA.",
+    "sandbox_recommendations": "Monitor file system activity in the directory returned by GetTempPathA. Use a process monitor to capture the exact file paths written and check the dropped files for additional malicious characteristics."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "ICOFILE",
+          "description": "Resource type name used for identifying embedded payloads."
+        },
+        {
+          "value": "abcdefg___________.___",
+          "description": "Key string used for the XOR decryption routine."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401820",
+      "name": "fcn.00401820",
+      "description": "Main loader function: extracts, decrypts, and writes the second payload resource."
+    },
+    {
+      "address": "0x004017a0",
+      "name": "fcn.004017a0",
+      "description": "XOR decryption routine used to transform payload data."
+    },
+    {
+      "address": "0x00401c40",
+      "name": "fcn.00401c40",
+      "description": "Handles the extraction and writing of the first payload resource (IDR_ICOFILE1)."
+    }
+  ]
+}

@@ -1,0 +1,83 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple functionalities designed for stealthy persistence and kernel-level manipulation. It decrypts resources at runtime using XOR operations and utilizes standard Windows APIs for persistence, registry manipulation, and potentially loading kernel-mode drivers. It specifically targets 'win32k.sys' and contains logic for interacting with kernel-level structures like 'KeServiceDescriptorTable'.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR encryption of resources",
+      "Dynamic API resolution via GetProcAddress and LoadLibrary"
+    ],
+    "details": "Resources are loaded and decrypted in memory using a simple XOR routine (0xcd) in fcn.100015f7. The entry point and several support functions perform dynamic API resolving, hiding the actual intent from static import analysis."
+  },
+  "capabilities": [
+    {
+      "name": "Process/Service Injection/Manipulation",
+      "description": "Utilizes CreateProcessA, OpenProcess, and WriteFile to manipulate target environments."
+    },
+    {
+      "name": "Persistence",
+      "description": "Manipulates registry keys (RegSetValueExA, RegCreateKeyExA) for auto-start execution."
+    },
+    {
+      "name": "Kernel-Level Interaction",
+      "description": "Contains routines that attempt to locate and patch system tables like KeServiceDescriptorTable."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Uses mutex checks (OpenMutexA/W, CreateMutexW) to prevent multiple instances and likely to detect sandboxes."
+    }
+  ],
+  "details": {
+    "reasoning": "While some components like registry access and resource loading are common in software protectors, the file includes specific logic to target kernel-level structures ('KeServiceDescriptorTable', 'KeAddSystemServiceTable') and manipulate kernel drivers ('win32k.sys'). These actions are characteristic of high-severity rootkit/malware behavior rather than benign software protection.",
+    "general": "High-intent evidence includes the functions fcn.1000b369 and fcn.1000ab6f which interact with KeServiceDescriptorTable, combined with XOR decryption routines (fcn.100015f7) used to hide the payload.",
+    "uncertainties": "The truncated nature of some assembly blocks makes it difficult to fully reconstruct the exact sequence of the kernel patching logic, but the imports and function names strongly indicate its purpose.",
+    "conditions": "The malware uses mutexes ('GlobalRPCMutex', 'prkMtx') to ensure only one instance runs. It also checks for the existence of environment variables and specific file paths to trigger its primary execution.",
+    "sandbox_recommendations": "Ensure the sandbox provides a simulated Windows kernel environment. Monitor registry modifications in HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run. Expect the malware to check for the existence of system files in System32."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name for single-instance check"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used in kernel manipulation routines"
+        },
+        {
+          "value": "win32k.sys",
+          "description": "Target system file"
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Potential persistence location"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Resource decryption routine"
+    },
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Interacts with KeServiceDescriptorTable"
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Payload writing and process creation"
+    }
+  ]
+}

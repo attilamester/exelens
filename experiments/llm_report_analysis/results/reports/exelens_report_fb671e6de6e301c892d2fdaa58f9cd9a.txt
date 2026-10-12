@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable performs persistence by adding a registry entry in the 'Run' key and downloads a secondary payload (AcrobatInfo.exe) from a remote URL to a temporary folder, which it subsequently executes.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code appears to be compiled C++ with no evidence of packers. The observed Base64-like and custom XOR/permutation routines are used for simple data obfuscation of strings or configuration data, not for code packing."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Writes to the Windows Registry 'Run' key to ensure execution at system startup."
+    },
+    {
+      "name": "Payload Downloading",
+      "description": "Uses WININET and urlmon to download a file from a remote server."
+    },
+    {
+      "name": "Process Creation",
+      "description": "Spawns the downloaded payload using CreateProcessA."
+    },
+    {
+      "name": "Environment Interaction",
+      "description": "Resolves system temporary paths and creates temporary files."
+    }
+  ],
+  "details": {
+    "reasoning": "The application exhibits clear malicious intent by combining system persistence (RegSetValueExA in the Run key) with the dynamic downloading and execution of an external file (AcrobatInfo.exe). This chain of operations is a standard pattern for malware droppers and is not consistent with legitimate application behavior.",
+    "general": "The function fcn.004055b4 (RVA: 0x004055b4) performs the sequence of calling KERNEL32.dll_GetTempPathA, KERNEL32.dll_GetTempFileNameA, urlmon.dll_URLDownloadToFileA for a remote JPEG URL, and KERNEL32.dll_CreateProcessA. Simultaneously, it uses ADVAPI32.dll_RegOpenKeyExA and RegSetValueExA to modify the Run key, demonstrating a clear intent to maintain persistence and execute fetched code.",
+    "uncertainties": "The exact nature of the payload 'AcrobatInfo.exe' could not be determined, but the behavior of downloading and executing it is inherently malicious.",
+    "conditions": "The execution flow is straightforward and occurs upon standard program startup. It includes a Sleep call (0xea60 ms = 60 seconds) at the beginning of the main function, which serves as a basic evasion or delay mechanism.",
+    "sandbox_recommendations": "Provide an active internet connection to ensure the malware successfully retrieves the secondary payload from the hardcoded URL. Monitor the 'Run' registry key for unauthorized modifications during detonation."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Persistence registry key accessed for modification."
+        },
+        {
+          "value": "AdobeCheck",
+          "description": "Registry value name used for the persistence entry."
+        }
+      ]
+    },
+    {
+      "type": "url",
+      "values": [
+        {
+          "value": "http://www.woodagency.com/images/error.jpg",
+          "description": "Remote URL from which the malware attempts to download data/payload."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "AcrobatInfo.exe",
+          "description": "Name of the payload file created in the temp directory."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x004055b4",
+      "name": "fcn.004055b4",
+      "description": "Primary controller function handling persistence, payload download, and execution."
+    },
+    {
+      "address": "0x00405449",
+      "name": "fcn.00405449",
+      "description": "Contains base64-like decoding logic for obfuscated strings or configuration data."
+    }
+  ]
+}

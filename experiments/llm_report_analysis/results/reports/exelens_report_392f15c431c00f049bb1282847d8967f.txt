@@ -1,0 +1,56 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains an embedded payload (a document file) which it drops to the file system upon execution. It then attempts to open the dropped file using ShellExecuteA, likely to lure the user into opening a malicious document.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource-based embedding"
+    ],
+    "details": "The file contains a large resource (142,783 bytes, UNKNOWN 105) which is explicitly accessed via FindResourceA/LoadResource and written to disk as 'ARMY_600_105.pdf'."
+  },
+  "capabilities": [
+    {
+      "name": "Resource Dropper",
+      "description": "Extracts binary data from the .rsrc section and writes it to the local file system."
+    },
+    {
+      "name": "Persistence/Execution Lure",
+      "description": "Uses ShellExecuteA to open the dropped file, likely triggering a document reader application."
+    },
+    {
+      "name": "Process Priority Manipulation",
+      "description": "Adjusts thread and process priorities, potentially to evade detection or increase reliability."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of finding, loading, and writing an embedded resource (ARMY_600_105.pdf) followed immediately by an attempt to 'open' that file using ShellExecuteA is a classic behavior of a dropper malware. The intent is to trick the user into executing a potentially malicious document. The code does not perform legitimate operations (like installing software or displaying a legitimate UI) that would justify this behavior.",
+    "general": "The function fcn.00401047 clearly orchestrates the extraction of resource 105 via KERNEL32.dll_FindResourceA, LoadResource, and creates the file 'ARMY_600_105.pdf' via CreateFileA, followed by SHELL32.dll_ShellExecuteA on that file.",
+    "uncertainties": "The exact contents of the embedded file 'ARMY_600_105.pdf' are not visible, but the drop-and-open pattern is highly characteristic of malicious intent regardless of the specific document payload.",
+    "conditions": "The malware executes its primary payload-dropping routine upon reaching the main entry point.",
+    "sandbox_recommendations": "Monitor file system activity for the creation of 'ARMY_600_105.pdf' in the working directory. Observe if the system attempts to open this file with an associated application."
+  },
+  "ioc": [
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "ARMY_600_105.pdf",
+          "description": "Dropped file name"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401047",
+      "name": "fcn.00401047",
+      "description": "Main routine responsible for extracting the embedded PDF resource and executing it."
+    },
+    {
+      "address": "0x00401132",
+      "name": "fcn.00401132",
+      "description": "Configures process/thread priorities and notifies the shell of changes."
+    }
+  ]
+}

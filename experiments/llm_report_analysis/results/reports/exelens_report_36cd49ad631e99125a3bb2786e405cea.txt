@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample is an information-stealing downloader that gathers system and hardware identification, including hard drive serial numbers, computer IDs, and MAC addresses. It subsequently exfiltrates this data to a remote server (mast.zyns.com) via HTTP POST requests, masquerading as a web browser.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Dynamic API resolution via LoadLibrary/GetProcAddress",
+      "Dynamic loading of C++ runtime and network libraries",
+      "Function pointers/vtable obfuscation (common in COM/C++)"
+    ],
+    "details": "The file is not traditionally packed (no UPX/custom packer section), but it employs dynamic library loading (`LoadLibraryA`, `GetProcAddress`) to resolve its primary operational APIs, including those for networking and disk access, making static analysis difficult."
+  },
+  "capabilities": [
+    {
+      "name": "Hardware Identification",
+      "description": "Reads physical drive serial numbers and model information using DeviceIoControl and SMART commands."
+    },
+    {
+      "name": "System Profiling",
+      "description": "Collects OS version, computer name, MAC address, memory status, and processor type."
+    },
+    {
+      "name": "HTTP Networking",
+      "description": "Uses wininet.dll to establish HTTP/HTTPS connections and exfiltrate gathered data via POST requests."
+    },
+    {
+      "name": "Process Injection/Execution",
+      "description": "Capable of spawning processes (`CreateProcessW`) and potential command execution."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of disk serial number harvesting, system profiling, and exfiltration via a hardcoded domain strongly indicates malicious intent. While individual APIs like DeviceIoControl are dual-use, their usage here to bypass standard identification methods and report to a command-and-control server (mast.zyns.com) confirms this is a spy/stealer variant.",
+    "general": "The function `fcn.10002eb9` orchestrates the profiling and exfiltration sequence, calling `fcn.10001f1d` (data collection), `fcn.100032bb` (HTTP exfiltration setup), and `fcn.10003855` (formatting data). The domain `mast.zyns.com` is explicitly referenced in `fcn.100032bb` as an endpoint.",
+    "uncertainties": "The exact nature of the payload downloaded or the full scope of the C2 commands could not be fully determined due to the dynamic nature of the HTTP interaction.",
+    "conditions": "The file triggers its main collection logic upon execution; however, exfiltration relies on valid internet connectivity to 'mast.zyns.com'. It checks environment strings and system properties to build the fingerprint.",
+    "sandbox_recommendations": "Enable internet access to simulate a connection to the specified domain. Ensure the sandbox environment has a virtual hard drive with standard SMART capabilities enabled to allow the disk enumeration code to function."
+  },
+  "ioc": [
+    {
+      "type": "domain",
+      "values": [
+        {
+          "value": "mast.zyns.com",
+          "description": "C2 domain used for data exfiltration"
+        }
+      ]
+    },
+    {
+      "type": "file",
+      "values": [
+        {
+          "value": "IDE21201.VXD",
+          "description": "Temporary file referenced during disk identification"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100032bb",
+      "name": "fcn.100032bb",
+      "description": "Initializes HTTP network connections and configures the POST request to the C2 server."
+    },
+    {
+      "address": "0x10001f1d",
+      "name": "fcn.10001f1d",
+      "description": "Orchestrates hardware identification routines (disk serial numbers, SMART checks)."
+    },
+    {
+      "address": "0x10003855",
+      "name": "fcn.10003855",
+      "description": "Gathers detailed system environment info (OS, CPU, memory) for data exfiltration."
+    }
+  ]
+}

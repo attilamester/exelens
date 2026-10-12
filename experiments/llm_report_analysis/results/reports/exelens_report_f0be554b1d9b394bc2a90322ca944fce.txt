@@ -1,0 +1,71 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a malware loader that achieves persistence by copying itself to the system directory and modifying the Windows Run registry key. It contains embedded encrypted/compressed data which is decrypted at runtime using a XOR-based routine to potentially load a secondary payload.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR decryption loop",
+      "Dynamic data decryption in memory"
+    ],
+    "details": "The .data section exhibits very high entropy (7.94), indicating packed or encrypted data. Functions like fcn.004015b0 implement a XOR-based decryption routine, and fcn.00401550 handles memory allocation (VirtualProtect) followed by execution of the decrypted content."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Modifies the 'SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run' registry key to execute the file on system startup."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Copies itself to system paths like 'SystemRoot' or 'ALLUSERSPROFILE' using CopyFileA."
+    },
+    {
+      "name": "Data Obfuscation",
+      "description": "Uses XOR decryption and memory-based execution to hide functionality."
+    }
+  ],
+  "details": {
+    "reasoning": "While the file uses MFC library imports consistent with a GUI application, the specific logic in fcn.004010b0 clearly demonstrates high-intent malicious behavior: it performs registry modifications to ensure auto-start persistence and file system duplication. The combination of high-entropy data sections and runtime decryption via VirtualProtect and custom XOR routines confirms this is a malware loader attempting to evade static analysis.",
+    "general": "High-intent evidence is found in fcn.004010b0, which calls RegCreateKeyA and RegSetValueExA on the registry Run key, and fcn.004015b0, which implements a XOR loop to decrypt a payload that is then executed after VirtualProtect marks the memory as executable.",
+    "uncertainties": "The exact nature of the decrypted payload (the contents of the .data section) is not visible, so the ultimate payload behavior cannot be fully characterized.",
+    "conditions": "The malware executes its persistence logic and decryption routines upon the main program entry. No specific command-line arguments or environment triggers were identified as gating the malicious behavior.",
+    "sandbox_recommendations": "Monitor registry API calls, specifically keys under 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run'. Use a debugger to break on VirtualProtect and monitor the buffer that gets marked as executable."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Persistence registry key modified to trigger execution on startup"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "AppServerDis.exe",
+          "description": "File name used for persistence copy"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x004010b0",
+      "name": "fcn.004010b0",
+      "description": "Main logic for file copying and registry-based persistence"
+    },
+    {
+      "address": "0x004015b0",
+      "name": "fcn.004015b0",
+      "description": "XOR-based decryption routine for the embedded payload"
+    },
+    {
+      "address": "0x00401550",
+      "name": "fcn.00401550",
+      "description": "Memory management and transition to decrypted code execution"
+    }
+  ]
+}

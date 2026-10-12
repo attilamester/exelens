@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a sophisticated downloader or modular backdoor. It uses dynamic API resolution, obfuscated string resources, and self-modification/decryption to hide its functionality. It attempts to communicate with external command-and-control servers using WININET APIs and persists or signals state via registry manipulation.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Dynamic API Resolution",
+      "Encrypted/Obfuscated strings",
+      "Custom decryption routines"
+    ],
+    "details": "The binary is not compressed with standard packers like UPX, but employs heavy obfuscation. Strings are dynamically constructed or decrypted using XOR/rotational loops (e.g., fcn.10003c90, fcn.10003cce). DLL functions are resolved at runtime via PE headers inspection (fcn.10001737)."
+  },
+  "capabilities": [
+    {
+      "name": "Networking (C2)",
+      "description": "Uses WININET.dll (HttpOpenRequestA, HttpSendRequestA) to establish outbound connections."
+    },
+    {
+      "name": "Process Injection/Enumeration",
+      "description": "Enumerates processes using Process32First/Next and potentially creates or interacts with external threads."
+    },
+    {
+      "name": "Persistence/Environment Check",
+      "description": "Checks registry keys (Control_Panel\\Desktop) and persists via file system operations."
+    },
+    {
+      "name": "Obfuscation",
+      "description": "Implements custom XOR decryption and dynamic API resolution for anti-analysis."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of WININET network communication, dynamic process enumeration, and the use of registry keys to maintain state is highly characteristic of malicious downloader logic. The presence of functions resolving imports at runtime and multiple stages of decryption/de-obfuscation confirms high malicious intent rather than a legitimate protected application.",
+    "general": "High-intent indicators include the dynamic resolution of WININET APIs (fcn.10005c92, fcn.10005f96), process enumeration logic (fcn.10004dbc), and registry manipulation (fcn.10004d1a). The code specifically checks registry values like 'WeelScrInit' (fcn.10007194) and interacts with C2-related URLs.",
+    "uncertainties": "The exact C2 domain or IP is not hardcoded as a plain string but reconstructed at runtime; the specific destination address could not be fully decrypted without execution.",
+    "conditions": "Payload activation likely requires connectivity to the internet and successful completion of the environmental/registry checks performed in fcn.10007194.",
+    "sandbox_recommendations": "Ensure the sandbox has network access enabled. The malware checks for registry keys in HKEY_CURRENT_USER\\Control Panel\\Desktop; monitor registry read/write operations carefully."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Control_Panel\\Desktop",
+          "description": "Registry key queried for system configuration or state markers."
+        },
+        {
+          "value": "WeelScrInit",
+          "description": "Registry value used for persistence or internal tracking."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "http://",
+          "description": "Prefix used for constructing C2 URLs."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10007194",
+      "name": "fcn.10007194",
+      "description": "Main logic for C2 configuration and registry-based persistence."
+    },
+    {
+      "address": "0x10005c92",
+      "name": "fcn.10005c92",
+      "description": "Network communication function using WinINet API to perform HTTP requests."
+    },
+    {
+      "address": "0x10004dbc",
+      "name": "fcn.10004dbc",
+      "description": "Process enumeration and potentially malicious process targeting."
+    }
+  ]
+}

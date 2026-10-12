@@ -1,0 +1,72 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a backdoor/downloader. It collects system information (OS version, username, computer name, network adapters, HDD serial), communicates with a remote server via HTTP POST/GET requests to receive commands, and executes files (via CreateProcessA) or deletes them.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed; the logic is visible, including networking, registry manipulation, and file operations."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Writes entries to the Windows Run registry key (Software\\Microsoft\\Windows\\CurrentVersion\\Run)."
+    },
+    {
+      "name": "Network Communication",
+      "description": "Uses WININET.dll for HTTP POST/GET requests to communicate with a remote server."
+    },
+    {
+      "name": "System Profiling",
+      "description": "Collects hardware, OS, and network information via registry queries, GetComputerNameA, GetUserNameA, and GetAdaptersInfo."
+    },
+    {
+      "name": "Remote Code Execution",
+      "description": "Uses CreateProcessA to launch downloaded files based on commands received from the C2."
+    }
+  ],
+  "details": {
+    "reasoning": "The application exhibits clear malicious intent: it harvests sensitive system information, establishes persistence in the registry, and implements a C2 communication protocol that downloads and executes code. These actions, combined with the use of standard C2-like communication (HttpOpenRequest/HttpSendRequest), indicate a backdoor.",
+    "general": "High-intent malicious actions include: 1) Persistence: fcn.0040238c (RVA: 0x0040238c) writes to the Windows Run key. 2) C2 communication: fcn.004021b1 (RVA: 0x004021b1) uses WININET.dll to send data via POST. 3) Execution: fcn.00402130 (RVA: 0x00402130) uses CreateProcessA to run files.",
+    "uncertainties": "While the binary is not packed, the C2 URL and command processing logic are obscured by string manipulation routines, and the exact server URL is built dynamically, preventing immediate identification of the C2 destination from static analysis alone.",
+    "conditions": "Execution is largely autonomous upon startup, but relies on the ability to connect to the Internet and reaching a C2 server to download payloads; it also checks if a mutex (name not visible) is already set to ensure single-instance execution.",
+    "sandbox_recommendations": "Provide an active Internet connection to allow the binary to attempt C2 communication. Monitor for registry changes at 'SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run' and for processes spawned by the binary."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Used for persistence."
+        },
+        {
+          "value": "HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0",
+          "description": "Used for gathering CPU info."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x004021b1",
+      "name": "fcn.004021b1",
+      "description": "Handles C2 communication using WinInet APIs."
+    },
+    {
+      "address": "0x0040238c",
+      "name": "fcn.0040238c",
+      "description": "Writes to the Windows Registry for persistence."
+    },
+    {
+      "address": "0x00402130",
+      "name": "fcn.00402130",
+      "description": "Executes downloaded files via CreateProcessA."
+    },
+    {
+      "address": "0x004018d5",
+      "name": "fcn.004018d5",
+      "description": "Queries hardware information (HDD serial)."
+    }
+  ]
+}

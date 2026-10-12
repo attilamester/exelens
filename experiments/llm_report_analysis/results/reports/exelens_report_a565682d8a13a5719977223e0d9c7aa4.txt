@@ -1,0 +1,85 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable acts as a custom remote access trojan (RAT) or backdoor, designed to interact with a C2 server via WinINet, execute shell commands, manage services, and download files. It establishes persistence by modifying service registry keys.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed; standard CRT boilerplate and explicit WININET/ADVAPI32 calls are visible."
+  },
+  "capabilities": [
+    {
+      "name": "Remote Command Execution",
+      "description": "Spawns cmd.exe and communicates with it via pipes to execute remote commands."
+    },
+    {
+      "name": "Service Manipulation",
+      "description": "Can install, uninstall, start, stop, and enumerate Windows services via registry modifications and Service Control Manager APIs."
+    },
+    {
+      "name": "C2 Communication",
+      "description": "Uses WinINet to perform HTTP requests (InternetOpenA, HttpSendRequestA) to an external server."
+    },
+    {
+      "name": "File/Drive Discovery",
+      "description": "Enumerates local drives and gathers system information."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies Service registry keys (SYSTEM\\CurrentControlSet\\Services) to point to malicious DLLs."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of specific capabilities (spawned shell via pipes, service installation via registry keys, and remote C2 communication) leaves no doubt of malicious intent. It is a fully functional backdoor, not a standard utility.",
+    "general": "The function fcn.10001570 is the primary dispatcher, orchestrating communication via WININET and shell redirection. fcn.100031a0 and fcn.10003330 directly modify the 'SYSTEM\\CurrentControlSet\\Services' key to install/configure a persistent service. fcn.10001e90 reads output from a command shell pipe, confirming the intent to relay system access to a remote entity.",
+    "uncertainties": "The specific C2 host/URL is not visible in the static strings, suggesting they are fetched from the network or encrypted/generated at runtime.",
+    "conditions": "The malware requires being run with specific commands to trigger actions (e.g., 'start', 'kill', 'list'), likely through the service control interface or a command-line arguments processor.",
+    "sandbox_recommendations": "Monitor network traffic for outbound HTTP/HTTPS connections. Emulate a command and control (C2) server returning HTTP responses containing commands like 'shell', 'list', or 'start'. Redirect registry calls to a virtualized hive."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SYSTEM\\CurrentControlSet\\Services\\*\\Parameters",
+          "description": "Registry key path manipulated for service persistence and configuration."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "cmd.exe",
+          "description": "System binary used for shell execution."
+        },
+        {
+          "value": "DllPath",
+          "description": "Registry value used for service DLL injection."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001570",
+      "name": "fcn.10001570",
+      "description": "Main logic dispatcher for remote communication, command parsing, and process spawning."
+    },
+    {
+      "address": "0x100031a0",
+      "name": "fcn.100031a0",
+      "description": "Handles persistence by modifying service registry keys."
+    },
+    {
+      "address": "0x10001e90",
+      "name": "fcn.10001e90",
+      "description": "Command relay function that reads from a pipe connected to the command shell."
+    },
+    {
+      "address": "0x100010e0",
+      "name": "fcn.100010e0",
+      "description": "Establishes Internet connection and configures HTTP requests."
+    }
+  ]
+}

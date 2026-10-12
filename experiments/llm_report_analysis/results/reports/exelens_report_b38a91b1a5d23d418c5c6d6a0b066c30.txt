@@ -1,0 +1,85 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a dropper/loader that uses resource-based unpacking and persistence mechanisms. It installs a service, interacts with low-level system structures (likely rootkit activity), and performs DLL hijacking/injection to bypass system protections.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR-based deobfuscation",
+      "Resource-based payload storage",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress"
+    ],
+    "details": "The sample uses a custom 1-byte XOR routine (0xcd) to decrypt payloads hidden within RCDATA resources. It loads these payloads into memory using VirtualAlloc and executes them, often involving system-level kernel structures."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Hijacking",
+      "description": "The binary is designed to interact with low-level system structures (e.g., KeServiceDescriptorTable, NtQuerySystemInformation) and modify process behavior."
+    },
+    {
+      "name": "Persistence",
+      "description": "It utilizes RegSetValueExA to modify registry keys for persistence and performs file copy operations to system directories (e.g., system32)."
+    },
+    {
+      "name": "System Evasion",
+      "description": "Includes anti-analysis checks, such as GetVersionExA for OS detection, and mutex usage (e.g., 'GlobalRPCMutex', 'prkMtx') to prevent multiple instances."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level hooking functions (KeServiceDescriptorTable), registry manipulation for persistence, and the clear intent to masquerade as legitimate system files (e.g., naming patterns like win32k.sys) indicates high malicious intent. The dual-use features are clearly employed for evasion and unauthorized system access.",
+    "general": "High-intent indicators: RVA 0x1000b369 (KeServiceDescriptorTable hook preparation), RVA 0x1000a949 (Mdl manipulation, likely for kernel-mode memory access), and RVA 0x100017a0 (modifying the registry to point to a potentially malicious 'lsass' replica).",
+    "uncertainties": "While the kernel-level hooks are highly suspicious, the impact of truncated assembly means the final payload objective (e.g., spyware, ransomware, or C2 beacon) remains partially obscured, though the delivery method is confirmed.",
+    "conditions": "The execution flow is gated by environment checks (GetSystemDirectoryA, GetComputerNameA, and registry value lookups). It likely fails to execute fully if the specific registry keys/paths are not present or if running in a detected virtualized environment.",
+    "sandbox_recommendations": "Simulate a fully configured Windows environment (preferably Windows 7/10). Ensure the environment contains typical system registry keys. The sample may require an internet connection if the payload attempts C2 contact."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Targeted for service installation/modification"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "system32\\win32k.sys",
+          "description": "Likely target for file replacement/hijacking"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used to ensure single-instance execution"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name for synchronization"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Handles registry persistence and file manipulation."
+    },
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Hooking function targeting the System Service Descriptor Table (SSDT)."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Resource-based dropper that writes files to disk and triggers execution."
+    }
+  ]
+}

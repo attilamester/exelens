@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample exhibits capabilities consistent with a kernel-mode rootkit or system driver installer. It checks for specific system environments, interacts with sensitive system registry keys, and appears to perform direct kernel object manipulation or system service descriptor table (SSDT) hooking via dynamic imports of NT kernel functions.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation",
+      "Dynamic API resolution",
+      "Resource-based loading"
+    ],
+    "details": "The sample uses a simple XOR-based decryption (0xcd key) for resource data (likely a driver) and dynamic lookup of NT kernel functions (e.g., NtQuerySystemInformation, NtShutdownSystem)."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode service manipulation",
+      "description": "Uses NtQuerySystemInformation and attempts to locate kernel service tables (KeServiceDescriptorTable)."
+    },
+    {
+      "name": "Registry Persistence",
+      "description": "Extensive use of ADVAPI32 registry APIs (RegCreateKeyExA, RegSetValueExA) to modify system configuration."
+    },
+    {
+      "name": "File/Process Hiding",
+      "description": "Contains routines that set file attributes and query system registry for hidden or protected configurations."
+    },
+    {
+      "name": "Process Injection/Hooking",
+      "description": "Attempts to locate kernel functions and modify them, suggesting an intent to hook or patch system behavior."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level API calls (NtQuerySystemInformation, KeServiceDescriptorTable), registry manipulation for persistence, and explicit checks for system configuration (Win32k.sys, HAL.dll) indicates clear malicious intent to modify the operating system's integrity at a low level, which is consistent with rootkit behavior.",
+    "general": "Functions like fcn.1000ab6f and fcn.1000b46f demonstrate direct interaction with kernel service tables and memory protection mechanisms (MmProbeAndLockPages), while fcn.1000c492 provides the mechanism to perform memory operations on restricted kernel structures.",
+    "uncertainties": "The exact purpose of the encrypted driver (stored in resources) is not fully readable, but the surrounding code structure provides sufficient context to confirm its malicious nature as a rootkit.",
+    "conditions": "The execution flow is gated by various checks including mutex existence (prkMtx, GlobalRPCMutex) and potentially specific OS versions or registry configuration (DMWI/DMWH keys).",
+    "sandbox_recommendations": "Deploy in a Windows kernel debugging environment (WinDbg) with kernel debugging enabled. The sample requires elevated privileges and should be monitored for attempts to load an unsigned driver."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\",
+          "description": "Potential persistence location"
+        },
+        {
+          "value": "DMWI",
+          "description": "Registry key used for system configuration storage"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for synchronization"
+        },
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for synchronization"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Coordinates access to kernel system service tables."
+    },
+    {
+      "address": "0x1000c492",
+      "name": "fcn.1000c492",
+      "description": "Core function for performing kernel-mode memory mapping and locking."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Handles file copying and registry persistence."
+    }
+  ]
+}

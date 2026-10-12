@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a kernel-mode driver dropper/loader. It extracts a payload from its resources, decrypts it, and utilizes complex system-level hooks and techniques to load the malicious driver into the kernel, likely targeting system security processes (lsass.exe).",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR decryption loop",
+      "Resource-based payload hiding",
+      "Dynamic API resolution (GetProcAddress/LoadLibrary)"
+    ],
+    "details": "The file uses FindResourceA/LoadResource to access hidden data (Resource 102), which is decrypted using a custom XOR loop (0xcd key). Decrypted code is then used to perform kernel-level manipulations."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel Driver Loading",
+      "description": "Uses APIs like NtQuerySystemInformation, NtQueryObject, and directly interacts with the Service Descriptor Table to manipulate kernel structures."
+    },
+    {
+      "name": "Process Injection/Hooking",
+      "description": "Attempts to interact with or hook system processes, likely targeting lsass.exe and other critical system components."
+    },
+    {
+      "name": "Persistence",
+      "description": "Uses Registry manipulation (RegCreateKeyExA, RegSetValueExA) to maintain persistence on the system."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Includes checks for debugging artifacts and environment variables consistent with sandbox detection."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode structures (KeServiceDescriptorTable, KeAddSystemServiceTable) manipulation and the decryption/loading of external payloads from resources is indicative of highly malicious intent, specifically a kernel rootkit dropper. The code performs activities that cannot be justified as legitimate application functionality.",
+    "general": "Specific evidence of malicious intent includes: 1) XOR-based decryption of resources at RVA 0x1000167b. 2) Attempted modification of kernel structures via fcn.1000b369 (KeServiceDescriptorTable modification). 3) Registry operations targeting 'lsass' (fcn.100017a0). 4) Use of undocumented system calls and driver-specific structures (e.g., IOCTLs, Mdl manipulation).",
+    "uncertainties": "While the kernel-level code is clearly malicious, the full payload functionality is slightly obfuscated by the dynamic nature of the driver being loaded; however, the intent is unequivocally to gain kernel-mode control.",
+    "conditions": "The malware checks for administrator/system privileges and specific OS versions (fcn.10006cfb). It also uses mutexes (e.g., 'prkMtx') to ensure only one instance runs.",
+    "sandbox_recommendations": "Run in a high-privilege virtual environment (Ring 0 access). Monitor registry keys, specifically those under HKLM, and kernel-mode driver loading events."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "lsass",
+          "description": "Targeted registry manipulation"
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for synchronization"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Persistence mechanism using registry modification and file copying."
+    },
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Direct manipulation of the System Service Descriptor Table (SSDT)."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Initializes and loads kernel-level procedures."
+    }
+  ]
+}

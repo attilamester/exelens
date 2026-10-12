@@ -1,0 +1,72 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This sample is a remote access trojan that uses base64-encoded command-and-control communication via WinHTTP. It deploys a CMD.exe-based pipe to execute arbitrary commands, exfiltrating command output to the remote server.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The binary is not packed, but uses obfuscated internal heap management and custom string handling to resolve API calls and manage communication."
+  },
+  "capabilities": [
+    {
+      "name": "Process Execution / Command Injection",
+      "description": "Uses CreatePipe and CreateProcessA to launch 'cmd.exe' and interact with its input/output via pipes."
+    },
+    {
+      "name": "Network Communication (C2)",
+      "description": "Utilizes WINHTTP.dll for HTTP communication, specifically targeting 'ks.aoldaily.com'."
+    },
+    {
+      "name": "Encoded Data Exfiltration",
+      "description": "Implements base64 encoding/decoding routines to obfuscate commands and exfiltrated command output."
+    },
+    {
+      "name": "Proxy Awareness",
+      "description": "Checks system proxy settings using WinHttpGetIEProxyConfigForCurrentUser to ensure network connectivity."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of process pipes linked to 'cmd.exe', hardcoded C2 communication with 'ks.aoldaily.com', and base64-encoded data exfiltration demonstrates clear malicious intent consistent with a backdoor or remote access trojan. Legitimate software rarely implements custom pipe-based command shells with network-exfiltrated output.",
+    "general": "The function fcn.00401840 performs the piping logic, while fcn.00401000 (main) coordinates the WinHTTP communication sequence with base64 logic in fcn.00401e90.",
+    "uncertainties": "While the domain is identified, it is unreachable in this environment, so the exact nature of the commands cannot be observed, but the capability is unambiguous.",
+    "conditions": "The malware expects to communicate with a remote server at 'ks.aoldaily.com'. Execution flow requires valid network access to this C2 host.",
+    "sandbox_recommendations": "Run in an environment with full network simulation (Fakenet-NG). Set up a listener for HTTP traffic destined for 'ks.aoldaily.com'. Ensure 'cmd.exe' is available in the system path."
+  },
+  "ioc": [
+    {
+      "type": "url",
+      "values": [
+        {
+          "value": "ks.aoldaily.com",
+          "description": "Hardcoded C2 domain used for communication and command exfiltration."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "cmd.exe",
+          "description": "Used by the malicious process for remote command execution via pipes."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401000",
+      "name": "main",
+      "description": "Entry point: Initializes WinHTTP, sets up communication, and triggers the malicious loop."
+    },
+    {
+      "address": "0x00401840",
+      "name": "fcn.00401840",
+      "description": "Initializes process pipes (CreatePipe/CreateProcessA) to link CMD with network streams."
+    },
+    {
+      "address": "0x00401e90",
+      "name": "fcn.00401e90",
+      "description": "Performs base64 encoding and network data write (WinHttpWriteData) to exfiltrate results."
+    }
+  ]
+}

@@ -1,0 +1,75 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a dropper/loader that uses resource-based payloads. It implements persistence through registry modifications (e.g., Run keys and service configuration) and employs anti-analysis techniques, including mutex checks and attempts to hook or manipulate system-level routines.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR encoding of resources",
+      "Dynamic API resolution"
+    ],
+    "details": "Resources 101, 102, and 103 are processed via routines like fcn.100015f7 and fcn.10001b34, which involve XORing data (0xcd) and transferring control to extracted code."
+  },
+  "capabilities": [
+    {
+      "name": "Resource Decryption",
+      "description": "The malware decrypts embedded resources to extract binary payloads."
+    },
+    {
+      "name": "Persistence Mechanism",
+      "description": "Modifies Windows registry keys to achieve persistence, targeting Run keys and system services."
+    },
+    {
+      "name": "Process Injection/Hooking",
+      "description": "Uses routines like fcn.1000b46f and fcn.1000a2cd to potentially hook system functions or modify system components."
+    },
+    {
+      "name": "Anti-Analysis / Evasion",
+      "description": "Uses mutexes to ensure single instance execution and performs checks for system environments and kernel-level structures (e.g., KeServiceDescriptorTable)."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistent registry modifications (fcn.100017a0), attempts to manipulate kernel-level structures like KeServiceDescriptorTable (fcn.1000ab6f), and the extraction of encrypted resources definitively characterizes this as a malicious dropper/loader rather than a legitimate installer.",
+    "general": "Specific evidence includes fcn.10001b34 calling CreateProcessA after extracting data, and fcn.1000ab6f performing high-intent manipulation of kernel tables via KeAddSystemServiceTable and KeServiceDescriptorTable, which are clear signs of rootkit-like behavior.",
+    "uncertainties": "The exact nature of the final injected payload remains obscured due to dynamic decryption; however, the loader's behavior is overtly malicious.",
+    "conditions": "Requires execution with administrative privileges to successfully modify system registry keys and access kernel-mode structures.",
+    "sandbox_recommendations": "Run in an isolated environment with network simulation, monitoring registry activity on HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run and system service registration."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Persistence target"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "C:\\Windows\\system32",
+          "description": "Target directory for file drops or system file manipulation"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Loader routine: extracts resource, writes to disk, and initiates process."
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Kernel-level manipulation routine targeting service tables."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Registry-based persistence and file system attribute modification."
+    }
+  ]
+}

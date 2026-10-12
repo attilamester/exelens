@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a sophisticated dropper/installer that decrypts a resource payload into memory, creates a mutex for persistence, manipulates system service tables (hooking), and attempts to interact with drivers or system files (`win32k.sys`). It uses process hollowing or resource modification techniques (`BeginUpdateResourceA`, `UpdateResourceA`) to inject malicious code.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR decryption loop",
+      "Resource-based loading",
+      "Dynamic API resolution (GetProcAddress)"
+    ],
+    "details": "The file contains a resource (ID 102) of significant size (106KB) which is decrypted/unpacked using an XOR key (0xCD) in functions like fcn.100015f7. The entry point logic and later functions demonstrate typical loader behavior: allocating memory, decrypting data, and mapping it."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Hooking",
+      "description": "Evidence of hooking system tables (KeServiceDescriptorTable, KeAddSystemServiceTable) and potentially modifying system binaries."
+    },
+    {
+      "name": "Persistence",
+      "description": "Creates global mutexes (e.g., 'GlobalRPCMutex', 'prkMtx') and potentially modifies registry keys to execute on startup."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Dropping files in system folders, copying files, setting file attributes, and deleting original files."
+    },
+    {
+      "name": "Credential/System Access",
+      "description": "Uses ADVAPI32 APIs for token manipulation, SID lookup, and security descriptor modification."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode system table modification (hooking), resource-based payload decryption, and deliberate anti-analysis/evasion techniques (mutex checks, registry key manipulation) confirms malicious intent. This is not a standard installer; its focus on hooking `KeServiceDescriptorTable` is characteristic of rootkit behavior.",
+    "general": "High-intent evidence includes calls to `KeServiceDescriptorTable` in fcn.1000ab6f and fcn.1000b369, alongside functions that modify resource sections (fcn.10001723) to potentially rewrite or patch existing binaries. String constants like 'NtShutdownSystem', 'KeGetCurrentIrql', and 'win32k.sys' indicate the intent to manipulate core OS subsystems.",
+    "uncertainties": "The exact nature of the final injected payload remains obscured by the runtime decryption, but the dropper's own behavior is sufficiently clear to determine intent.",
+    "conditions": "The malware checks for a pre-existing mutex ('GlobalRPCMutex', 'prkMtx') to avoid multiple instances. It also likely requires administrator privileges to interact with system files and service tables.",
+    "sandbox_recommendations": "Use a kernel-mode debugger or a monitor capable of tracking SSDT hooks. Ensure the system is configured to log all registry and file system modifications. Set the system clock to a realistic date and ensure the environment includes common services."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Registry path targets for persistence and service manipulation."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used to detect concurrent execution."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used to synchronize kernel-mode operations."
+        },
+        {
+          "value": "win32k.sys",
+          "description": "System file target for potential hooking."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Responsible for hooking the System Service Descriptor Table (SSDT)."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Resource decryption routine using XOR 0xCD."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Dropper functionality: writes decrypted resource to disk and executes a new process."
+    }
+  ]
+}

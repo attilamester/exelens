@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The file is a sophisticated modular dropper that uses a resource-based payload, mutex-based anti-analysis, and direct modification of kernel-mode structures (SSDT/Mdl) to inject code. It performs environment checks and attempts to persist by dropping and executing files in system directories.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Resource-based XOR obfuscation",
+      "Dynamic API resolution via GetProcAddress",
+      "Manual library loading"
+    ],
+    "details": "The sample uses FindResource/LoadResource and a XOR loop (0xcd) to decrypt its payload. It dynamically resolves functions from ntdll and other system DLLs at runtime."
+  },
+  "capabilities": [
+    {
+      "name": "Code Injection",
+      "description": "Uses IoAllocateMdl and MmMapLockedPagesSpecifyCache to map memory for injection, suggesting kernel-level modification."
+    },
+    {
+      "name": "Persistence",
+      "description": "Attempts to write to Windows registry keys and copies itself to the system directory to maintain presence."
+    },
+    {
+      "name": "Anti-Analysis/Evasion",
+      "description": "Checks for specific mutexes (e.g., prkMtx) to prevent multiple instances or sandbox detection. Uses IsBadReadPtr to probe memory safety."
+    },
+    {
+      "name": "System Modification",
+      "description": "Attempts to hook kernel-mode tables (KeServiceDescriptorTable) and performs direct file system manipulations."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode structure manipulation (SSDT hooking via KeServiceDescriptorTable modification), the use of specific mutexes to evade analysis, and the logic to drop files into System32 clearly demonstrate malicious intent. This is not standard administrative or protective behavior.",
+    "general": "Evidence is found in fcn.1000b369 (SSDT hooking), fcn.1000c492 (Mdl mapping/kernel memory access), and fcn.10001b34 (resource extraction and process creation).",
+    "uncertainties": "While the kernel-level code is highly suspicious, the full extent of the final injected payload remains obscured by the runtime decryption process.",
+    "conditions": "The malware checks for a 'prkMtx' mutex to gate execution and checks specific registry values to determine system version/patch level before proceeding with hooking.",
+    "sandbox_recommendations": "Use a kernel-aware debugger (WinDbg) with a Windows kernel debugging session enabled. Monitor registry activity specifically for 'DMWH' or 'DMWI' related values and ensure the environment has a network simulation for potential C2 callback attempts."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\",
+          "description": "Common target for persistence modification"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for execution gating"
+        },
+        {
+          "value": "lsass",
+          "description": "Referenced in registry modification logic"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Contains logic for finding and modifying the SSDT (System Service Descriptor Table)"
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Handles resource extraction and process creation"
+    },
+    {
+      "address": "0x1000c492",
+      "name": "fcn.1000c492",
+      "description": "Performs memory descriptor list (MDL) operations for kernel memory writing"
+    }
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains a sophisticated rootkit-like driver installer. It extracts a payload from resources, checks the environment for specific registry keys and file patterns, modifies system configurations (LSASS, registry), and attempts to load a kernel-mode component. It includes persistence mechanisms and attempts to hide itself.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR encoding for embedded resources (e.g., 0xCD)",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress",
+      "Environment-specific payload decryption/loading"
+    ],
+    "details": "The sample uses a multi-stage approach. Resources are accessed via FindResourceA/LoadResource and decrypted using simple XOR loops (0xCD) in functions like fcn.100015f7. Significant logic is hidden until runtime."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/System Modification",
+      "description": "Modifies system registry keys to point to malicious DLLs or drivers, specifically targeting LSASS."
+    },
+    {
+      "name": "Persistence",
+      "description": "Uses RegSetValueExA to ensure the malicious code or driver persists across system reboots."
+    },
+    {
+      "name": "Evasion",
+      "description": "Uses mutexes (GlobalRPCMutex, prkMtx) to prevent multiple instances and likely to detect sandboxes/analysts."
+    },
+    {
+      "name": "Kernel-mode Interaction",
+      "description": "Attempts to interact with ntoskrnl.exe, ntkrnlpa.exe, and win32k.sys, and contains symbols like 'KeServiceDescriptorTable', suggesting rootkit capability."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level symbol references (KeServiceDescriptorTable, KeAddSystemServiceTable), target registry modifications for LSASS, and code that explicitly attempts to load drivers ('win32k.sys') provides strong evidence of malicious intent. These are not typical behaviors for benign software, and the presence of complex resource decryption confirms the attempt to hide this malicious functionality.",
+    "general": "The function fcn.1000aa69 specifically attempts to locate and modify 'KeServiceDescriptorTable', a classic technique for system-level hooking. Functions like fcn.10009d28 contain imports like 'KeGetCurrentIrql' and 'KeRaiseIrqlToDpcLevel', confirming it operates in kernel space.",
+    "uncertainties": "The exact function of the encrypted/resource-embedded binary could not be fully determined without runtime memory dumping, but the surrounding code structure confirms malicious intent.",
+    "conditions": "The malware checks for existing instances via mutexes ('GlobalRPCMutex', 'prkMtx') and may fail to execute if these are present. It also performs OS version checks, likely targeting specific versions of Windows (NT-based, specifically looking for older versions or server variants for kernel exploit success).",
+    "sandbox_recommendations": "Use a kernel-mode debugger (e.g., WinDbg) in a virtualized Windows environment. Monitor registry keys related to LSASS and service installation."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Targeted for driver/service installation for persistence."
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for single-instance checks or anti-analysis."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for process synchronization or anti-analysis."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000aa69",
+      "name": "fcn.1000aa69",
+      "description": "Contains logic for finding and patching the Kernel Service Descriptor Table (SSDT)."
+    },
+    {
+      "address": "0x10009d28",
+      "name": "fcn.10009d28",
+      "description": "Handles kernel-mode API resolution and driver interaction."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Resource decryption routine for the primary payload."
+    }
+  ]
+}

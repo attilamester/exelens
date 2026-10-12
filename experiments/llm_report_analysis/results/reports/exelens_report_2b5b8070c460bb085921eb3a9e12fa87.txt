@@ -1,0 +1,70 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable performs registry modifications to alter PnP security settings, unpacks an embedded payload in memory, writes it to a file, and executes a system process ('regsvr32.exe') to launch the dropped payload, showing clear persistence and execution-flow manipulation characteristics.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "XOR-based obfuscation of data and payload",
+      "Dynamic payload reconstruction in memory"
+    ],
+    "details": "The file uses an XOR routine (observed at RVA 0x40110a and 0x4011d5) to decode embedded data structures and payloads in the .data section, which has a high entropy of 7.84."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence/Security Manipulation",
+      "description": "Modifies registry keys related to PnP (Plug and Play) security settings."
+    },
+    {
+      "name": "Dynamic Payload Execution",
+      "description": "Unpacks code, writes it to a file, and executes 'regsvr32.exe' to process the created file."
+    },
+    {
+      "name": "Process Execution",
+      "description": "Uses 'CreateProcessW' to spawn external system utilities."
+    }
+  ],
+  "details": {
+    "reasoning": "While registry modification and process creation are dual-use, the combination of self-decoding, modifying PnP security settings (fcn.00401000 calling RegSetValueExA), and spawning regsvr32.exe to execute a dropped file is a standard pattern for malware attempting to evade detection and maintain execution privileges.",
+    "general": "The function fcn.00401000 targets the registry key 'SYSTEM\\CurrentControlSet\\Control\\Pnp' to write a 'Security' value. Subsequently, main uses CreateFileW and CreateProcessW to manipulate and execute a file via regsvr32.exe, which is a known technique to proxy malicious code execution.",
+    "uncertainties": "The exact contents of the decoded payload remain opaque without runtime reconstruction, but the behavioral intent of setting up persistence and executing system binaries is clearly malicious.",
+    "conditions": "The sample executes its payload logic if it successfully locates and decrypts its internal data and passes environment checks (like ExpandEnvironmentStringsW).",
+    "sandbox_recommendations": "Use a monitor to log registry changes to 'SYSTEM\\CurrentControlSet\\Control\\Pnp' and capture the file created by CreateFileW before it is deleted by MoveFileExW/DeleteFileW."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SYSTEM\\CurrentControlSet\\Control\\Pnp",
+          "description": "Target key for PnP security modification"
+        },
+        {
+          "value": "Security",
+          "description": "Registry value name modified by the malware"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "regsvr32.exe",
+          "description": "System utility used for malicious proxy execution"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x401093",
+      "name": "main",
+      "description": "Initializes environment, XOR-decodes payload, and coordinates file/process actions."
+    },
+    {
+      "address": "0x401000",
+      "name": "fcn.00401000",
+      "description": "Modifies registry keys related to PnP security."
+    }
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample is a modular malware downloader/backdoor component. It performs resource decryption, process interaction, registry persistence, and attempts to modify system security descriptors, likely to facilitate rootkit-like functionality or unauthorized access. It contains logic to interact with kernel-mode structures via 'KeServiceDescriptorTable'.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR decryption of resources",
+      "Dynamic API resolution (GetProcAddress)",
+      "Runtime code patching"
+    ],
+    "details": "Resources are XOR-decrypted at runtime (RVA 0x10001600). The malware dynamically resolves critical APIs for system interaction and likely performs self-modifying code techniques for memory-resident payloads."
+  },
+  "capabilities": [
+    {
+      "name": "Resource Decryption",
+      "description": "Decrypts obfuscated resources from the PE file using XOR operations."
+    },
+    {
+      "name": "Process Injection/System Modification",
+      "description": "Attempts to modify security descriptors and interact with system services using kernel-level structures."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies Windows Registry keys to ensure re-execution."
+    },
+    {
+      "name": "Evasion",
+      "description": "Uses anti-analysis techniques, including registry key checking and environment checks."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode structure interaction (KeServiceDescriptorTable), registry modification on sensitive paths, and runtime decryption of payloads strongly indicates malicious intent. Legitimate software does not typically attempt to patch system service tables or interact with 'lsass' memory space in this manner.",
+    "general": "Evidence includes fcn.1000b369 (targeting KeServiceDescriptorTable), fcn.100017a0 (modifying registry values, likely for persistence), and fcn.1000b46f (interaction with 'win32k.sys' or 'ntoskrnl.exe' structures).",
+    "uncertainties": "The exact nature of the decrypted payload is not fully visible due to runtime decryption, but the loader-like behavior is clear.",
+    "conditions": "The malware checks for environment variables and specific registry keys before executing the core payload. It requires administrative privileges for the registry modifications.",
+    "sandbox_recommendations": "Use a fully isolated sandbox environment. Monitor registry keys related to 'DMWI' and file operations in the system directory."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "DMWI",
+          "description": "Registry key/value used for persistence or storage."
+        },
+        {
+          "value": "lsass",
+          "description": "Target process or registry path mentioned in code."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "_system32",
+          "description": "File path construction involving the system directory."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Modifies system service descriptor table structures (kernel manipulation)."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Handles registry persistence and security descriptor modifications."
+    },
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Interaction with system kernel-mode driver structures."
+    }
+  ]
+}

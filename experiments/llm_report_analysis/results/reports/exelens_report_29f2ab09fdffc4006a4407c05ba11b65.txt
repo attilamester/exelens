@@ -1,0 +1,83 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality consistent with a kernel-mode rootkit, including self-protection through mutual exclusion, registry modification for persistence, and low-level kernel memory manipulation using techniques like 'KeServiceDescriptorTable' hooking.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR encoding of resources",
+      "Dynamic API resolution via GetProcAddress/LoadLibrary"
+    ],
+    "details": "Resources containing system driver or payload components are XOR-encrypted (0xcd key). API imports are resolved dynamically to hinder static analysis."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-Mode Hooking",
+      "description": "Uses 'KeServiceDescriptorTable' and 'KeAddSystemServiceTable' to hook kernel system calls."
+    },
+    {
+      "name": "Registry Manipulation",
+      "description": "Modifies system registry keys to persist in the OS."
+    },
+    {
+      "name": "Self-Protection",
+      "description": "Creates system-wide mutexes (e.g., 'GlobalRPCMutex', 'prkMtx') to detect or prevent concurrent execution and uses SetFileAttributes to hide files."
+    },
+    {
+      "name": "Driver/Process Manipulation",
+      "description": "Injects or loads drivers/files into system directories (system32) and copies itself to the Windows directory."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level system table hooking, registry modification targeting sensitive keys, and specific anti-debugging/anti-analysis techniques confirms malicious intent. The code specifically looks for and hooks kernel functions like 'KeServiceDescriptorTable', which is a hallmark of rootkits.",
+    "general": "High-intent evidence includes fcn.1000b369 (Hooking SDT), fcn.1000a949 (Kernel memory manipulation/MDL allocation), and fcn.100017a0 (Registry persistence for 'lsass' modification). The use of 'CreateFileMappingA' and 'MapViewOfFile' in conjunction with kernel pointers demonstrates an intent to bypass standard user-mode security APIs.",
+    "uncertainties": "The exact payload contents are encrypted within resource 102; while the loader behavior is clearly identified, the final payload's secondary functionality is not fully observable.",
+    "conditions": "Execution flow is gated by a mutex ('prkMtx') check. It performs version and environment checks (GetVersionExA) to tailor its hooks to specific Windows builds.",
+    "sandbox_recommendations": "Run in a kernel-aware debugger (e.g., WinDbg). Simulate multiple OS versions (Win XP, Win 7, Win 10) to observe how it adapts its hooking strategies based on OS version checks."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for self-protection"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for kernel-mode protection"
+        },
+        {
+          "value": "lsass",
+          "description": "Registry key/value target for persistence"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "C:\\Windows\\system32",
+          "description": "Target directory for file drops"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Core hook implementation for KeServiceDescriptorTable."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Persistence implementation via registry modification."
+    },
+    {
+      "address": "0x10002109",
+      "name": "fcn.10002109",
+      "description": "Mutex-based anti-execution and initialization routine."
+    }
+  ]
+}

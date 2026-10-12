@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample exhibits modular functionality to inject code into system processes (lsass.exe), uses anti-analysis techniques (kernel-mode-like APIs for process manipulation), and performs persistent modifications to system registry keys. It is a multi-stage dropper/injector targeting system-level integrity.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR encoding",
+      "Dynamic API resolution (GetProcAddress)",
+      "Resource-based payload hiding"
+    ],
+    "details": "The executable contains encrypted resources (Type 102/101) and performs runtime decryption using XOR loops (e.g., in fcn.100015f7). Core API resolution is performed at runtime using a lookup table in fcn.10002f79."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "Uses CreateProcess, WriteFile, and potential kernel-level calls to inject code into other processes like lsass.exe."
+    },
+    {
+      "name": "Persistence Mechanism",
+      "description": "Modifies system registry keys and creates services or mutexes to ensure execution and hide activity."
+    },
+    {
+      "name": "Kernel-mode Evasion",
+      "description": "Attempts to interact with kernel structures (e.g., KeServiceDescriptorTable, KeGetCurrentIrql) to bypass security software or monitoring."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of specific high-intent capabilities—targeting lsass.exe (a common target for credential dumping), direct manipulation of the System Service Descriptor Table (SSDT) in kernel space, and the presence of encrypted resource-based payloads—strongly indicates malicious intent. Legitimate software rarely attempts to hook system calls or modify process memory in this manner.",
+    "general": "The function fcn.1000b46f and others invoke low-level operations like 'KeServiceDescriptorTable' and 'MmMapLockedPages'. High-intent persistence is confirmed by Registry manipulation in fcn.100017a0 using 'ADVAPI32.dll_RegCreateKeyExA' and 'RegSetValueExA' to redirect or inject into critical system components.",
+    "uncertainties": "The exact nature of the encrypted payload remains opaque due to the runtime decryption, but the operational patterns for injection and persistence are characteristic of sophisticated malware.",
+    "conditions": "The malware checks for environment variables and specific mutex names ('prkMtx') to prevent multi-instance execution and ensure it is running in the intended environment.",
+    "sandbox_recommendations": "Ensure the sandbox provides a full Windows environment. The sample likely requires a reboot or specific registry access rights. Monitor registry changes and API calls to ADVAPI32 and KERNEL32 for process manipulation."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\...\\lsass",
+          "description": "Persistence registry key modification"
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for process synchronization"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used to ensure single instance"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Handles registry-based persistence and process injection setup."
+    },
+    {
+      "address": "0x100028d6",
+      "name": "fcn.100028d6",
+      "description": "Main execution logic gate, checking mutexes and system environment."
+    },
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Performs complex system call hooking or kernel-mode interaction."
+    }
+  ]
+}

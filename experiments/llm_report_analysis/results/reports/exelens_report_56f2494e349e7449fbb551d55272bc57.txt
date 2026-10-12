@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to manipulate system service descriptor tables (SSDT) or kernel-level structures, indicating a rootkit-like capability. It performs registry modifications, file copying, and uses obfuscation techniques to load and execute malicious code.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation of data/payloads",
+      "Dynamic API resolution using GetProcAddress"
+    ],
+    "details": "Routines like fcn.100015f7 and fcn.10001723 implement simple XOR loops using 0xcd, which is characteristic of basic payload protection. The code relies heavily on dynamically resolving APIs (e.g., NtQueryObject, NtQuerySystemInformation) at runtime."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-Level Hooking/Modification",
+      "description": "The binary includes functions (fcn.1000b369, fcn.1000ab6f) that interact with KeServiceDescriptorTable, suggesting an attempt to hook system services."
+    },
+    {
+      "name": "Persistence via Registry",
+      "description": "Utilizes RegSetValueExA and RegCreateKeyExA to modify system registry keys for persistence."
+    },
+    {
+      "name": "Process Injection/Creation",
+      "description": "Uses CreateProcessA to launch hidden or dropped executables."
+    },
+    {
+      "name": "Evasion",
+      "description": "Implements anti-analysis and anti-debugging via timing checks (Sleep) and environment variable checks."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level structures manipulation (SSDT hooking), explicit use of internal Windows structures, and the presence of hidden resource payloads (RCDATA 102) clearly points to malicious intent rather than legitimate software protection. The code is specifically designed to subvert OS integrity.",
+    "general": "High-intent indicators include the attempt to resolve NtQuerySystemInformation and KeServiceDescriptorTable, coupled with the pattern of patching these structures in fcn.1000b369. Specific instruction sequences like 'xor [eax + ebx], 0xcd' in fcn.10001723 confirm manual payload decryption.",
+    "uncertainties": "The exact nature of the decrypted payloads from the RCDATA resources is hidden due to runtime decryption; however, the surrounding context is sufficient to classify the intent as malicious.",
+    "conditions": "The malware requires being run in a context where it can gain high privileges (e.g., Administrator/System) to succeed in its intended kernel-level modifications. It also checks for existing mutexes ('prkMtx') to prevent multiple instances.",
+    "sandbox_recommendations": "Run in a kernel-aware sandbox. Use a debugger to break on 'CreateProcessA' and 'VirtualAlloc'. Ensure the environment mimics a standard Windows workstation environment to satisfy potential environment checks."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\",
+          "description": "Likely target for persistence and service manipulation."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for synchronization/instance checking."
+        },
+        {
+          "value": "lsass",
+          "description": "String observed in registry manipulation code, possibly mimicking or targeting the LSASS process."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Responsible for locating and patching the KeServiceDescriptorTable."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Handles file creation and process launching of dropped payloads."
+    },
+    {
+      "address": "0x10001723",
+      "name": "fcn.10001723",
+      "description": "Implements XOR-based decryption for the hidden resource payload."
+    }
+  ]
+}

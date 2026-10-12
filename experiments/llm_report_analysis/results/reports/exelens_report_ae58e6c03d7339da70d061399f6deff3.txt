@@ -1,0 +1,75 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple high-intent malicious capabilities, including kernel-mode driver interaction (`NtQuerySystemInformation`, `KeServiceDescriptorTable`), privilege escalation, and persistence mechanisms via registry manipulation (`RegSetValueExA`) and file system infection. It decrypts embedded resources and performs process hollowing.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based decryption of embedded resources",
+      "Dynamic API resolution"
+    ],
+    "details": "Resource 102 (size 106496) is decrypted via an XOR routine at 0x1000167b using 0xcd as the XOR key. The entry point contains boilerplate loader code, while specific functionality is dynamically resolved using LoadLibrary and GetProcAddress."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Hollowing",
+      "description": "Uses CreateProcessA and potentially writes to the process memory."
+    },
+    {
+      "name": "Persistence",
+      "description": "Writes to the Windows Registry Run keys via RegSetValueExA."
+    },
+    {
+      "name": "Kernel-mode interaction",
+      "description": "Attempts to query and modify kernel structures like KeServiceDescriptorTable (SSDT) to hide processes or escalate privileges."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Includes checks for debugging tools or environment variables, potentially to evade detection."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel structure manipulation (accessing SSDT at 0x1000b369), dynamic patching of system calls (`NtShutdownSystem`, `KeGetCurrentIrql`), and the clear intent to infect system directories (`system32`, `win32k.sys`) characterizes this file as a malicious rootkit or advanced persistent threat, not a standard installer or protector.",
+    "general": "The function fcn.1000b369 interacts with KeServiceDescriptorTable. fcn.1000788e performs registry enumeration to identify and potentially modify user accounts/SIDs. The use of NtQuerySystemInformation and attempts to map kernel memory with MmMapLockedPagesSpecifyCache (fcn.1000c492) strongly indicate kernel-level manipulation.",
+    "uncertainties": "The exact nature of the decrypted resource at runtime is inferred based on the observed API usage (kernel functions), but the full unpacked payload is not fully visible.",
+    "conditions": "The malware checks for specific system environment variables (`temp`, `system32`) and often requires administrative privileges to interact with kernel drivers or manipulate registry hives.",
+    "sandbox_recommendations": "Run in an environment that simulates kernel-mode drivers and allows registry monitoring. Monitor for file modifications in C:\\Windows\\System32 and attempts to hook NT system calls."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\ServiceGroupOrder",
+          "description": "Potentially manipulated for persistence."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "C:\\Windows\\System32\\win32k.sys",
+          "description": "Target file for modifications."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Modifies the KeServiceDescriptorTable (SSDT)."
+    },
+    {
+      "address": "0x1000c492",
+      "name": "fcn.1000c492",
+      "description": "Maps kernel memory pages using MmMapLockedPagesSpecifyCache."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Performs system-wide registry enumeration and SID-based checks."
+    }
+  ]
+}

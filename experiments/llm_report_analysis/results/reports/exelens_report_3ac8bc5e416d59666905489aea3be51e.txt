@@ -1,0 +1,88 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple high-intent malicious capabilities, including stealth persistence through registry manipulation, system directory file modification (likely a dropper/injector), process hollowing logic (CreateProcessA), and kernel-level interaction using driver-like techniques (e.g., KeServiceDescriptorTable, KeGetCurrentIrql, KeRaiseIrqlToDpcLevel). It uses mutexes for synchronization and includes obfuscated payload unpacking via resource manipulation.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom obfuscation/decryption of resources",
+      "Dynamic API resolution (GetProcAddress/LoadLibrary)"
+    ],
+    "details": "The file uses resources (102, 103) that are decrypted or unpacked at runtime using custom XOR routines (seen in fcn.100015f7). The entrypoint performs initial environment checks and decryption before transferring control to the unpacked payload."
+  },
+  "capabilities": [
+    {
+      "name": "Process Hollowing/Injection",
+      "description": "Uses CreateProcessA to launch a process with a hidden or manipulated payload."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies system registry keys (Run keys) to maintain execution."
+    },
+    {
+      "name": "Kernel-Level Evasion",
+      "description": "Attempts to interact with kernel structures (KeServiceDescriptorTable) and uses kernel-mode API calls (DbgPrintEx)."
+    },
+    {
+      "name": "Stealth Persistence",
+      "description": "Copies itself to system directories (e.g., system32) and masks as legitimate files (win32k.sys, fanny.bmp, lsass)."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level interaction (KeServiceDescriptorTable hooking), process hollowing, and masquerading as critical system components (e.g., 'lsass', 'win32k.sys') provides strong evidence of malicious intent beyond any legitimate utility. The code explicitly attempts to bypass normal execution flow through driver-level functions.",
+    "general": "High-intent evidence found in: fcn.1000b46f (kernel memory access/patching), fcn.1000b369 (SSDThooking), and fcn.10001b34 (Process Hollowing). These functions directly manipulate kernel structures to evade detection and maintain control.",
+    "uncertainties": "The exact nature of the final payload remains somewhat obscured due to the multi-stage packing and dynamic decryption, but the observable loader behavior is characteristically malicious.",
+    "conditions": "The payload requires a specific environment (e.g., presence of certain registry keys and environment variables) to fully unpack. It specifically targets Windows NT-based systems.",
+    "sandbox_recommendations": "Run in a high-fidelity Windows sandbox environment. Monitor registry keys related to system services and autorun. Watch for driver-loading attempts and access to kernel memory spaces."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Targeted for persistence."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "system32\\win32k.sys",
+          "description": "Masquerading path."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Process hollowing/creation logic."
+    },
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Kernel-mode service table manipulation."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Registry-based persistence management."
+    }
+  ]
+}

@@ -1,0 +1,89 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample is a modular malware capable of credential theft (Firefox/Chrome), logging keystrokes, remote communication, and file/registry manipulation. It uses process hollowing (NtUnmapViewOfSection) to inject malicious code.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code appears to be standard C++ compiled with MSVC 6.0 based on the imports and function naming conventions (e.g., MSVCP60.dll). No overt packing detected."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "Utilizes NtUnmapViewOfSection, VirtualAllocEx, WriteProcessMemory, and SetThreadContext to perform process hollowing."
+    },
+    {
+      "name": "Credential Theft",
+      "description": "Attempts to access and read login data from Firefox and Chrome profile directories."
+    },
+    {
+      "name": "Persistence",
+      "description": "Manipulates registry keys (e.g., Software\\Microsoft\\Windows\\CurrentVersion\\Run) to ensure execution on startup."
+    },
+    {
+      "name": "Keystroke Logging",
+      "description": "Uses SetWindowsHookExA for keyboard hooks and GetForegroundWindow for tracking."
+    },
+    {
+      "name": "Networking",
+      "description": "Uses WinINet and Winsock APIs to connect to remote servers and download/upload files."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of process hollowing (fcn.0040d477), keyboard hooks (fcn.00404e5f), and specific targeting of browser credential stores (fcn.004057b6, fcn.004056ec) constitutes clear malicious intent that overrides any potential dual-use interpretation.",
+    "general": "The function fcn.0040d477 maps a PE file into a remote process using NtUnmapViewOfSection. fcn.004057b6 specifically targets 'logins.json' in Firefox profiles. The presence of 'install.bat' and 'explorer.exe' strings further indicates self-replication or system modification intent.",
+    "uncertainties": "While the binary is not packed, the C++ standard library's complexity makes full control-flow reconstruction challenging; however, the API set is sufficient to confirm malicious behavior.",
+    "conditions": "The malware checks for environment variables and specific file paths (e.g., Firefox/Chrome profiles). It likely expects to be run with elevated privileges to interact with other processes or persistence keys.",
+    "sandbox_recommendations": "Run in an environment with dummy browser profile data, simulate keyboard activity, and ensure internet connectivity to observe C2 communication."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Persistence registry key"
+        },
+        {
+          "value": "Software\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon",
+          "description": "Persistence registry key"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "%AppData%\\Roaming\\Mozilla\\Firefox\\Profiles",
+          "description": "Firefox profile path"
+        },
+        {
+          "value": "%AppData%\\Local\\Google\\Chrome\\User Data\\Default\\Cookies",
+          "description": "Chrome cookies path"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x0040d477",
+      "name": "fcn.0040d477",
+      "description": "Performs process hollowing/injection."
+    },
+    {
+      "address": "0x004057b6",
+      "name": "fcn.004057b6",
+      "description": "Extracts Firefox credentials."
+    },
+    {
+      "address": "0x00406d29",
+      "name": "fcn.00406d29",
+      "description": "Registry manipulation for persistence."
+    },
+    {
+      "address": "0x0040e750",
+      "name": "fcn.0040e750",
+      "description": "Downloads data via InternetOpenUrlA."
+    }
+  ]
+}

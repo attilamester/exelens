@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to install a rootkit by modifying system services, interacting with sensitive kernel structures (e.g., KeServiceDescriptorTable), and performing process injection. It uses registry-based persistence and custom obfuscation/anti-analysis routines to hide its malicious activity.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based payload obfuscation",
+      "Dynamic API resolution (GetProcAddress/LoadLibrary)"
+    ],
+    "details": "The file contains encrypted/XORed resources (specifically RCDATA) and performs dynamic library loading of system files (ntdll.dll, etc.) to resolve functions like 'NtQueryObject' or 'KeServiceDescriptorTable'. Multiple functions (e.g., fcn.100015f7) handle the decryption and loading of these payloads into memory."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "The binary attempts to hook system service descriptors (KeServiceDescriptorTable), a hallmark of rootkit behavior."
+    },
+    {
+      "name": "Registry Persistence",
+      "description": "Extensive use of RegCreateKeyExA and RegSetValueExA indicates the creation of persistence mechanisms to survive reboots."
+    },
+    {
+      "name": "File System Modification",
+      "description": "Uses CopyFileA, SetFileAttributesA, and DeleteFileA to manipulate critical system files, potentially replacing or hiding malicious modules."
+    },
+    {
+      "name": "Mutex-based synchronization",
+      "description": "Creates mutexes like 'GlobalRPCMutex' to ensure only one instance of the malicious payload runs."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level hooking (KeServiceDescriptorTable), modification of system-critical registry keys, and file manipulation targeting 'system32' directory files confirms malicious intent. The code specifically targets the modification of kernel-level structures to hide its presence, which is not a legitimate behavior for standard software.",
+    "general": "High-intent evidence includes calls to 'KeServiceDescriptorTable' in fcn.1000b369, manipulation of system files via 'CopyFileA' in fcn.100010a1, and registry modifications using 'ADVAPI32.dll_RegCreateKeyExA' and 'RegSetValueExA'. These routines are designed to modify the OS environment at a deep level to maintain persistence and evade detection.",
+    "uncertainties": "While the binary is highly likely a rootkit, some specific functionality involving the 'ntoskrnl.exe' patches is complex; however, the intent is unequivocally malicious given the targeting of system service descriptors.",
+    "conditions": "The primary execution requires Administrator/System privileges to perform kernel-mode modifications. It also checks for the existence of specific registry keys and mutexes ('prkMtx') to determine if the payload has already been installed or is already running.",
+    "sandbox_recommendations": "Run in a controlled environment with kernel-debugging capabilities enabled (WinDbg). Do not execute on an production-critical system. Monitor registry changes and file system writes to system32 folders."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Suspected location for persistence mechanism."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name observed in code used for synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name observed in code related to kernel-mode synchronization."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Handles manipulation of the KeServiceDescriptorTable to enable rootkit functionality."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Performs file system operations and registry modifications to establish persistence."
+    },
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Implements process/module hiding by manipulating system structures."
+    }
+  ]
+}

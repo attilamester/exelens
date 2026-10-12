@@ -1,0 +1,89 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a malicious installer/loader that performs kernel-level operations, including modifying system service tables (hooking) and interacting with sensitive system drivers like win32k.sys. It uses process injection/hollowing techniques and establishes persistence through registry keys.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Custom obfuscation",
+      "Resource-based loading",
+      "Dynamic API resolution"
+    ],
+    "details": "The file contains a large resource section (110KB) with high entropy (6.54), typical of an encrypted or compressed payload. It utilizes GetProcAddress and LoadLibrary dynamically to hide its true capabilities from static analysis, and contains decryption routines (0xcd XOR loops) observed in functions like fcn.10001697."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "Uses CreateProcessA and CreateFile to manipulate memory and execution of other processes."
+    },
+    {
+      "name": "Kernel Hooking",
+      "description": "Functions like fcn.1000ab6f and fcn.1000b46f interact with KeServiceDescriptorTable to hook system calls."
+    },
+    {
+      "name": "Persistence",
+      "description": "Writes to registry keys under HKLM and uses RegSetValueExA to ensure execution."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Copies, deletes, and modifies attributes of system files, including driver files (e.g., win32k.sys, ntoskrnl.exe)."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode hooking functions (KeServiceDescriptorTable), attempts to write to system-critical files (win32k.sys), and the use of mutexes to manage infection/persistence (GlobalRPCMutex) provides overwhelming evidence of malicious intent. These capabilities exceed standard installer behavior.",
+    "general": "High-intent malicious activity is evidenced by fcn.1000ab6f (RVA 0x1000ab6f) and fcn.1000b46f (RVA 0x1000b46f), which perform service descriptor table modifications. Further evidence is in fcn.1000a0fc (RVA 0x1000a0fc), which attempts to open and modify 'win32k.sys'.",
+    "uncertainties": "While the high-level logic is clear, the exact contents of the primary encrypted resource could not be fully decrypted, though the surrounding loaders confirm it is a malicious component.",
+    "conditions": "Requires administrative privileges due to attempts to write to the System32 directory and perform kernel-level modifications. The execution flow is protected by a global mutex 'GlobalRPCMutex'.",
+    "sandbox_recommendations": "Run in an environment that allows kernel-level monitoring (e.g., ProcMon with filter for driver file access). Monitor registry modifications under 'Run' or 'Services' keys. Simulate environment where win32k.sys and ntoskrnl.exe are accessible."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\...\\DMWH",
+          "description": "Registry key used for configuration or persistence."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "C:\\Windows\\System32\\win32k.sys",
+          "description": "Target file for modification."
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Used to ensure single instance of the malicious process."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name observed in resource access."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Contains core logic for modifying KeServiceDescriptorTable for kernel hooking."
+    },
+    {
+      "address": "0x1000a0fc",
+      "name": "fcn.1000a0fc",
+      "description": "Performs file system operations on critical system driver win32k.sys."
+    },
+    {
+      "address": "0x10001697",
+      "name": "fcn.10001697",
+      "description": "Primary loader function that orchestrates the unpacking and initial deployment."
+    }
+  ]
+}

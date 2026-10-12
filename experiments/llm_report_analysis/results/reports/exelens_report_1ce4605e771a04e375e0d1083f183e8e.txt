@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This sample is a backdoor/remote administration tool that establishes persistence, creates a hidden cmd.exe session, and communicates via HTTP requests to a remote server. It features process listing, service management, and arbitrary command execution.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed; the logic is visible in the provided assembly. Boilerplate imports are standard for a Windows C++ executable."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Uses RegCreateKeyExA to manipulate the Windows Run key for persistence."
+    },
+    {
+      "name": "Process Injection/Shell",
+      "description": "Creates a hidden shell process via CreateProcessA (cmd.exe) and uses pipes for inter-process communication."
+    },
+    {
+      "name": "Command & Control",
+      "description": "Uses WININET.dll APIs (InternetOpenA, HttpSendRequestA) to receive instructions and communicate with a remote server."
+    },
+    {
+      "name": "System Enumeration",
+      "description": "Enumerates processes using ToolHelp32Snapshot and services using EnumServicesStatusExA."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistence (manipulating the 'Run' registry key), the creation of a hidden command shell (cmd.exe redirected through pipes), and active C2 communication (WININET.dll) confirms malicious intent. This is not dual-use software; it is designed to maintain unauthorized access to the host.",
+    "general": "High-intent indicators include: fcn.004030d8 (Registry persistence using RegCreateKeyExA), fcn.00401bf7 (hidden process creation with CreateProcessA redirected to a pipe), and WININET-based communication sequences found in fcn.00401406 and fcn.00402afc.",
+    "uncertainties": "While the binary is not packed, the C2 server URL and specific command-and-control logic are dynamically constructed/fetched from the network, limiting visibility into the specific tasking commands at this stage.",
+    "conditions": "Execution is gated by internal logic (e.g., InternetConnectA results) and potentially specific command-line arguments. It checks for a unique mutex 'GLOBALADR32' to ensure single-instance operation.",
+    "sandbox_recommendations": "Provide network simulation for WININET requests. Observe the registry for changes to 'Software\\Microsoft\\Windows\\CurrentVersion\\Run'. Monitor child processes spawned by the executable for cmd.exe activity."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Used to establish persistence via Adobe_Reader_Speed_Launcher"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GLOBALADR32",
+          "description": "Mutex name used to prevent multiple instances"
+        },
+        {
+          "value": "Adobe_Reader_Speed_Launcher",
+          "description": "Registry value name used for persistence"
+        },
+        {
+          "value": "cmd.exe",
+          "description": "Process used for remote command execution"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401406",
+      "name": "fcn.00401406",
+      "description": "Main C2 communication and command handling loop."
+    },
+    {
+      "address": "0x004030d8",
+      "name": "fcn.004030d8",
+      "description": "Implements registry persistence by writing to the Windows Run key."
+    },
+    {
+      "address": "0x00401bf7",
+      "name": "fcn.00401bf7",
+      "description": "Spawns a hidden command shell (cmd.exe) via CreateProcessA."
+    }
+  ]
+}

@@ -1,0 +1,90 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a remote shell backdoor/RAT designed to execute commands and manage services. It communicates with a hardcoded server via WININET APIs, captures computer information, creates a command-line interface, and supports remote service manipulation and file system enumeration.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed; the import table and function logic are visible."
+  },
+  "capabilities": [
+    {
+      "name": "Remote Shell/Backdoor",
+      "description": "Establishes a connection to a remote host and executes system commands through a spawned cmd.exe."
+    },
+    {
+      "name": "Service Control",
+      "description": "Can install, uninstall, query, and manipulate Windows services using Advapi32 service APIs."
+    },
+    {
+      "name": "Persistence Mechanism",
+      "description": "Modifies the Windows registry to register itself or other DLLs as services."
+    },
+    {
+      "name": "Network Communication",
+      "description": "Uses WININET to perform HTTP requests (GET/POST) to a hardcoded address."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of establishing network connections via WININET, spawning processes via CreateProcess with redirected pipes (CreatePipe), and the ability to execute remote commands (shell) clearly indicates malicious intent consistent with a backdoor/RAT. The registry manipulation functions (fcn.10002d50) show intent to persist by modifying service configurations.",
+    "general": "The function fcn.10001f20 calls KERNEL32.dll_CreateProcessA to launch 'cmd.exe' with pipes redirected to remote communication sockets (fcn.10001e00). fcn.10002d50 and fcn.10002ee0 use Advapi32 functions to register and manipulate services, specifically targeting HKLM\\SYSTEM\\CurrentControlSet\\Services, which confirms persistence and service-based malware capabilities.",
+    "uncertainties": "While the binary is not packed, the exact C2 domain or IP is obfuscated in the data sections (not fully visible). The functionality is clear, but the target server details are external to the analyzed code.",
+    "conditions": "The sample appears to act as a service. Execution begins at ServiceMain (or via the exported functions), requiring the environment to be set up as a Windows service. It also performs environmental checks (e.g., GetComputerNameA) and expects command input over the initialized WININET handles.",
+    "sandbox_recommendations": "Simulate a network environment with internet access or a local HTTP listener. Rename the file to match expected service names if necessary. Use a debugger to monitor the strings constructed in fcn.10001570, where the C2 URL/Server address is likely formatted."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SYSTEM\\CurrentControlSet\\Services\\*\\Parameters",
+          "description": "Registry path used for service configuration and persistence."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "cmd.exe",
+          "description": "Binary used for executing remote shell commands."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "shell",
+          "description": "Command string recognized by the backdoor to trigger remote shell functionality."
+        },
+        {
+          "value": "DllPath",
+          "description": "Registry key name associated with service persistence."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001570",
+      "name": "fcn.10001570",
+      "description": "Main communication and command loop handler using WININET."
+    },
+    {
+      "address": "0x10001f20",
+      "name": "fcn.10001f20",
+      "description": "Spawns a shell process (cmd.exe) with redirected input/output."
+    },
+    {
+      "address": "0x10002d50",
+      "name": "fcn.10002d50",
+      "description": "Modifies service registry keys for persistence."
+    },
+    {
+      "address": "0x10002080",
+      "name": "fcn.10002080",
+      "description": "Implements process/service enumeration and collection of system information."
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This sample is a kernel-mode driver/component installer that utilizes manual mapping or direct kernel object manipulation techniques. It actively attempts to interact with system drivers and security-critical kernel structures, likely to establish persistence or facilitate code execution at a high privilege level.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Resource-based payload hiding",
+      "Dynamic API resolution (manual import resolution)",
+      "XOR-based obfuscation/encryption"
+    ],
+    "details": "The file contains encrypted/obfuscated data in the resource section (102: size=106496). Routines like fcn.100015f7 and fcn.10001723 handle the extraction and decryption (XOR 0xCD) of these resources at runtime, which are then either executed or utilized as drivers."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Uses APIs like NtShutdownSystem and interacts with kernel structures such as KeServiceDescriptorTable."
+    },
+    {
+      "name": "Process Injection/Driver Loading",
+      "description": "Utilizes CreateProcessA and potentially driver-related routines to load components."
+    },
+    {
+      "name": "Persistence",
+      "description": "Uses Registry manipulation (RegSetValueExA) on Run/startup keys to maintain presence."
+    },
+    {
+      "name": "Evasion/Anti-Analysis",
+      "description": "Checks for system environment variables and mutexes (e.g., GlobalRPCMutex) to avoid redundant execution or detection."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level API usage, explicit interaction with KeServiceDescriptorTable, and the use of resource-based obfuscation to hide payloads strongly indicates malicious intent rather than a legitimate installer. The manual resolution of NT kernel APIs and the code segments dedicated to subverting standard system process execution (e.g., modifying system call tables) are hallmark signs of rootkit/malware behavior.",
+    "general": "High-intent evidence includes calls to fcn.10003c04 (involving service table manipulation) and fcn.1000b46f, which performs direct modifications of system-level pointers. Functions like fcn.10001c3f manipulate file attributes to disguise persistence mechanisms.",
+    "uncertainties": "The exact nature of the decrypted resource remains partially hidden without full emulation; however, the surrounding context of the calls to kernel-mode functions (NtShutdownSystem, KeServiceDescriptorTable) is sufficient to confirm malicious intent.",
+    "conditions": "Requires administrative privileges to interact with kernel-level components. It likely checks for the presence of certain environment variables or specific system files before activating the payload.",
+    "sandbox_recommendations": "Run in an environment that allows for kernel-level driver loading. Use Procmon to monitor registry modifications (Run keys) and monitor file system activity for newly created system files or modified drivers."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for process synchronization and possibly to prevent multiple infection instances."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "_system32",
+          "description": "Path segment indicative of system file targeting."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10003c04",
+      "name": "fcn.10003c04",
+      "description": "Handles file operations and process spawning, possibly for persistent payload delivery."
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Performs critical modifications to the system service descriptor table (KeServiceDescriptorTable)."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Implements service/system configuration management, likely for persistence."
+    }
+  ]
+}

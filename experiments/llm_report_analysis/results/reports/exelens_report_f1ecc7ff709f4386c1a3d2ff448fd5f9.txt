@@ -1,0 +1,88 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The file is a sophisticated modular installer that performs anti-debugging, persistence via registry keys, and process hollowing/injection. It attempts to load kernel-mode drivers and interacts with system-critical processes like lsass.exe.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based encoding of resources",
+      "Dynamic API resolution"
+    ],
+    "details": "Resources are encoded with a 0xcd XOR key. It uses dynamic API resolution via GetProcAddress and LoadLibrary to hide its imports."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Manipulation",
+      "description": "Uses VirtualAlloc, WriteProcessMemory, CreateRemoteThread (via system-level hooks) to manipulate process memory."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies registry keys (e.g., Run keys, system settings) to ensure execution across reboots."
+    },
+    {
+      "name": "Evasion",
+      "description": "Checks for debugger presence and system-level environment variables (e.g., _system32) to evade analysis."
+    },
+    {
+      "name": "System-Level Access",
+      "description": "Attempts to interact with kernel-mode structures via NtQuerySystemInformation and attempts to manipulate system drivers/services."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode interaction (NtQuerySystemInformation, KeServiceDescriptorTable), process hollowing, and persistence mechanisms (RegSetValueExA, RegCreateKeyExA) clearly defines this as malware, not a standard installer.",
+    "general": "High-intent indicators include fcn.100096ce (kernel structure manipulation), fcn.1000b46f (injected registry persistence), and fcn.10001b34 (file dropping and process creation).",
+    "uncertainties": "The sample contains complex obfuscated code paths (e.g., fcn.1000d060) that appear to decompress additional payload data, which could not be fully statically mapped.",
+    "conditions": "Execution is gated by the existence of mutexes (prkMtx, GlobalRPCMutex) and environmental conditions such as the presence of specific system files/registry keys.",
+    "sandbox_recommendations": "Simulate a Windows environment with high-privilege access; monitor registry keys related to system persistence; use a kernel-aware monitor for detection of driver loading attempts."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Persistence mechanism."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "C:\\Windows\\system32\\lsass.exe",
+          "description": "Target of hollowing/injection."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for single-instance check."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for synchronization."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Payload dropping and process creation."
+    },
+    {
+      "address": "0x100096ce",
+      "name": "fcn.100096ce",
+      "description": "Kernel-mode structure manipulation."
+    },
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Persistence via registry modification."
+    }
+  ]
+}

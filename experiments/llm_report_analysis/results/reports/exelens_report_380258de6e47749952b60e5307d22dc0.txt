@@ -1,0 +1,83 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to perform file system operations, registry modification, and process manipulation, specifically targeting system components like 'lsass'. It utilizes custom resource decryption and has clear indicators of kernel-mode or high-privilege access, such as accessing the Service Descriptor Table and performing memory manipulation typical of rootkit behavior.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource encryption (XOR 0xCD)",
+      "Dynamic API resolution"
+    ],
+    "details": "The file contains encrypted resources (decrypted with XOR 0xCD at RVA 0x1000167b) and uses dynamic resolution of system APIs to obscure its functionality. The presence of large, unknown resources suggests a payload or configuration is embedded."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Manipulation",
+      "description": "Utilizes CreateProcessA and modifies files associated with system processes like 'lsass' (RVA 0x1000191c)."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies system registry keys to ensure execution (e.g., via RegSetValueExA, RVA 0x10001000)."
+    },
+    {
+      "name": "Rootkit/Kernel Access",
+      "description": "Functions like 'KeServiceDescriptorTable' and 'KeAddSystemServiceTable' (RVAs 0x1000b369, 0x1000ab6f) suggest capability to hook or modify kernel-level structures."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Uses CopyFileA, DeleteFileA, and SetFileAttributesA to manipulate files, often targeting system directories."
+    }
+  ],
+  "details": {
+    "reasoning": "While many capabilities (registry access, API resolution) are dual-use, the specific combination of targeting critical processes like 'lsass', accessing the KeServiceDescriptorTable (a hallmark of rootkits), and modifying system directories provides definitive evidence of malicious intent. The code is clearly designed to hide its actions and manipulate OS-level security structures.",
+    "general": "High-intent indicators include: modification of 'lsass' related registry entries (RVA 0x1000191c), attempts to access 'KeServiceDescriptorTable' (RVA 0x1000b369), and the use of 'DbgPrint' functions (RVA 0x10009b69) for debugging within a non-legitimate context.",
+    "uncertainties": "Due to the size of the file and the use of encrypted resources, the full scope of the payload cannot be determined without runtime monitoring, but the identified modules are sufficiently malicious for classification.",
+    "conditions": "The execution flow is heavily gated by registry checks (e.g., RegOpenKeyExA for 'DMWI' at RVA 0x1000238b) and environment variable checks ('System32', RVA 0x1000103b). It also uses mutex checks ('prkMtx' at RVA 0x1000753a) to ensure single-instance execution.",
+    "sandbox_recommendations": "Provide a system environment containing the registry keys it probes ('DMWI', 'prkMtx'). The sample likely requires administrative privileges to interact with system files and the Service Descriptor Table."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "lsass",
+          "description": "Targeted process name"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for synchronization"
+        },
+        {
+          "value": "DMWI",
+          "description": "Registry path identifier"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "system32",
+          "description": "Target directory for file manipulation"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Modifies system service tables, indicative of kernel hooking."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Modifies system registry and files associated with critical processes."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Enumerates registry keys and interacts with system-specific service tables."
+    }
+  ]
+}

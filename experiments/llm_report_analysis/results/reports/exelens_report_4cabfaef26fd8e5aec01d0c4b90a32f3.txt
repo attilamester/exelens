@@ -1,0 +1,72 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample is a network backdoor that establishes persistence via service registration and provides remote shell execution capabilities. It communicates with a hardcoded domain to fetch commands and files.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed, though some string manipulation and base64-like encoding logic are used for C2 communication."
+  },
+  "capabilities": [
+    {
+      "name": "Remote Command Execution",
+      "description": "Utilizes CreatePipe and CreateProcessA to spawn a hidden cmd.exe and tunnel the output over a socket."
+    },
+    {
+      "name": "Persistence",
+      "description": "Uses ADVAPI32 service APIs (CreateServiceA, RegisterServiceCtrlHandlerA) to install as a Windows service."
+    },
+    {
+      "name": "Networking/C2",
+      "description": "Implements network communication via WS2_32 and WININET (InternetOpenA, HttpSendRequestA) to command-and-control servers."
+    },
+    {
+      "name": "File Exfiltration/Download",
+      "description": "Downloads files from C2 or exfiltrates command results to the C2 server."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of specific API patterns like CreatePipe + CreateProcessA for shell redirection, coupled with service installation functions (CreateServiceA) and C2 domain interaction, clearly indicates a RAT (Remote Access Trojan). The benign appearance of some crypto/encoding functions is typical of C2 command obfuscation, not system protection.",
+    "general": "The function fcn.10003a13 is the primary C2 handler, initiating a pipe-based shell (CreatePipe, CreateProcessA, cmd.exe). The service installation logic is handled by sym.Nwsapagent.dll_InstallService. Networking is managed through functions like fcn.10003286 (HTTP GET) and fcn.10004363 (File transfer).",
+    "uncertainties": "The exact C2 protocol command set is inferred from function logic (e.g., str.getfile, str.exit), but without live capture, some commands may have different implementations.",
+    "conditions": "The binary appears to act as a service; it likely requires being run with administrative privileges to successfully register itself as a system service. It expects a C2 server at 'dns.progammerli.com'.",
+    "sandbox_recommendations": "Provide internet access to the sandbox environment, specifically allowing outbound requests to 'dns.progammerli.com'. Run the binary as administrator to observe persistence mechanisms."
+  },
+  "ioc": [
+    {
+      "type": "url",
+      "values": [
+        {
+          "value": "dns.progammerli.com",
+          "description": "Hardcoded C2 domain used for HTTP communication."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "cmd.exe /c",
+          "description": "Command used for shell execution."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10003a13",
+      "name": "fcn.10003a13",
+      "description": "Main C2 command dispatcher and shell handler."
+    },
+    {
+      "address": "0x10004706",
+      "name": "sym.Nwsapagent.dll_InstallService",
+      "description": "Service registration entry point for persistence."
+    },
+    {
+      "address": "0x10003286",
+      "name": "fcn.10003286",
+      "description": "Networking routine for downloading remote files."
+    }
+  ]
+}

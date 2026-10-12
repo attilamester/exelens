@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a remote access trojan (RAT) or backdoor, exhibiting capabilities to maintain persistence, execute shell commands via pipes, and exfiltrate data to remote C2 servers.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The binary appears to be compiled C++ with no obvious packing or obfuscation."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Writes to the Windows Registry 'Run' key (SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run) to ensure automatic execution upon startup."
+    },
+    {
+      "name": "Command Execution",
+      "description": "Uses CreatePipe and CreateProcess to spawn hidden shell processes, allowing the attacker to interact with the system via remote commands."
+    },
+    {
+      "name": "Remote C2 Communication",
+      "description": "Uses WinINet and Winsock APIs to communicate with hard-coded domains such as 'ctcs.bigdepression.net' and 'ctcs.earthsolution.org'."
+    },
+    {
+      "name": "Data Exfiltration",
+      "description": "Collects system information (computer name, user name, OS version) and enumerates network shares/servers, transmitting this data to a remote server."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistent registry modification, the creation of anonymous pipes for command-and-control interaction, and the active exfiltration of system environment data points definitively to malicious intent rather than a legitimate utility.",
+    "general": "High-intent indicators include: RegSetValueExA (RVA: 0x4010a7) for persistence, CreatePipe (RVA: 0x4020a5) combined with CreateProcessA (RVA: 0x4022a1) for shell hollowing, and InternetOpenA/HttpOpenRequestA (RVA: 0x4079f9/0x407a4b) to communicate with command-and-control servers.",
+    "uncertainties": "While the binary is not packed, the complex C++ STL usage makes manual tracing of the entire logic flow extremely time-consuming; however, the critical API usage remains clear.",
+    "conditions": "The sample performs network-based checks and potentially requires a specific environment or C2 response for full payload activation. It uses hard-coded domains that must be reachable for the core loop to proceed.",
+    "sandbox_recommendations": "Simulate a live internet connection allowing outbound traffic to the identified domains. Monitor registry changes for 'APVSVC' under the Run key. Use procmon to observe shell creation via pipe communication."
+  },
+  "ioc": [
+    {
+      "type": "url",
+      "values": [
+        {
+          "value": "ctcs.bigdepression.net",
+          "description": "Primary C2 domain"
+        },
+        {
+          "value": "ctcs.earthsolution.org",
+          "description": "Secondary C2 domain"
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\APVSVC",
+          "description": "Persistence mechanism"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401000",
+      "name": "fcn.00401000",
+      "description": "Installs persistence via registry key modification."
+    },
+    {
+      "address": "0x00405430",
+      "name": "fcn.00405430",
+      "description": "Main logic handler for remote command processing and file uploads."
+    },
+    {
+      "address": "0x00406920",
+      "name": "fcn.00406920",
+      "description": "System information gathering and environment enumeration for exfiltration."
+    }
+  ]
+}

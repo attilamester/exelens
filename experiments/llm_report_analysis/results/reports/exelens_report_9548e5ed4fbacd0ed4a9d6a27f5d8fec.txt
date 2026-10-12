@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This file is a network-based remote access Trojan (RAT). It establishes a persistent service, connects to a hardcoded command-and-control server (logs.issnbgkit.net), and executes shell commands remotely, including file exfiltration and system directory traversal.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The file is not packed; the code logic is visible and directly performs C2 communications and shell execution."
+  },
+  "capabilities": [
+    {
+      "name": "Network Communication",
+      "description": "Uses WININET and WS2_32 APIs to establish connections, send/receive data, and perform HTTP requests."
+    },
+    {
+      "name": "Remote Command Execution",
+      "description": "Spawns cmd.exe via CreateProcessA and communicates over pipes to execute arbitrary shell commands."
+    },
+    {
+      "name": "Service Persistence",
+      "description": "Utilizes ADVAPI32 service management functions (CreateServiceA) to maintain persistence on the host."
+    },
+    {
+      "name": "File Exfiltration",
+      "description": "Downloads or reads files from the system and transmits them over the socket."
+    }
+  ],
+  "details": {
+    "reasoning": "The application exhibits clear malicious intent by combining network communication (WININET/WS2_32) with system-level persistence (CreateServiceA) and unrestricted shell execution (cmd.exe). The presence of functions like fcn.1000152c (Command Execution) and fcn.10001139 (C2 Beaconing) confirms its role as a RAT. There is no legitimate use for an 'EventSystem.dll' to spawn a hidden shell and exfiltrate files to 'logs.issnbgkit.net'.",
+    "general": "High-intent indicators include: (1) RVA 0x1000152c: Implementation of a pipe-based command shell ('cmd.exe /c'). (2) RVA 0x10002067: Beaconing logic to 'logs.issnbgkit.net' using InternetConnectA. (3) RVA 0x10001e7c: Logic to download/upload files via HTTP based on command flags ('getfile', 'quit').",
+    "uncertainties": "While the binary is clearly a RAT, the exact trigger for its installation as a service requires analyzing the caller of the InstallService export, which is not visible in the entrypoint.",
+    "conditions": "The RAT expects a specific server-side response on port 80/HTTP to trigger commands. Execution of the shell relies on the binary being successfully registered as a system service.",
+    "sandbox_recommendations": "Isolate the environment. Intercept DNS requests for 'logs.issnbgkit.net' and redirect to a local listener. Monitor process creation and pipe activity for 'cmd.exe'."
+  },
+  "ioc": [
+    {
+      "type": "url",
+      "values": [
+        {
+          "value": "logs.issnbgkit.net",
+          "description": "Hardcoded C2 server domain"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "cmd.exe /c",
+          "description": "Used to execute remote shell commands"
+        },
+        {
+          "value": "getfile",
+          "description": "Command flag for file exfiltration"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000152c",
+      "name": "fcn.1000152c",
+      "description": "Handles command execution via pipes and cmd.exe"
+    },
+    {
+      "address": "0x10002067",
+      "name": "fcn.10002067",
+      "description": "Initial beaconing and C2 communication routine"
+    },
+    {
+      "address": "0x10001e7c",
+      "name": "fcn.10001e7c",
+      "description": "Handles file upload/download commands"
+    }
+  ]
+}

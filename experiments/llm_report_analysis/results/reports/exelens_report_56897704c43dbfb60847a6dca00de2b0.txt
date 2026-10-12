@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample is a sophisticated installer that performs process hollowing, registry persistence, and contains code with capabilities for kernel-level interaction, including modifying the System Service Descriptor Table (SSDT).",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-encoded resources",
+      "Dynamic API resolution (GetProcAddress)",
+      "Process hollowing/injection"
+    ],
+    "details": "The file uses XOR operations (e.g., in fcn.100015f7) to decode resources identified as '101', '102', and '103'. It dynamically loads DLLs and resolves function pointers, typical of an installer or a malware dropper."
+  },
+  "capabilities": [
+    {
+      "name": "Process Hollowing/Injection",
+      "description": "Utilizes CreateProcessA, WriteFile, and GetFileTime/SetFileAttributes to manipulate processes."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies registry keys (RegCreateKeyExA, RegSetValueExA) for system-wide persistence."
+    },
+    {
+      "name": "Kernel Interaction",
+      "description": "Contains functions like fcn.1000b369 that interact with KeServiceDescriptorTable and perform SSDT hooking/patching to hide or gain control over system services."
+    },
+    {
+      "name": "Evasion/Anti-Analysis",
+      "description": "Uses mutex checks (OpenMutexA/W) to ensure single-instance execution and avoid sandbox detection."
+    }
+  ],
+  "details": {
+    "reasoning": "While installers frequently use legitimate APIs like VirtualAlloc or RegSetValue, this sample includes high-intent malicious indicators: explicit code patterns to modify the SSDT (KeServiceDescriptorTable), which is a classic rootkit behavior, and functions designed to copy files into system directories while masquerading as legitimate system processes (lsass). The combination of these specific kernel-level hooking functions and process-hollowing logic confirms malicious intent.",
+    "general": "High-intent malicious evidence is found in fcn.1000b369 (SSDT hooking/patching via KeServiceDescriptorTable modification) and fcn.10001b34 (process hollowing logic). String references like 'lsass' in fcn.100017a0 suggest an attempt to inject into or replace critical system processes.",
+    "uncertainties": "The exact nature of the payload stored in the XORed resources cannot be fully determined without full decryption, though the loader logic is clearly malicious.",
+    "conditions": "The sample performs environmental checks (e.g., GetVersionExA, GetSystemTime, environment variable checks) and expects a specific system environment (Windows NT/2000+). Execution of the main malicious payload appears contingent on the successful resolution of specific system functions.",
+    "sandbox_recommendations": "The sample should be executed in a full Windows environment (not just a basic sandbox). Because it uses Mutexes ('prkMtx') and registry keys for persistence, the sandbox must allow registry and file system modifications for the full behavior to manifest."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used to ensure single instance."
+        },
+        {
+          "value": "lsass",
+          "description": "Target process name for injection."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for synchronization."
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Likely persistence key."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "SSDT hooking/patching routine."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Process hollowing and file manipulation."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Persistence and registry modification logic."
+    }
+  ]
+}

@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a kernel-mode rootkit component that attempts to disable security callbacks, hide itself, and communicate with C2 via HTTP.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based payload decryption (RVA: 0x1000167b)",
+      "Dynamic API resolution and function pointer obfuscation"
+    ],
+    "details": "The file contains encrypted RCDATA resources (102, 101) which are decrypted at runtime via simple XOR operations (0xCD key). The code dynamically resolves API addresses to evade static detection."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode Rootkit Persistence",
+      "description": "Uses RegSetValueExA to modify system persistence keys and hooks into system operations."
+    },
+    {
+      "name": "Evasion & Anti-Analysis",
+      "description": "Contains checks for debugger presence and registry modifications to hide malicious services."
+    },
+    {
+      "name": "Networking",
+      "description": "Implements HTTP-based communication routines, presumably for C2 control."
+    },
+    {
+      "name": "System Modification",
+      "description": "Attempts to interact with NT internals, including NtQuerySystemInformation, and potentially hooks system service tables (KeServiceDescriptorTable)."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode interaction functions (KeServiceDescriptorTable, NtQuerySystemInformation, NtShutdownSystem), and the explicit usage of registry keys associated with system driver loading points, indicates a high-intent malicious rootkit. The file is designed to survive system restarts and interact directly with the kernel to hide its presence and operations.",
+    "general": "High-intent evidence includes calls to NtShutdownSystem (fcn.1000b73a), KeServiceDescriptorTable hooks (fcn.1000b46f), and direct registry manipulation for persistence (fcn.100028d6). The function fcn.10003c04, which interacts with system directories and services, strongly indicates an attempt to deploy as a driver or system service.",
+    "uncertainties": "The exact target system version/environment for the kernel hooks could not be fully determined due to the complexity of the obfuscated control flow, but the intent is consistent across all modules.",
+    "conditions": "The execution flow is gated by a global mutex (GlobalRPCMutex) and registry key checks. It likely requires administrative or SYSTEM privileges to perform kernel-mode operations.",
+    "sandbox_recommendations": "Simulate a Windows environment with full system access. Monitor registry keys under HKLM\\SYSTEM\\CurrentControlSet\\Services. Capture outbound traffic on port 80/443 for potential C2 callback patterns."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Persistence mechanism via service modification."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for single-instance execution."
+        },
+        {
+          "value": "win32k.sys",
+          "description": "System driver targeted for modification/injection."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Performs modification of kernel service tables and registry persistence."
+    },
+    {
+      "address": "0x10003c04",
+      "name": "fcn.10003c04",
+      "description": "Responsible for deploying and registering the malicious payload as a service."
+    },
+    {
+      "address": "0x1000b73a",
+      "name": "fcn.1000b73a",
+      "description": "Contains system shutdown and critical kernel interaction logic."
+    }
+  ]
+}

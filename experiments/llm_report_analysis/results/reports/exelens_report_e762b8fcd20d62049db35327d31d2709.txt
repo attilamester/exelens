@@ -1,0 +1,75 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample exhibits capabilities to inject code into system processes (lsass.exe), modify system registry configurations, and perform kernel-mode operations by interacting with NtQuerySystemInformation and manipulating system call tables via memory patching, indicative of a rootkit-like kernel-mode backdoor.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR encoding for embedded resources",
+      "Dynamic API resolution (GetProcAddress/LoadLibrary)"
+    ],
+    "details": "The sample contains resources (RVA 0x10010028) that are XOR-encoded with 0xCD. It also performs extensive dynamic API resolution to access internal system functions and kernel-level structures."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Utilizes NtQuerySystemInformation and modifies system service descriptor tables (KeServiceDescriptorTable)."
+    },
+    {
+      "name": "Persistence/Injection",
+      "description": "Writes to the registry to modify system startup and performs process hollowing/injection techniques, specifically targeting lsass.exe."
+    },
+    {
+      "name": "Anti-debugging/Anti-VM",
+      "description": "Checks system configuration and uses timing/environment checks (GetVersionEx, GetSystemTime)."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode manipulation (KeServiceDescriptorTable modification), process injection into critical processes (lsass.exe), and registry persistence clearly distinguishes this from a benign protector or installer. The presence of functions named 'KeGetCurrentIrql' and 'PsGetCurrentProcess' combined with code that directly attempts to patch kernel structures confirms malicious intent to gain system-wide control.",
+    "general": "The function fcn.1000ab6f attempts to locate and modify the system service descriptor table (KeServiceDescriptorTable). Function fcn.100017a0 injects or modifies the 'lsass' process registry configuration. Function fcn.1000c492 provides the underlying mechanism for mapping and modifying kernel memory.",
+    "uncertainties": "The exact nature of the payload inside the resource section is determined at runtime, but the loader code is explicitly malicious.",
+    "conditions": "Execution is contingent on the sample being run with high-level privileges (needed for kernel memory access) and potentially in an environment where specific system versions are detected (GetVersionEx checks).",
+    "sandbox_recommendations": "The sample should be executed in a full-system virtualization environment with kernel debugging capabilities, as it attempts to communicate with kernel-mode drivers and modify system-level structures. Do not run on bare metal."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\lsass",
+          "description": "Registry key modified for persistence or process configuration"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for process synchronization"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for anti-analysis or resource locking"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Performs system-wide kernel structure manipulation (SSDT hooking)."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Modifies system registry settings related to lsass.exe."
+    },
+    {
+      "address": "0x1000c492",
+      "name": "fcn.1000c492",
+      "description": "Utility function for memory mapping and kernel-level patching."
+    }
+  ]
+}

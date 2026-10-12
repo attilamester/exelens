@@ -1,0 +1,72 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This sample is a remote access trojan (RAT) that installs itself as a Windows service. It provides remote shell access, process listing, service management, and file system exploration, communicating with a remote server via WinINet.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The file is not packed; it appears to be a compiled binary using standard C/C++ libraries and Windows APIs."
+  },
+  "capabilities": [
+    {
+      "name": "Service Installation",
+      "description": "Registers itself as a Windows service for persistence."
+    },
+    {
+      "name": "Remote Command Execution",
+      "description": "Creates a pipe and spawns cmd.exe to execute commands received from a remote server."
+    },
+    {
+      "name": "Network Communication",
+      "description": "Uses WinINet (HttpSendRequest, InternetConnect) to communicate with a C2 server."
+    },
+    {
+      "name": "Process/Service Manipulation",
+      "description": "Enumerates/terminates processes and manages services (start/stop) as part of the C2 protocol."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistent service installation, command-and-control communication via WinINet, and the ability to spawn remote shells (cmd.exe) confirms malicious intent. The code contains distinct command handlers for 'shell', 'kill', 'start', and 'list', which are hallmarks of a RAT.",
+    "general": "The function fcn.10001570 is the main controller, performing C2 connection via fcn.100010e0 and executing commands. The function fcn.100031a0 (and fcn.10003330) handles service registration in the registry (SYSTEM\\CurrentControlSet\\Services). fcn.10001fb0 creates a pipe to cmd.exe.",
+    "uncertainties": "No significant uncertainties; the assembly logic clearly exposes the C2 functionality despite minor branching logic.",
+    "conditions": "The sample requires being executed as a system service or with appropriate privileges to modify the service registry keys. It relies on a responsive C2 server for command instructions (e.g., 'shell', 'list').",
+    "sandbox_recommendations": "Simulate a network environment where the sample can reach a mock C2 controller. Monitor for registry changes in HKLM\\SYSTEM\\CurrentControlSet\\Services and the creation of pipes or cmd.exe child processes."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SYSTEM\\CurrentControlSet\\Services\\",
+          "description": "Persistence key for service installation."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "cmd.exe",
+          "description": "Process spawned for remote shell capability."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001570",
+      "name": "fcn.10001570",
+      "description": "Primary control loop managing C2 communication and command execution."
+    },
+    {
+      "address": "0x100031a0",
+      "name": "fcn.100031a0",
+      "description": "Service registration routine for persistence."
+    },
+    {
+      "address": "0x10001fb0",
+      "name": "fcn.10001fb0",
+      "description": "Shell spawning routine using pipes and cmd.exe."
+    }
+  ]
+}

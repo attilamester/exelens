@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains a sophisticated rootkit-like driver installer. It utilizes custom XOR-obfuscation and resource-based payload extraction to deploy hidden components. It performs system service descriptor table (SSDT) hooking, process injection via memory mapping, and attempts to hide or protect its components by manipulating system structures and registry entries.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation of data resources",
+      "Dynamic API resolution through GetProcAddress",
+      "Memory allocation and manipulation of system structures (SSDT/Mdl)"
+    ],
+    "details": "The file contains resource sections (101, 102, 103) that are decrypted at runtime using XOR operations (0xcd key observed in fcn.10001697) before being used to perform system operations or inject into system processes."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Attempts to interact with KeServiceDescriptorTable to hook system services."
+    },
+    {
+      "name": "Persistence via Registry",
+      "description": "Modifies Windows registry keys (e.g., 'lsass') to ensure persistent execution."
+    },
+    {
+      "name": "Process Injection",
+      "description": "Uses Memory Descriptor Lists (MDL) and kernel-mode memory mapping to inject code into other processes."
+    },
+    {
+      "name": "Evasion",
+      "description": "Uses DbgPrint and other kernel-level techniques to evade detection."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode SSDT modification (fcn.1000b369), process hollowing/injection logic (fcn.1000c492), and persistent modification of critical system binaries/services clearly indicates malicious intent beyond any legitimate software functionality. The use of kernel-level hooking is not a dual-use feature but a clear high-intent malicious indicator.",
+    "general": "Evidence includes fcn.1000b369 which accesses 'KeServiceDescriptorTable', fcn.1000c492 which calls 'MmMapLockedPagesSpecifyCache', and the registry modification logic that targets components like 'lsass' or system driver entries.",
+    "uncertainties": "While the binary appears to be a full-fledged rootkit, parts of the logic depend on OS version-specific offsets retrieved from memory. The full scope of the payload's activity depends on the environment it targets.",
+    "conditions": "The sample performs environment checks via 'GetVersionExA' and expects a specific registry-based configuration or environment variables to fully detonate its payload.",
+    "sandbox_recommendations": "Run in a kernel-mode debugger-aware sandbox. Set system time to match the expected build environment. Monitor registry operations specifically under HKLM\\SYSTEM\\CurrentControlSet."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\lsass",
+          "description": "Persistence key targeted for modification."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used to ensure single-instance execution."
+        },
+        {
+          "value": "KeServiceDescriptorTable",
+          "description": "Target kernel structure for hooking."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Handles SSDT hooking and system service table modification."
+    },
+    {
+      "address": "0x1000c492",
+      "name": "fcn.1000c492",
+      "description": "Memory mapping and driver-level process manipulation."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Registry key modification and persistence logic."
+    }
+  ]
+}

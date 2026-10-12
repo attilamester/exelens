@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a downloader and backdoor component. It initiates network communication with hardcoded URLs (metdf.com.au, bottalk.org), performs system reconnaissance (computer/hostname), and attempts to persist by writing to the Windows Registry 'Run' key. It is designed to download, execute, or stage further files, with logic for parsing HTTP responses and masquerading as common system processes.",
+  "packed": {
+    "status": "false",
+    "techniques": [
+      "Dynamic API resolution",
+      "Function call graph obfuscation (dummy call functions)"
+    ],
+    "details": "The file is not packed, but exhibits anti-analysis techniques including extensive use of 'dummy' call wrappers (e.g., fcn.00403303) and dynamic logic flow designed to complicate static tracing. Entropy is within normal ranges for a Win32 executable."
+  },
+  "capabilities": [
+    {
+      "name": "Network Communication",
+      "description": "Utilizes WININET.dll to perform HTTP POST/GET requests to hardcoded C2 domains."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies the Windows Registry Run key (Software\\Microsoft\\Windows\\CurrentVersion\\Run) to ensure execution across reboots."
+    },
+    {
+      "name": "Process Injection/Creation",
+      "description": "Uses KERNEL32.dll_CreateProcessA and Thread creation to execute dropped or downloaded payloads."
+    },
+    {
+      "name": "System Reconnaissance",
+      "description": "Retrieves network configuration and host identity details (IP, hostname) via WSAStartup and related socket APIs."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistent registry modifications, hardcoded C2 domains (metdf.com.au, bottalk.org), and logic for processing downloaded content (HTTP multipart parsing and writing to files) confirms malicious intent. The binary's ability to 'call home' to these domains to receive commands or further payloads constitutes a classic downloader/backdoor profile, which is inconsistent with legitimate software.",
+    "general": "High-intent evidence includes usage of RegSetValueExW for persistence (fcn.00402842), and the clear networking routine (fcn.00401081) which includes hardcoded URLs used in the construction of HTTP POST/GET requests. The file performs automated 'sleep' cycles (fcn.00403303) combined with command parsing to control its beaconing behavior.",
+    "uncertainties": "The exact nature of the second-stage payload is unknown as the C2 servers are offline; however, the downloader capability itself is fully analyzed.",
+    "conditions": "The sample will beacon to the hardcoded C2 domains upon execution. Persistence is triggered by executing the main loop logic, which checks for existing environment conditions.",
+    "sandbox_recommendations": "Provide internet access to the sandbox environment (or use a simulated C2/fake-DNS) to observe the full download and registry modification sequence."
+  },
+  "ioc": [
+    {
+      "type": "url",
+      "values": [
+        {
+          "value": "http://media.metdf.com.au/index1.html",
+          "description": "Primary C2 beaconing URL."
+        },
+        {
+          "value": "http://us.bottalk.org/index1.html",
+          "description": "Secondary C2 beaconing URL."
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Persistence registry key."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401081",
+      "name": "fcn.00401081",
+      "description": "Main network communication loop utilizing WININET."
+    },
+    {
+      "address": "0x00402842",
+      "name": "fcn.00402842",
+      "description": "Persistence routine modifying Registry Run keys."
+    },
+    {
+      "address": "0x00401a96",
+      "name": "fcn.00401a96",
+      "description": "Payload parsing and multi-part data construction for HTTP POST."
+    }
+  ]
+}

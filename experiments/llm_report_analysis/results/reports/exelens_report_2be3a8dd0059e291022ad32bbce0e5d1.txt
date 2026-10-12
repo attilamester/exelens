@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable performs network-based communication to a hard-coded C2 domain, downloads content, and executes the payload by injecting it into a new process via CreateProcessA (invoked through internal wrappers). It also demonstrates persistence by modifying the RunOnce registry key and uses anti-analysis techniques including mutex checking and environment fingerprinting.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Custom XOR-based obfuscation of network configuration",
+      "Dynamic API resolution via GetProcAddress"
+    ],
+    "details": "The overlay section has a high entropy (7.10), suggesting it contains the primary payload or encrypted configuration data. Functions like fcn.00401280 appear to be generic XOR/decryption routines used to deobfuscate strings and configurations at runtime."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Registers the executable to run once upon next login via HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce."
+    },
+    {
+      "name": "Network Communication",
+      "description": "Uses WININET.dll to perform HTTP POST/GET requests to hard-coded C2 locations."
+    },
+    {
+      "name": "Process Injection/Execution",
+      "description": "Uses CreateProcessA (via dynamically resolved address) to execute downloaded payloads."
+    },
+    {
+      "name": "Fingerprinting",
+      "description": "Collects hardware identifiers, processor strings, and network adapter info to verify the host environment."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistence via RunOnce registry keys, network communication to C2, and the ability to download and execute arbitrary code via dynamically resolved APIs indicates clear malicious intent. The dual-use nature of tools like WININET or Registry API usage is negated by their orchestration to achieve unauthorized persistence and remote command execution.",
+    "general": "The function fcn.00401000 implements HTTP communication. The function fcn.00401400 handles persistence via RegCreateKeyExA on the RunOnce path. The use of fcn.00401370 to resolve CreateProcessA dynamically from kernel32.dll strongly points to process hollowing or dropper behavior.",
+    "uncertainties": "The exact content of the C2 server response and the nature of the secondary payload in the overlay were not fully observable without runtime interception.",
+    "conditions": "The malware requires an active internet connection to communicate with the C2 and successfully complete the environment check (matching its hard-coded criteria). It will exit if it fails to resolve its own filename or detects certain analysis environments.",
+    "sandbox_recommendations": "Simulate a live network environment and DNS response. Monitor registry changes at HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce. Ensure the sandbox is not flagged as a virtual machine by the fingerprinting routines."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce",
+          "description": "Persistence mechanism used to ensure the executable runs after the next system reboot."
+        },
+        {
+          "value": "HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0",
+          "description": "Registry key accessed to collect hardware fingerprinting data."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "kernel32.dll",
+          "description": "System library loaded to resolve critical execution APIs."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401000",
+      "name": "fcn.00401000",
+      "description": "Implements network communication logic using WININET APIs for C2 interaction."
+    },
+    {
+      "address": "0x00401400",
+      "name": "fcn.00401400",
+      "description": "Handles persistence by writing to the Windows RunOnce registry key."
+    },
+    {
+      "address": "0x00401370",
+      "name": "fcn.00401370",
+      "description": "Dynamically resolves system functions (e.g., CreateProcess) from kernel32.dll to facilitate payload execution."
+    }
+  ]
+}

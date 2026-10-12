@@ -1,0 +1,67 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a dropper that extracts an embedded resource, writes it to a specific directory structure on the system (resembling Norton/Symantec application paths), and subsequently launches it using CreateProcessA before deleting the temporary file.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed; the analysis shows straightforward logic for resource extraction and filesystem manipulation using MFC libraries."
+  },
+  "capabilities": [
+    {
+      "name": "Dropper/Installer",
+      "description": "Extracts embedded resources using FindResource/LoadResource and writes them to the disk using CFile."
+    },
+    {
+      "name": "Process Execution",
+      "description": "Uses CreateProcessA to launch an extracted executable, specifically targeting file paths related to security software (Norton/Symantec)."
+    },
+    {
+      "name": "Filesystem Manipulation",
+      "description": "Creates directory trees and performs file cleanup (DeleteFileA)."
+    }
+  ],
+  "details": {
+    "reasoning": "The application uses legitimate MFC classes to perform tasks that, in this specific sequence (resource extraction -> file writing -> path mimicking -> process launch), are characteristic of a malicious dropper. The target paths, such as 'Norton360' and 'ccSvcHst.exe', strongly suggest an intent to masquerade as legitimate security software (DLL/executable hijacking or side-loading). The lack of any genuine user interface logic (typical for an installer) while performing these specific operations confirms malicious intent.",
+    "general": "The function fcn.00401740 extracts a resource and executes it via CreateProcessA (RVA 0x4018d3). Helper functions like fcn.00402920 and fcn.00402840 build paths containing 'Norton360' and 'ccSvcHst.exe', which are known Symantec/Norton product identifiers, indicating an attempt to hide a malicious payload within a security product's directory.",
+    "uncertainties": "While the logic for building paths and launching the process is clear, the exact contents of the embedded RCDATA resources are not visible, though the intent is clear from the file naming operations.",
+    "conditions": "The primary execution requires valid resource identifiers (129, 132) and basic system write permissions to the Program Files directory.",
+    "sandbox_recommendations": "Monitor file system operations, specifically the creation of files within the 'Norton360' and 'Engine' folders. Observe calls to CreateProcessA and flag any attempts to execute files from these directories."
+  },
+  "ioc": [
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "Program_Files\\Norton360\\Engine\\5.1.0.29\\_readme.lz",
+          "description": "Dropper target path"
+        },
+        {
+          "value": "Program_Files\\Norton360\\Engine\\5.1.0.29\\_ashelper.dll",
+          "description": "Dropper target path"
+        },
+        {
+          "value": "Program_Files\\Norton360\\Engine\\5.1.0.29\\ccSvcHst.exe",
+          "description": "Dropper target path"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401740",
+      "name": "fcn.00401740",
+      "description": "Core dropper function: extracts resources and launches process"
+    },
+    {
+      "address": "0x00402920",
+      "name": "fcn.00402920",
+      "description": "Builds malicious file system paths"
+    },
+    {
+      "address": "0x00401590",
+      "name": "fcn.00401590",
+      "description": "Process launcher using CreateProcessA"
+    }
+  ]
+}

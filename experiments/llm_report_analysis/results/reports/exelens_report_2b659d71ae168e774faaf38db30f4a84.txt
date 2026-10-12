@@ -1,0 +1,91 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a downloader/dropper that communicates with remote servers via HTTP POST/GET requests to fetch and execute files. It includes persistence mechanisms via registry keys and uses Mutex-based execution gating.",
+  "packed": {
+    "status": "false",
+    "techniques": [
+      "None observed, static analysis suggests plain compiled code."
+    ],
+    "details": "The code structure and imports are consistent with standard C++ compiled applications using MSVCRT and WININET. No signs of packing were observed."
+  },
+  "capabilities": [
+    {
+      "name": "Network Communication",
+      "description": "Utilizes WININET.dll for HTTP communication, including HttpSendRequestA and InternetReadFile."
+    },
+    {
+      "name": "Persistence",
+      "description": "Writes to the Windows Run registry key using RegSetValueExW."
+    },
+    {
+      "name": "File Execution",
+      "description": "Uses ShellExecuteW and CreateProcessA to launch downloaded files."
+    },
+    {
+      "name": "Mutex Gating",
+      "description": "Uses CreateMutexA with a hard-coded identifier to ensure only one instance runs."
+    },
+    {
+      "name": "System Enumeration",
+      "description": "Retrieves network configuration and hostname via WS2_32.dll."
+    }
+  ],
+  "details": {
+    "reasoning": "The application exhibits clear malicious intent through its combination of dynamic payload downloading, persistent registry modification (Run key), and execution of files via ShellExecute. While WININET and registry operations are dual-use, their usage here to fetch external content, store it in locations like 'Local Settings', and persist it strongly indicates malware behavior.",
+    "general": "High-intent indicators include: `ADVAPI32.dll_RegSetValueExW` targeting `Software\\Microsoft\\Windows\\CurrentVersion\\Run` (fcn.00402842), `WININET.dll_HttpSendRequestA` to fetch remote content, and `SHELL32.dll_ShellExecuteW` (fcn.00402842) used to execute the downloaded payloads.",
+    "uncertainties": "The specific URLs fetched are hardcoded but logic suggests a DGA-like or domain-cycling pattern. The analysis is comprehensive enough to confirm malicious intent.",
+    "conditions": "Execution flow relies on network connectivity. The malware checks for the existence of a Mutex (COPYRIGHTMM2011V2); if it already exists, the process terminates.",
+    "sandbox_recommendations": "Simulate a live internet connection and permit outgoing HTTP requests to the identified domains. Monitor for newly created files in the User Profile/Local Settings directory."
+  },
+  "ioc": [
+    {
+      "type": "url",
+      "values": [
+        {
+          "value": "http://news.hqrls.com/news/media/info.html",
+          "description": "Primary C2 communication URL"
+        },
+        {
+          "value": "http://news.hoenjet.org/news/media/info.html",
+          "description": "Secondary C2 communication URL"
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Registry key used for persistence"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "COPYRIGHTMM2011V2",
+          "description": "Mutex name used to detect concurrent instances"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00402842",
+      "name": "fcn.00402842",
+      "description": "Handles persistence via registry modification in the Run key."
+    },
+    {
+      "address": "0x00401a96",
+      "name": "fcn.00401a96",
+      "description": "Implements network download and file writing logic."
+    },
+    {
+      "address": "0x004015a1",
+      "name": "fcn.004015a1",
+      "description": "Manages HTTP session initialization and request handling."
+    }
+  ]
+}

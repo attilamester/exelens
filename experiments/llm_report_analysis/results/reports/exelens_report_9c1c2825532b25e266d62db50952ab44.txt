@@ -1,0 +1,78 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample identifies as a loader/dropper. It uses a custom XOR routine to decrypt embedded data from an .ini file, writes configuration parameters, and performs DLL injection into a target process (typically 'iexplore.exe').",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Custom XOR obfuscation for configuration data"
+    ],
+    "details": "The sample contains a XOR-based decryption routine (fcn.00401980) used to decode strings and configuration data read from an external file named '_sperf2012.ini'. While the executable is not packed in the sense of a standard packer (e.g., UPX), it uses manual obfuscation to hide its configuration and target strings."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "Utilizes 'netmgr.dll_InjectDll' to inject code into another process."
+    },
+    {
+      "name": "Persistence/Configuration",
+      "description": "Uses 'WritePrivateProfileStringA' to save configuration settings to an .ini file."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Checks for debugger/environment variables and uses Sleep delays."
+    },
+    {
+      "name": "Process Enumeration",
+      "description": "Uses Toolhelp32 snapshots to identify target processes like 'iexplore.exe'."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of process injection capabilities ('netmgr.dll_InjectDll'), persistence via .ini file writing, and the decryption of configuration settings for target process manipulation confirms malicious intent. The dual-use nature of APIs like 'CreateProcessA' or 'CreateThread' is clarified by the specific targetting of 'iexplore.exe' and the presence of external configuration files.",
+    "general": "The function 'fcn.00401640' explicitly performs process enumeration to find 'iexplore.exe', followed by 'CreateProcessA' and 'netmgr.dll_InjectDll'. The XOR decryption routine at RVA 0x00401980 is used repeatedly to decode configuration strings ('WebPage', 'DownCmdTime', etc.) written to the .ini file.",
+    "uncertainties": "The exact contents of '_sperf2012.ini' are unknown; however, the code structure makes it clear that the sample depends on this file for its primary operation and configuration parameters.",
+    "conditions": "The sample requires the existence of '_sperf2012.ini' in the working directory to proceed with its main payload logic. It also likely requires the target executable 'iexplore.exe' to be present in the expected path ('Program Files\\Internet Explorer').",
+    "sandbox_recommendations": "Place a dummy '_sperf2012.ini' file in the directory. Ensure the environment is configured with Internet Explorer installed. Monitor file system activity for changes to .ini files and inter-process communication."
+  },
+  "ioc": [
+    {
+      "type": "file",
+      "values": [
+        {
+          "value": "_sperf2012.ini",
+          "description": "Configuration file read and written by the malware."
+        },
+        {
+          "value": "iexplore.exe",
+          "description": "Target process for injection."
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "NT_2012_Is_Running_",
+          "description": "Mutex used to ensure single instance execution."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x004019b0",
+      "name": "fcn.004019b0",
+      "description": "Reads and decodes configuration data from _sperf2012.ini."
+    },
+    {
+      "address": "0x00401640",
+      "name": "fcn.00401640",
+      "description": "Performs process enumeration and triggers the DLL injection."
+    },
+    {
+      "address": "0x00401980",
+      "name": "fcn.00401980",
+      "description": "Custom XOR decryption routine (key: 0x3e)."
+    }
+  ]
+}

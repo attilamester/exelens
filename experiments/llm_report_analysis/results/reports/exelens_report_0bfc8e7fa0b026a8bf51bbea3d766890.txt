@@ -1,0 +1,62 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This is a malicious kernel-mode rootkit driver. It performs direct kernel object manipulation (DKOM) by modifying CR0 register bits to disable write protection, enabling it to overwrite kernel code or structures. It also interacts with device stacks, intercepts I/O request packets (IRPs), and uses kernel APIs for persistence and stealth.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Overlay storage",
+      "Custom entrypoint stub decryption"
+    ],
+    "details": "The entrypoint contains a self-modifying code loop that uses 'ntoskrnl.exe_KeTickCount' to decrypt or de-obfuscate sections of the driver. The overlay contains high-entropy (7.07) data, likely the primary payload or configuration data."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel Memory Modification",
+      "description": "Uses CR0 register manipulation to bypass Write Protect (WP) bits, allowing modification of read-only memory."
+    },
+    {
+      "name": "DKOM (Direct Kernel Object Manipulation)",
+      "description": "Interacts with device objects and IRP stacks to intercept and modify system driver communication."
+    },
+    {
+      "name": "Persistence/Stealth",
+      "description": "Uses 'ZwCreateFile' and 'IoGetDeviceObjectPointer' to attach to system devices, a common technique for rootkit concealment."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of CR0 register manipulation (fcn.00010486) to disable write protection, combined with direct memory overwriting ('mov cr0, eax'), is a clear indicator of malicious intent in a kernel driver. Legitimate drivers do not modify the CR0 register to bypass CPU-enforced write protection. This behavior is indicative of a rootkit performing hook injection or modification of kernel structures.",
+    "general": "Functions 'fcn.000104b8' and 'fcn.00010542' perform the high-intent malicious actions: modifying the CR0 register (the write-protection bit) via 'fcn.00010486' and subsequently writing to kernel memory addresses. This bypasses system security to facilitate rootkit-level modification.",
+    "uncertainties": "The exact contents of the overlay are not fully visible, but the logic in the entrypoint confirms the driver dynamically prepares itself for execution, confirming malicious intent despite partial obfuscation.",
+    "conditions": "The driver expects to be loaded as a kernel driver (.sys) and requires specific system environment conditions related to valid device objects (checked in 'fcn.00010edc') to attach to and function.",
+    "sandbox_recommendations": "Must be run in a kernel-mode debugger (e.g., WinDbg) within a restricted VM environment. Monitor CR0 register changes and I/O request packet (IRP) dispatch routines."
+  },
+  "ioc": [
+    {
+      "type": "registry/path",
+      "values": [
+        {
+          "value": "\\Device\\",
+          "description": "Interaction with system device objects."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00010486",
+      "name": "fcn.00010486",
+      "description": "CR0 manipulation function used to bypass hardware write protection."
+    },
+    {
+      "address": "0x000104b8",
+      "name": "fcn.000104b8",
+      "description": "Main routine for overwriting kernel memory by toggling CR0 write-protect bits."
+    },
+    {
+      "address": "0x00010edc",
+      "name": "fcn.00010edc",
+      "description": "Initialization function that sets up device object pointers and triggers payload execution."
+    }
+  ]
+}

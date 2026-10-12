@@ -1,0 +1,63 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This kernel-mode driver performs process hollowing/injection by attaching to a target process (PsStackAttachProcess), injecting code into its memory space using ZwAllocateVirtualMemory, and initiating execution via Asynchronous Procedure Calls (KeInsertQueueApc). It employs evasion techniques, including manual parsing of PE structures and patching existing code sections.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Manual relocation and PE parsing",
+      "Dynamic API resolution via string hashing/name comparison",
+      "Function patching in kernel/system modules"
+    ],
+    "details": "The driver exhibits high entropy in the .data section (7.56) and overlay (7.36), indicating packed payloads. It manually parses target PE structures (fcn.00010fe2, fcn.00010adc) and performs manual relocation/import resolution during injection."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "Uses PsStackAttachProcess, ZwAllocateVirtualMemory, and KeInsertQueueApc to execute code in the context of other system processes."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Utilizes DbgPrint to mask activity and checks for debugging artifacts in the system environment."
+    },
+    {
+      "name": "Kernel Mode Manipulation",
+      "description": "Modifies system structures (cr0 register to toggle write protection) and injects code into kernel-level or high-privilege user-space processes."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel APIs (PsStackAttachProcess, KeInsertQueueApc) and the explicit pattern of manual PE structure parsing and memory allocation in external processes (fcn.000112e2, fcn.00011a1a) is characteristic of rootkit-style injection rather than legitimate driver activity. The manual modification of memory protection via CR0 register toggling (fcn.00010602) confirms malicious intent to bypass system integrity checks.",
+    "general": "High-intent malicious actions are observed in fcn.000112e2 (PE parsing and allocation) and fcn.00011a1a (KeInitializeApc/KeInsertQueueApc). The use of fcn.00010602 to toggle WP (Write Protect) bit in CR0 is a signature technique for patching read-only kernel code.",
+    "uncertainties": "The exact source and destination of the injection depend on configuration data stored in the high-entropy .data section or encrypted overlay, which prevents full identification of the target process without dynamic execution.",
+    "conditions": "The driver requires specific system state and likely the presence of a configuration or registry key (fcn.00012dca uses RtlInitUnicodeString with 0x2667c) to activate its main injection routine. Failure to meet these conditions results in silent exit or bugchecks (fcn.00012eb3/fcn.00012e88).",
+    "sandbox_recommendations": "Use a kernel-mode debugger (WinDbg) with host-side monitoring. Set breakpoints on ZwAllocateVirtualMemory and KeInsertQueueApc. Monitor registry queries for the strings referenced in fcn.00012dca."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Hardcoded WCHAR strings in .data",
+          "description": "Registry paths or process names checked for injection targets."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x000112e2",
+      "name": "fcn.000112e2",
+      "description": "Performs manual PE parsing, allocation, and section mapping for process injection."
+    },
+    {
+      "address": "0x00011a1a",
+      "name": "fcn.00011a1a",
+      "description": "Sets up and triggers an Asynchronous Procedure Call (APC) to execute injected code."
+    },
+    {
+      "address": "0x00010602",
+      "name": "fcn.00010602",
+      "description": "Disables CR0 WP bit, allowing modifications to read-only memory pages."
+    }
+  ]
+}

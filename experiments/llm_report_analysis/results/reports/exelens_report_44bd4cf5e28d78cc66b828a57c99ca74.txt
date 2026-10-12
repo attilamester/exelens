@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a kernel-mode rootkit dropper. It installs a service, interacts with the registry, and uses dynamic API resolution (GetProcAddress/LoadLibrary) to hide its capabilities. It includes functions that target kernel structures (KeServiceDescriptorTable) and performs system-wide modifications by copying and overwriting system files.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR decryption",
+      "Resource-based payload hiding"
+    ],
+    "details": "The sample uses a custom XOR routine (fcn.10001697) to decrypt data stored in the .rsrc section (resource 102). Decrypted data is then used to perform file operations and likely contains driver or auxiliary code."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Attempts to modify the System Service Descriptor Table (SSDT) via KeServiceDescriptorTable."
+    },
+    {
+      "name": "File system modification",
+      "description": "Replaces system files using CopyFileA and SetFileAttributesA, likely to achieve persistence or evasion."
+    },
+    {
+      "name": "Registry Persistence",
+      "description": "Modifies system registry keys to maintain presence."
+    },
+    {
+      "name": "Mutex synchronization",
+      "description": "Uses global mutexes (e.g., GlobalRPCMutex, prkMtx) to prevent multiple instances and likely for inter-process communication."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel structure manipulation (KeServiceDescriptorTable), system file overwriting, and the presence of obfuscated payloads points directly to a malicious rootkit. The file is designed to persist on the system and potentially subvert kernel operations.",
+    "general": "High-intent malicious behavior is confirmed by fcn.1000ab6f and fcn.1000a2cd, which perform SSDT hooking (KeServiceDescriptorTable). Furthermore, fcn.100010a1 performs file operations involving system-critical directories, and fcn.10001723 performs resource updates consistent with payload injection.",
+    "uncertainties": "While the specific functionality of the decrypted driver payload cannot be fully determined, the intent to modify critical system structures like the SSDT is sufficient for a malicious verdict.",
+    "conditions": "The malware checks for a mutex 'prkMtx' and 'GlobalRPCMutex' to manage its lifecycle. Successful detonation likely requires system-level privileges to perform the observed file and registry operations.",
+    "sandbox_recommendations": "Use a Windows 7 or older 32-bit environment as it specifically targets system-level kernel structures common in these OS versions. Monitor registry modifications in HKLM and file changes in System32."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\System\\CurrentControlSet\\Services",
+          "description": "Likely registry location for service persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for process synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for kernel-mode synchronization."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Handles SSDT hooking by locating and modifying KeServiceDescriptorTable."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Performs file system persistence by updating registry values and copying files."
+    },
+    {
+      "address": "0x10001697",
+      "name": "fcn.10001697",
+      "description": "Core resource decryption routine using XOR."
+    }
+  ]
+}

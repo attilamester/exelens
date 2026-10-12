@@ -1,0 +1,85 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to detect and modify Windows kernel objects (e.g., KeServiceDescriptorTable), perform process injection or system modification by copying files to system directories (system32), and install persistent components via registry manipulation.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Custom XOR obfuscation of resource data",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress",
+      "Self-copying to system directories"
+    ],
+    "details": "The sample uses a resource-based payload (FindResource/LoadResource) which is then decrypted in memory via a custom XOR routine (XOR 0xcd). It also employs dynamic API resolution to call kernel-level functions."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Uses RegCreateKeyExA and RegSetValueExA to modify Run registry keys."
+    },
+    {
+      "name": "Kernel Manipulation",
+      "description": "Attempts to interact with the KeServiceDescriptorTable to hook system calls."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Uses CopyFileA to move files into system directories (system32)."
+    },
+    {
+      "name": "Process/Thread Manipulation",
+      "description": "Calls CreateProcessA and CreateThread to execute malicious payloads."
+    }
+  ],
+  "details": {
+    "reasoning": "While some capabilities like XOR loops or Registry operations are dual-use (e.g., used by installers), this binary explicitly accesses and attempts to modify the KeServiceDescriptorTable and system files. The presence of these high-intent kernel-level manipulations alongside file system obfuscation confirms malicious intent.",
+    "general": "The function fcn.1000b369 performs modifications on the KeServiceDescriptorTable. Furthermore, fcn.100010a1 and fcn.100017a0 demonstrate copying files to the system32 directory and modifying system attributes, which is characteristic of rootkits or sophisticated persistence mechanisms.",
+    "uncertainties": "The exact nature of the final payload remains slightly obscured due to the custom XOR encryption of the resources, but the loader behavior is clearly identified.",
+    "conditions": "The execution requires the presence of certain environment variables (e.g., checked in fcn.1000103b) and specific system-level privileges to modify kernel structures.",
+    "sandbox_recommendations": "Run in a kernel-aware sandbox; simulate a Windows environment with administrator privileges; monitor registry hive modifications and file system writes to the system32 folder."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Persistence key for system-wide execution."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "%SYSTEM32%\\",
+          "description": "Target directory for file copying/injection."
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Used to ensure only one instance runs."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Attempts to modify the system service descriptor table (SSDT)."
+    },
+    {
+      "address": "0x100010a1",
+      "name": "fcn.100010a1",
+      "description": "Handles the file copy/persistence logic to system directories."
+    },
+    {
+      "address": "0x10001697",
+      "name": "fcn.10001697",
+      "description": "Primary wrapper for the initialization and file-copying logic."
+    }
+  ]
+}

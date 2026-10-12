@@ -1,0 +1,66 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a downloader/loader that uses resource decryption to extract a payload, persists via registry Run keys, and dynamically resolves and executes functions within the loaded payload.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Resource-based packing",
+      "Custom XOR-based decryption/obfuscation"
+    ],
+    "details": "The .rsrc section has high entropy (8.0). The function fcn.004012d0 performs resource decryption using an XOR key before memory-mapping or executing the content."
+  },
+  "capabilities": [
+    {
+      "name": "Resource Decryption",
+      "description": "Uses custom XOR routines (fcn.00402520, fcn.00402630, fcn.004012d0) to decrypt hidden data in the .rsrc section."
+    },
+    {
+      "name": "Persistence",
+      "description": "Writes to Windows registry keys (Run keys) using RegSetValueExA in fcn.004018c0 to ensure execution."
+    },
+    {
+      "name": "Dynamic API Resolution",
+      "description": "Resolves exported functions from dynamically loaded libraries using LoadLibraryA and GetProcAddress."
+    },
+    {
+      "name": "File/Directory Manipulation",
+      "description": "Creates folders and files using CreateDirectoryA and CreateFileA, often in temporary or system-related paths."
+    }
+  ],
+  "details": {
+    "reasoning": "While the individual capabilities (Registry manipulation, dynamic loading) are dual-use, the combination of high-entropy resources, custom decryption of resource-embedded code, and persistent registry modification indicates a clear malicious intent characteristic of a dropper or downloader.",
+    "general": "The function fcn.004012d0 implements a resource-loading routine that decrypts embedded data. Persistence is established via fcn.004018c0 using ADVAPI32.dll_RegSetValueExA. Payload execution is facilitated by dynamic calls to resolved function pointers (e.g., in fcn.00401f00).",
+    "uncertainties": "The exact nature of the decrypted payload is not fully visible due to runtime decryption, but the behavior of writing it to disk and establishing persistence confirms its malicious nature.",
+    "conditions": "The payload requires the presence of a resource (RVA 0x4012d0) and specific registry paths to be writable. It performs environment checks and registry queries (fcn.00401ce0) to determine its state.",
+    "sandbox_recommendations": "Monitor registry activity under HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run. Intercept calls to LoadLibraryA/GetProcAddress to identify the decrypted payload."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Persistence mechanism used to ensure malware restarts upon login."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x004012d0",
+      "name": "fcn.004012d0",
+      "description": "Decryption and extraction routine for the resource-based payload."
+    },
+    {
+      "address": "0x004018c0",
+      "name": "fcn.004018c0",
+      "description": "Persistence establishment via registry modification."
+    },
+    {
+      "address": "0x00401f00",
+      "name": "fcn.00401f00",
+      "description": "Loader routine that triggers the execution of the decrypted payload."
+    }
+  ]
+}

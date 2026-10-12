@@ -1,0 +1,82 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a service installer/loader that registers a new system service to establish persistence, configured to point to 'svchost.exe' with parameters that link to a custom 'ServiceDll' registry entry, typical of a service-based rootkit or persistence mechanism.",
+  "packed": {
+    "status": "false",
+    "techniques": [
+      "None"
+    ],
+    "details": "The analysis shows standard PE structure and function logic without evidence of packing or multi-stage encryption routines."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Registers a new system service to achieve automatic startup."
+    },
+    {
+      "name": "Registry Modification",
+      "description": "Modifies 'SYSTEM\\CurrentControlSet\\Services' keys to set a ServiceDll path for a service."
+    },
+    {
+      "name": "Service Creation",
+      "description": "Calls CreateServiceW and ChangeServiceConfig2A to define service parameters."
+    },
+    {
+      "name": "Dynamic API Resolution",
+      "description": "Uses LoadLibraryA and GetProcAddress to resolve internal or system-level functions."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of creating a system service (CreateServiceW), modifying registry keys (RegCreateKeyW, RegSetValueExA) for service parameters (ServiceDll), and pointing that service toward a system-named executable (svchost.exe) constitutes a classic malicious persistence technique (Service Hollowing/DLL Hijacking). While some of these APIs are dual-use (installers), they are not used here for legitimate application installation, but specifically to manipulate service configuration data.",
+    "general": "Function fcn.10001880 performs the core malicious activity: it calls GetSystemDirectoryW, lstrcatW to construct path strings, OpenSCManagerA, and then CreateServiceW to register the service. Subsequently, it interacts with the registry to set 'ServiceDll' and 'ServiceDllUnloadOnStop', which are clear indicators of a malicious service-based persistence loader (RVA 0x10001880).",
+    "uncertainties": "The exact contents of the 'ServiceDll' path being configured are provided as hardcoded strings in the registry, but the payload itself was not present in the visible assembly, which is standard for a loader-only analysis.",
+    "conditions": "The code checks for command line arguments and environment variables (GetEnvironmentStrings) to configure its own runtime state, but the primary persistence path executes upon standard service installation logic.",
+    "sandbox_recommendations": "Run in an environment with monitoring for registry writes (ProcMon) and service creation events. Ensure the sandbox environment allows service installation or spoofing of service manager requests."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "svchost.exe",
+          "description": "The target executable for the service creation."
+        },
+        {
+          "value": "ntsvcs",
+          "description": "Name of the malicious service key created."
+        },
+        {
+          "value": "ServiceDll",
+          "description": "Registry key used for malicious DLL injection via service."
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\Network_Identification_Service",
+          "description": "Registry key created for service persistence."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001880",
+      "name": "fcn.10001880",
+      "description": "Core persistence routine that creates a service and modifies service registry entries."
+    },
+    {
+      "address": "0x1000221d",
+      "name": "entry0",
+      "description": "Standard entrypoint that initializes the runtime and calls the main logic."
+    },
+    {
+      "address": "0x1000424f",
+      "name": "fcn.1000424f",
+      "description": "Configuration parsing function used to validate registry and service settings."
+    }
+  ]
+}

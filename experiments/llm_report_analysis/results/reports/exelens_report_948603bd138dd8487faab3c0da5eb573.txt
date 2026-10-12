@@ -1,0 +1,83 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample is an installer-like executable that performs privilege escalation and persistence by modifying system binaries (lsass.exe, system32) and injecting malicious code into the Windows kernel service descriptor table (SSDT) to hide its activities. It uses resource obfuscation, registry manipulation, and direct system calls.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR obfuscation of resource sections",
+      "Dynamic API resolution through GetProcAddress and custom hashing"
+    ],
+    "details": "The sample contains heavily obfuscated resources (unknown type 232) that are decrypted at runtime using a XOR operation (0xCD) and then loaded into memory."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "Uses WriteProcessMemory/CreateRemoteThread patterns to inject payloads."
+    },
+    {
+      "name": "Privilege Escalation",
+      "description": "Exploits token duplication and registry manipulation to gain SYSTEM-level access."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies system services and registry keys to ensure execution on reboot."
+    },
+    {
+      "name": "Kernel-mode Rootkit",
+      "description": "Hooks SSDT (System Service Descriptor Table) functions like NtShutdownSystem and KeServiceDescriptorTable to subvert OS monitoring."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level hooking (SSDT), tampering with core system components (lsass.exe), and the use of explicit malicious techniques such as mutex-based synchronization (GlobalRPCMutex) and resource decryption for payload delivery clearly indicates a sophisticated rootkit/backdoor rather than any legitimate utility.",
+    "general": "High-intent evidence includes direct modification of the SSDT in fcn.1000b369 and fcn.1000ab6f, tampering with lsass.exe via registry in fcn.100017a0, and the decryption of embedded resources using XOR loops (0xCD) in fcn.100015f7.",
+    "uncertainties": "The exact nature of the decrypted resource payload is inferred from its usage (SSDT hooking and service manipulation), but the specific C2 communication protocol is not fully resolved due to the dynamic resolution of network APIs.",
+    "conditions": "The file requires administrative privileges for successful detonation. It performs environment checks (GetEnvironmentVariable) and registry checks (RegOpenKeyExA) to ensure it is running on a compatible Windows system before executing the main persistence logic.",
+    "sandbox_recommendations": "Run in a high-integrity sandbox. Must be executed with full Administrator privileges. The malware checks for the existence of the GlobalRPCMutex, so the environment should be clean."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\",
+          "description": "Targeted for persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for process synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for kernel-mode synchronization."
+        },
+        {
+          "value": "lsass",
+          "description": "Targeted system process."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Main routine for security descriptor manipulation and privilege escalation."
+    },
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "SSDT hooking routine to intercept system calls."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Resource decryption and extraction function."
+    }
+  ]
+}

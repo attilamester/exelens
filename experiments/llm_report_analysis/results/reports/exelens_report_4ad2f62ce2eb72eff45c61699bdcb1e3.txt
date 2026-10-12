@@ -1,0 +1,81 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a sophisticated kernel-level dropper or rootkit installer that uses dynamic API resolution and custom memory manipulation to inject code into kernel processes. It checks for system versioning, creates global mutexes for persistence/instance control, and performs direct registry manipulation to modify boot-start drivers and system services.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Dynamic API resolution (GetProcAddress/LoadLibrary)",
+      "Resource-based payload hiding",
+      "XOR obfuscation for string/data blobs",
+      "Dynamic shellcode generation in memory"
+    ],
+    "details": "The file uses resource-based storage for its payloads (FindResourceA/LoadResource) and employs custom XOR-based decryption (0xcd, 0x99, etc.) for its internal strings and configuration data. It resolves critical APIs at runtime, common in stealthy droppers."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-level manipulation",
+      "description": "Attempts to interact with KeServiceDescriptorTable and system drivers."
+    },
+    {
+      "name": "Persistence via Registry",
+      "description": "Modifies Run keys and system services to ensure autostart."
+    },
+    {
+      "name": "Process/Thread Injection",
+      "description": "Contains code to manipulate external processes and thread contexts."
+    },
+    {
+      "name": "Evasion",
+      "description": "Uses mutexes for single-instance control and environment checks to avoid sandboxes."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode system call manipulation (KeServiceDescriptorTable), the attempt to load/copy system-sensitive drivers (win32k.sys, ntkrnlpa.exe), and the registry-based persistence indicate a highly malicious intent consistent with a rootkit or complex malware dropper. Legitimate installers do not interact with kernel structure tables or perform XOR-obfuscated modifications to boot-level system files.",
+    "general": "Evidence is found in fcn.1000b369 (interacting with KeServiceDescriptorTable), fcn.10009d28 (patching HAL.dll or system routines), and fcn.100017a0 (modifying registry values associated with 'lsass'). The presence of high-entropy resources (102, 103) combined with the use of GetProcAddress for ntdll/kernel functions confirms the loader intent.",
+    "uncertainties": "The exact nature of the encrypted resource payload (RVA 0x10010028) cannot be determined statically, though it is clearly used for code injection. The execution path is highly conditional, relying on registry values and environment variables.",
+    "conditions": "The malware checks for existence of mutexes (GlobalRPCMutex, prkMtx) and specific registry keys. Successful execution requires an environment with appropriate administrator/SYSTEM privileges to modify system services and registry hives.",
+    "sandbox_recommendations": "Simulate a Windows environment with elevated privileges. Ensure a debugger is not attached (IsDebuggerPresent checks are present). The sample may require specific registry keys ('DMWH', 'DMWI') to be present in HKLM to trigger full payload activation."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\",
+          "description": "Registry path where the malware attempts to establish persistence."
+        },
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for single-instance checks."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "_system32",
+          "description": "Target folder for malicious file drops."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Kernel SSDT hook manipulation routine."
+    },
+    {
+      "address": "0x10009d28",
+      "name": "fcn.10009d28",
+      "description": "Kernel routine lookup and potential patcher."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Payload dropping and persistence setter."
+    }
+  ]
+}

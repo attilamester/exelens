@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains a sophisticated multi-stage installer/dropper that performs system environment checks, uses mutexes for synchronization, creates files in system directories, and modifies the Windows Registry. It appears to be a driver or kernel-mode component installer.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource-based payload hiding",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress",
+      "XOR-based payload decryption"
+    ],
+    "details": "The binary stores encrypted payloads in resources (e.g., ID 102). These are loaded, decrypted in memory using a simple XOR routine (fcn.100015f7), and then used."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/System modification",
+      "description": "Uses CreateProcess, CopyFile, and Registry manipulation to gain persistence and potentially manipulate drivers."
+    },
+    {
+      "name": "Mutex usage",
+      "description": "Uses named mutexes (e.g., 'GlobalRPCMutex', 'prkMtx') to ensure single execution and prevent re-infection."
+    },
+    {
+      "name": "Driver/Kernel interaction",
+      "description": "Imports and references symbols related to low-level system functions like 'KeServiceDescriptorTable', 'NtQuerySystemInformation', and 'win32k.sys'."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistent registry modifications, file system manipulation in system directories (system32), and the clear attempt to interact with kernel-level structures and system processes (win32k.sys, NtShutdownSystem) is highly characteristic of malicious persistence or a rootkit-style component, rather than legitimate software.",
+    "general": "The executable uses KERNEL32.dll_CreateProcessA, ADVAPI32.dll_RegSetValueExA, and KERNEL32.dll_CopyFileA to move files. Function 'fcn.1000ab6f' and others reference low-level system calls related to NtShutdownSystem and SSDT (System Service Descriptor Table) hooking/manipulation, which is a definitive indicator of high-intent malicious behavior typical of rootkits or kernel-level malware.",
+    "uncertainties": "The exact nature of the encrypted resource (ID 102) is not fully understood due to the truncation of assembly in large functions, but the code structure confirms its role as a loader/dropper.",
+    "conditions": "The malware checks for a 'GlobalRPCMutex' and a 'prkMtx' mutex to ensure exclusive execution. It also performs environment checks using GetEnvironmentVariable.",
+    "sandbox_recommendations": "Ensure a clean environment with common Windows debugging tools disabled. The sample may require administrative privileges to perform registry and system file modifications successfully."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "DMWI",
+          "description": "Potential registry key used for persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used to synchronize/block execution."
+        },
+        {
+          "value": "win32k.sys",
+          "description": "System driver target for interaction."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Payload dropping and execution routine."
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Involved in kernel-level system table manipulation."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Resource decryption routine."
+    }
+  ]
+}

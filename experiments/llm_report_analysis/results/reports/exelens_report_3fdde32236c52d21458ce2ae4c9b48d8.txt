@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample is an information stealer designed to extract sensitive credentials from various FTP clients (CuteFTP, FlashFXP, TurboFTP, FTP Voyager, etc.) and web browsers (Firefox). It systematically searches registry keys, filesystem paths, and configuration files, decrypting the stolen data and likely exfiltrating it over the network.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Custom obfuscation",
+      "Dynamic API resolving",
+      "Function pointer table"
+    ],
+    "details": "The binary is not compressed in the traditional sense but employs extensive function pointer tables, dynamic loading of APIs (e.g., LoadLibraryA/GetProcAddress), and custom obfuscation logic (e.g., fcn.00401d43 XOR/transformation routines) to hinder static analysis."
+  },
+  "capabilities": [
+    {
+      "name": "Password/Credential Theft",
+      "description": "Reads credentials from configuration files and registry entries associated with FTP clients and browsers."
+    },
+    {
+      "name": "Network Communication",
+      "description": "Uses wsock32.dll and wininet.dll to potentially exfiltrate stolen data."
+    },
+    {
+      "name": "Registry Manipulation",
+      "description": "Systematically enumerates registry keys under Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall to locate installed software."
+    },
+    {
+      "name": "File System Enumeration",
+      "description": "Uses FindFirstFile/FindNextFile to search for configuration files (*.dat, *.ini, *.xml) in directories."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of specific registry key monitoring for known FTP clients and browsers, coupled with decryption routines (e.g., for SQLite databases used by Firefox or configuration files for FTP clients), confirms malicious intent. The sample is clearly designed to exfiltrate user data. The 'dual-use' functions are used as components in a larger, clearly malicious data-harvesting workflow.",
+    "general": "High-intent malicious behavior is observed in functions like fcn.00409030 (querying Firefox's logins.sqlite), fcn.00402c64 (registry enumeration for WinRAR keys), and fcn.00403baa (constructing HTTP POST requests for exfiltration). The use of fcn.00401d43 for decryption of stolen configuration data is a key indicator of intent.",
+    "uncertainties": "The exact C2 (Command & Control) destination is not explicitly visible in the assembly, but the networking capabilities and exfiltration-style HTTP POST construction strongly imply network-based data theft.",
+    "conditions": "The malware operates by scanning the local environment for configuration files. It likely requires the target software (FTP clients, Firefox) to be present on the host system to function successfully.",
+    "sandbox_recommendations": "Provide a clean environment with common software installed (e.g., FileZilla, Firefox, CuteFTP, WinRAR) and populated with dummy credentials. Monitor network traffic for HTTP POST requests to suspicious external IPs."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall",
+          "description": "Registry path enumerated to identify installed applications."
+        },
+        {
+          "value": "Software\\Ghisler\\Total Commander",
+          "description": "Registry path targeted for credential theft."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "signons.sqlite",
+          "description": "Firefox credential storage file targeted by the stealer."
+        },
+        {
+          "value": "wand.dat",
+          "description": "Opera browser password storage file targeted by the stealer."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00409030",
+      "name": "fcn.00409030",
+      "description": "Main routine for extracting credentials from Firefox/Mozilla SQLite databases."
+    },
+    {
+      "address": "0x00403baa",
+      "name": "fcn.00403baa",
+      "description": "Network function constructing HTTP POST requests for data exfiltration."
+    },
+    {
+      "address": "0x00401d43",
+      "name": "fcn.00401d43",
+      "description": "Core decryption routine used to process stolen config data."
+    }
+  ]
+}

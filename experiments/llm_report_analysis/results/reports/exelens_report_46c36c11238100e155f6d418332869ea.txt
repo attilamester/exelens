@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This sample is a remote access trojan (RAT) disguised as a system service. It implements a Command-and-Control (C2) mechanism over HTTP, enabling remote command execution via 'cmd.exe', process termination, service management, and file system navigation. It also contains functionality for service persistence and dynamic configuration.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed; the functions, imports, and strings are clearly visible."
+  },
+  "capabilities": [
+    {
+      "name": "Process Execution and Redirection",
+      "description": "Uses CreateProcessA with pipes (CreatePipe, WriteConsoleInputA) to interact with and control cmd.exe remotely."
+    },
+    {
+      "name": "Service Manipulation",
+      "description": "Utilizes ADVAPI32 functions to install, start, and control system services for persistence and execution."
+    },
+    {
+      "name": "C2 Communication",
+      "description": "Uses WININET (InternetOpenA, HttpSendRequestA) to send HTTP requests and receive commands from a remote server."
+    },
+    {
+      "name": "Information Gathering",
+      "description": "Enumerate processes (CreateToolhelp32Snapshot), services (EnumServicesStatusExA), and volumes (GetLogicalDrives)."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of HTTP-based C2 capabilities, remote command execution via shell redirection, and service management strongly confirms malicious intent rather than legitimate administration. The code directly maps received HTTP input to system control operations like 'kill' (process termination) or 'shell' (execution), which is characteristic of a backdoor/RAT.",
+    "general": "High-intent malicious actions are visible in fcn.10001570 (C2 loop), fcn.10001e50 (Process Hollowing/Redirection via CreateProcessA), fcn.100026a0 (Process termination), and fcn.100031a0 (Service persistence manipulation via Registry keys).",
+    "uncertainties": "The exact remote server URL is not hardcoded but constructed dynamically, meaning the C2 endpoint is provided via configuration or environment; the analysis assumes standard C2 behavior based on the function names and flow.",
+    "conditions": "Execution is intended as a Windows Service. It likely requires successful connection to a remote listener and the presence of 'cmd.exe' to function as a RAT.",
+    "sandbox_recommendations": "Simulate network connectivity to a mock C2 server, capture traffic, and monitor for process creation of 'cmd.exe' and registry modification in SYSTEM\\CurrentControlSet\\Services."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SYSTEM\\CurrentControlSet\\Services\\%s\\Parameters",
+          "description": "Service configuration path for persistence"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "Content-Length: %d",
+          "description": "Used in HTTP C2 communication headers"
+        },
+        {
+          "value": "shell",
+          "description": "Command string for shell initiation"
+        },
+        {
+          "value": "kill",
+          "description": "Command string for process termination"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001570",
+      "name": "fcn.10001570",
+      "description": "Main C2 loop handling HTTP requests and dispatching commands."
+    },
+    {
+      "address": "0x10001e50",
+      "name": "fcn.10001e50",
+      "description": "Shell initiation and redirection to command prompt."
+    },
+    {
+      "address": "0x100031a0",
+      "name": "fcn.100031a0",
+      "description": "Service persistence mechanism modifying registry values."
+    }
+  ]
+}

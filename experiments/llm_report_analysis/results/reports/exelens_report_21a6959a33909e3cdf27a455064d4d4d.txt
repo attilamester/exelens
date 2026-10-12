@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality typical of a kernel-mode rootkit or driver installer, including techniques to interact with kernel structures like the Service Descriptor Table (SSDT), process injection, and potential kernel-level hooking.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress"
+    ],
+    "details": "The file uses custom XOR loops (e.g., in fcn.100015f7 and fcn.10001723) to decrypt resources and manipulate internal data. It heavily relies on dynamic API resolution to hide its imports."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode interaction",
+      "description": "Attempts to manipulate the System Service Descriptor Table (SSDT) via fcn.1000b369 and fcn.1000ab6f."
+    },
+    {
+      "name": "Process Injection/Hollowing",
+      "description": "Uses CreateProcessA, WriteFile, and SetFileTime to manage child processes and potential payload delivery."
+    },
+    {
+      "name": "Persistence Mechanisms",
+      "description": "Modifies Windows Registry keys (RegSetValueExA, RegCreateKeyExA) to ensure persistence, often targeting the 'lsass' context."
+    },
+    {
+      "name": "System Evasion",
+      "description": "Checks for debugger presence and uses mutexes (prkMtx) to prevent multiple instances or sandbox detection."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of SSDT modification (fcn.1000b369), kernel-level debugging imports (DbgPrint, KeGetCurrentIrql), and registry manipulation to inject code into system processes (lsass.exe) is highly indicative of malicious intent. These capabilities serve no legitimate purpose for standard software and are hallmarks of rootkit behavior.",
+    "general": "The function fcn.1000ab6f and fcn.1000b369 explicitly attempt to locate and patch the KeServiceDescriptorTable, a primary target for rootkit system hooking. fcn.100017a0 demonstrates registry persistence manipulation specifically targeting the LSASS process, an common target for credential theft.",
+    "uncertainties": "The truncated nature of some large functions limits the ability to fully reconstruct the decrypted payload, but the visible hooking logic is sufficient to classify the intent as malicious.",
+    "conditions": "The malware requires administrative privileges to interact with kernel structures. It checks for specific registry keys and mutexes ('prkMtx') to determine if it should execute its primary payload.",
+    "sandbox_recommendations": "Use a kernel-mode debugger (e.g., WinDbg) to monitor SSDT access. Ensure the environment is not a virtual machine if possible, or use hardened VM settings to avoid the detected VM environment (GetSystemInfo checks)."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Targeted for persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for instance control."
+        },
+        {
+          "value": "lsass",
+          "description": "Targeted process for registry injection."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "SSDT (System Service Descriptor Table) manipulation."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Registry-based persistence and LSASS targeting."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Process creation and resource unlocking."
+    }
+  ]
+}

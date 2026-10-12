@@ -1,0 +1,81 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a downloader/RAT that manages persistent connections to a Command & Control (C2) server. It uses proxy settings, performs file operations, modifies registry keys for persistence, and includes capabilities for process enumeration, service management, and credential/system information gathering.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code does not show signs of traditional packing. It imports a high number of system APIs and uses standard MSVCRT library functions for string manipulation and networking."
+  },
+  "capabilities": [
+    {
+      "name": "Network Communication",
+      "description": "Utilizes WSOCK32.dll (socket, connect, recv, send) to initiate network connections to hardcoded addresses."
+    },
+    {
+      "name": "Registry Manipulation",
+      "description": "Uses ADVAPI32.dll (RegSetValueExA, RegOpenKeyExA) to interact with 'Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings' and potentially persistence keys."
+    },
+    {
+      "name": "File and Directory Operations",
+      "description": "Uses KERNEL32.dll (CreateFileA, DeleteFileA, CopyFileA) to manipulate system files and possibly drop payloads."
+    },
+    {
+      "name": "Process Injection/Enumeration",
+      "description": "Uses CreateToolhelp32Snapshot, Process32First/Next and TerminateProcess to list and kill specific processes."
+    },
+    {
+      "name": "Credential/System Info Gathering",
+      "description": "Accesses system information through GetComputerNameA, GetUserNameA, and NetGetDCName."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of networking, process killing (via TerminateProcess), registry modification (persistence/proxy settings), and remote command execution functions (the 'PassPath' string and various command handlers) strongly indicates malicious intent rather than a legitimate utility.",
+    "general": "High-intent functions observed: fcn.004033fc (modifying security privileges), fcn.004038f9 (process termination), fcn.004071d7 (proxy communication logic), and fcn.00403547 (interacting with SystemRoot).",
+    "uncertainties": "The sample uses dynamic API resolution (GetProcAddress) for many critical functions, which adds complexity; however, the intent is clear based on the call graph.",
+    "conditions": "Payload activation likely requires specific environmental conditions such as internet connectivity and potentially the presence of a specific configuration or registry key ('hFlag' or 'PassPath').",
+    "sandbox_recommendations": "Run in an isolated environment with network simulation (fake DNS/HTTP). Monitor for registry writes to Run keys and file creation in system directories."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings",
+          "description": "Registry key used for reading proxy settings."
+        }
+      ]
+    },
+    {
+      "type": "file",
+      "values": [
+        {
+          "value": "*.log",
+          "description": "Files generated with names like *KB985109.log."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401bc8",
+      "name": "fcn.00401bc8",
+      "description": "Primary network logic handler and command dispatcher."
+    },
+    {
+      "address": "0x004033fc",
+      "name": "fcn.004033fc",
+      "description": "Function related to security privilege escalation and process manipulation."
+    },
+    {
+      "address": "0x004071d7",
+      "name": "fcn.004071d7",
+      "description": "Core communication primitive used by almost all network-related functions."
+    },
+    {
+      "address": "0x00401788",
+      "name": "fcn.00401788",
+      "description": "Registry interaction and persistence management."
+    }
+  ]
+}

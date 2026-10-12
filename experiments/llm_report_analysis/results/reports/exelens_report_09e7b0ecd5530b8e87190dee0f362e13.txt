@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This executable acts as a downloader/dropper and information stealer. It performs environment fingerprinting, checks for virtualization, gathers system information (username, computer name, network configuration), and communicates via HTTP (POST requests) to a command-and-control server. It supports remote command execution and payload downloading capabilities.",
+  "packed": {
+    "status": "false",
+    "techniques": [
+      "string obfuscation via simple XOR operation"
+    ],
+    "details": "The code uses a simple XOR-based routine to deobfuscate configuration strings and identifiers at runtime. It is not packed with a compressor; the logic is visible in the provided assembly."
+  },
+  "capabilities": [
+    {
+      "name": "Network Communication",
+      "description": "Utilizes WININET.dll to perform HTTP POST requests and file downloads."
+    },
+    {
+      "name": "Information Stealing",
+      "description": "Collects system information including username, computer name, and network adapter details."
+    },
+    {
+      "name": "Persistence / Execution",
+      "description": "Capable of downloading and executing remote payloads using ShellExecute-like patterns (via CreateProcess/GetProcAddress)."
+    },
+    {
+      "name": "Anti-VM/Anti-Analysis",
+      "description": "Checks for virtualization artifacts by looking for specific I/O port patterns (e.g., VMWare I/O port)."
+    }
+  ],
+  "details": {
+    "reasoning": "The application exhibits clear malicious intent through the combination of exfiltration (gathering system metadata and adapter info) and remote command-and-control capabilities. The function fcn.00402390 implements the C2 communication logic, while fcn.00402300 leverages dynamic API resolution to execute downloaded payloads. The presence of XOR-obfuscated strings and anti-VM checks strongly confirms malicious intent rather than legitimate software behavior.",
+    "general": "High-intent indicators include: HTTP communication routines in fcn.00402390 using POST method, dynamic loading of KERNEL32 exports for payload execution in fcn.00402300, and system metadata collection via GetAdaptersInfo and Registry keys.",
+    "uncertainties": "While the binary is not packed, the C2 server address is obfuscated/dynamic, meaning the specific domain or IP is not immediately visible as a plain string in the static analysis.",
+    "conditions": "The sample performs environment checks (anti-VM via fcn.00402970) and expects a specific configuration file structure on the system or retrieved from the C2 server to drive the execution flow.",
+    "sandbox_recommendations": "Simulate network connectivity to allow C2 communication, monitor Registry activity, and observe sub-process creation (using process hollowing or direct execution techniques)."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Windows NT\\CurrentVersion",
+          "description": "Used to gather system information (ProductName, CurrentVersion, CSDVersion)."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "proto.dat",
+          "description": "File checked for in the local directory during initial execution."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00402390",
+      "name": "fcn.00402390",
+      "description": "Main communication routine using WinInet to perform POST requests."
+    },
+    {
+      "address": "0x00402300",
+      "name": "fcn.00402300",
+      "description": "Payload execution handler using dynamic API resolution to call system functions."
+    },
+    {
+      "address": "0x00402970",
+      "name": "fcn.00402970",
+      "description": "Anti-VM check implementing I/O port scanning."
+    },
+    {
+      "address": "0x004021e0",
+      "name": "fcn.004021e0",
+      "description": "Collects network adapter information using GetAdaptersInfo."
+    }
+  ]
+}

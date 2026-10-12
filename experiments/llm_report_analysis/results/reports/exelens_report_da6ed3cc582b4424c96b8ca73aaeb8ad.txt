@@ -1,0 +1,75 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable performs environment-aware C2 communication, persistent registry modification via RunOnce, and executes commands received from a remote server. It includes anti-analysis techniques such as system time checks and hardware information collection (CPU/MAC address) to evade detection.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based string/data obfuscation",
+      "Dynamic API resolution"
+    ],
+    "details": "The file contains an encrypted overlay and uses custom XOR functions (e.g., fcn.00401280) to obfuscate configuration data and C2 strings at runtime."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Modifies the Windows Registry RunOnce key to ensure execution on next startup."
+    },
+    {
+      "name": "Network Communication",
+      "description": "Uses WinINet and Winsock APIs to connect to a remote server, send system information, and retrieve commands."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Performs system time checks (GetLocalTime, FileTimeToSystemTime) and environment inspection (CPU hardware info, MAC address)."
+    },
+    {
+      "name": "Process Injection/Execution",
+      "description": "Uses CreateProcess (via internal wrappers) or similar mechanisms to execute retrieved remote commands."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistent registry modifications (RunOnce), active C2 communication (WinINet HTTP POST/GET), and the presence of command-parsing logic (e.g., fcn.004015e0) confirms malicious intent. While individual functions like networking or registry access are dual-use, their aggregation into a framework that gathers machine-specific info to receive and execute remote instructions is characteristic of a Remote Access Trojan (RAT).",
+    "general": "The function fcn.00401400 uses ADVAPI32.dll_RegCreateKeyExA to target 'SOFTWAREMicrosoftWindowsCurrentVersionRunOnce', establishing persistence. fcn.00401000 implements HTTP C2 communication, while fcn.004015e0 parses command responses to drive remote execution capabilities.",
+    "uncertainties": "Some string data remains obfuscated and would require dynamic emulation or decryption key extraction to reveal the exact hard-coded C2 domain, though the infrastructure intent is clear.",
+    "conditions": "The sample performs environment verification. It checks system time and hardware identification (MAC address, CPU string). Execution may fail in a sandbox if it detects virtualized hardware or if the C2 server is unreachable.",
+    "sandbox_recommendations": "Provide an active internet connection or a faked C2 endpoint. Ensure the environment includes a realistic CPU name in the registry and a MAC address. The sample may require an extended runtime to bypass internal sleep delays used for anti-sandbox evasion."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce",
+          "description": "Registry key used for persistence."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0",
+          "description": "Registry path queried for CPU information."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401000",
+      "name": "fcn.00401000",
+      "description": "Main C2 communication routine using WinINet."
+    },
+    {
+      "address": "0x00401400",
+      "name": "fcn.00401400",
+      "description": "Persistence establishment via RunOnce registry key."
+    },
+    {
+      "address": "0x004015e0",
+      "name": "fcn.004015e0",
+      "description": "Command processing and control flow logic for remote instructions."
+    }
+  ]
+}

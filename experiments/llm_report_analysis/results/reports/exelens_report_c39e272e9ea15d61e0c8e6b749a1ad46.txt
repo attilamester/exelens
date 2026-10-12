@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality for persistence through registry manipulation, command-and-control communication via Wininet API, and file-based execution (dropper). It includes anti-analysis techniques and dynamic loading of libraries to hide its behavior.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Dynamic API Resolution",
+      "Function call obfuscation via Heap management",
+      "Dynamic library loading (Wininet.dll)"
+    ],
+    "details": "The sample uses a custom heap-based structure to resolve and store function addresses dynamically. Core malicious logic is not directly imported but loaded at runtime using GetProcAddress."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Writes to the Windows Registry 'Run' key to ensure execution on startup."
+    },
+    {
+      "name": "Networking",
+      "description": "Uses Wininet (InternetOpenA, InternetReadFile) to perform HTTP GET/POST requests."
+    },
+    {
+      "name": "Dropper/Installer",
+      "description": "Creates temporary files and executes them using CreateProcessA."
+    },
+    {
+      "name": "Evasion",
+      "description": "Uses exception handlers (RtlUnwind) and dynamic address resolution to defeat basic static analysis."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistence via registry modification, dynamic C2 capability, and the dropper logic (CreateFile + WriteFile + CreateProcess) confirms malicious intent. The dual-use nature of Wininet or registry access is superseded by the specific target keys and the orchestrated flow of downloading/executing payloads.",
+    "general": "High-intent malicious activity is evidenced by fcn.00402300 (Registry 'Run' key manipulation) and fcn.00401b90 (Wininet C2 infrastructure initialization), coupled with fcn.00401b90 triggering CreateProcessA.",
+    "uncertainties": "Partial truncation of complex control flow logic may mask additional C2 commands or secondary payloads.",
+    "conditions": "Execution flow proceeds through standard entry point initialization followed by registry persistence check. The payload activation requires internet connectivity and specific environment response from the hardcoded C2.",
+    "sandbox_recommendations": "Provide internet access to the sandbox, monitor registry 'Run' key changes, and inspect temporary directories for dropped files."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Registry key used for persistence"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "NMIndService",
+          "description": "Registry value name for persistence"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00402300",
+      "name": "fcn.00402300",
+      "description": "Handles registry-based persistence via RegSetValueExA."
+    },
+    {
+      "address": "0x00401b90",
+      "name": "fcn.00401b90",
+      "description": "Initializes C2 infrastructure via Wininet and performs secondary file operations."
+    },
+    {
+      "address": "0x00401510",
+      "name": "fcn.00401510",
+      "description": "Handles network request and data reception logic."
+    }
+  ]
+}

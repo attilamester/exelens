@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample exhibits typical behavior of a downloader/trojan: it checks for existing instances via a mutex (mark02), establishes persistence by modifying the Windows Registry Run key, and attempts to open network connections using standard socket APIs. It contains anti-analysis and obfuscation routines, and utilizes dynamic library loading.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Dynamic API Resolution",
+      "Function call graph complexity"
+    ],
+    "details": "The executable contains custom heap-based memory allocation routines and dynamic API loading (e.g., LoadLibraryA/GetProcAddress calls for user32.dll), which are commonly used to mask primary malicious functionality."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Writes to Software\\Microsoft\\Windows\\CurrentVersion\\Run via RegSetValueExA to ensure execution on system startup."
+    },
+    {
+      "name": "Networking",
+      "description": "Uses WS2_32.dll (socket, connect, send, recv) to initiate network communications."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Implements mutex-based process checks ('mark02') to prevent multiple instances and potentially sandbox detection."
+    },
+    {
+      "name": "Dynamic Loading",
+      "description": "Uses GetProcAddress and LoadLibrary to resolve APIs at runtime, likely for obfuscation."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistence via registry modification, mutex checks to ensure single-instance execution, and the use of network socket APIs confirms high malicious intent. The code is structured to avoid simple static detection by obfuscating its API calls and using dynamic resolution.",
+    "general": "Main entry point calls CreateMutexA (RVA 0x4022e0). Persistence logic involves RegOpenKeyExA and RegSetValueExA (RVA 0x402100). Socket operations are present in fcn.00401dd0.",
+    "uncertainties": "The exact C2 communication protocol or the final payload retrieved via socket connections remains obscured due to network traffic not being visible in the static analysis.",
+    "conditions": "The file executes persistence logic upon being run. The networking code (fcn.00401dd0) requires a live socket connection to a specific remote host to complete the execution flow.",
+    "sandbox_recommendations": "Monitor registry activity for HKLM/HKCU software run keys. Intercept network calls to identify the C2 destination. The mutex 'mark02' should be observed."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "mark02",
+          "description": "Mutex name used for single-instance check"
+        },
+        {
+          "value": "WarHead",
+          "description": "Registry key/value string"
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Registry hive modified for persistence"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x004022e0",
+      "name": "main",
+      "description": "Entry point for mutex creation and persistence setup."
+    },
+    {
+      "address": "0x00401dd0",
+      "name": "fcn.00401dd0",
+      "description": "Network communication wrapper using WS2_32.dll."
+    },
+    {
+      "address": "0x00402190",
+      "name": "fcn.00402190",
+      "description": "Handles registry modifications for startup persistence."
+    }
+  ]
+}

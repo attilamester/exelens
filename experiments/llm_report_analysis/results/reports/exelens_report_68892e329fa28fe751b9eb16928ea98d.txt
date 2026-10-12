@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple functionalities typical of kernel-level rootkits or persistence modules. It dynamically loads libraries, interacts with low-level kernel interfaces (e.g., KeServiceDescriptorTable, NtQuerySystemInformation, NtQueryObject), and attempts to manipulate registry keys to install or maintain a payload. It also performs process hollowing/injection-like activities, including process creation, and has obfuscated string references.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR obfuscation (0xcd XOR key)",
+      "Dynamic API resolution via GetProcAddress",
+      "Resource-based payload hiding"
+    ],
+    "details": "The file uses resources (RVA: 0x100015f7, 0x10001b34) to hold encrypted/obfuscated data which is then decrypted using an XOR operation (0xcd key) at runtime before being loaded or executed."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Interacts with KeServiceDescriptorTable and NtQuerySystemInformation to potentially hook or hide system activity."
+    },
+    {
+      "name": "Persistence via Registry",
+      "description": "Modifies Windows registry keys (e.g., RegSetValueExA, RegCreateKeyExA) to maintain execution."
+    },
+    {
+      "name": "Process Execution",
+      "description": "Spawns new processes using CreateProcessA and potentially manipulates them."
+    },
+    {
+      "name": "File System Modification",
+      "description": "Uses CopyFileA, DeleteFileA, and SetFileAttributesA to manage its own persistence or drop malicious files."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level hooking functions (KeServiceDescriptorTable), registry persistence, and resource-based decryption is highly indicative of malicious intent. The dual-use nature of API calls like RegCreateKeyEx or VirtualAlloc is overridden by the specific targeting of sensitive system structures and the presence of obfuscated payloads designed to evade static detection.",
+    "general": "Evidence is found in function fcn.1000b369 (manipulating KeServiceDescriptorTable), fcn.1000c492 (mapping/locking pages), and fcn.1000788e (registry persistence). The XOR loop (0xcd) in fcn.10001697 and fcn.10001b34 is a hallmark of malicious code loaders.",
+    "uncertainties": "The truncated nature of the assembly code limits full visibility into the final stage of the malicious payload, but the loader logic is clearly visible and suspicious.",
+    "conditions": "The malware checks for environmental variables and performs mutex checks (e.g., prkMtx) to prevent multiple instances. It also relies on the availability of specific DLLs (e.g., ntdll.dll, ntoskrnl.exe) to perform kernel-mode operations.",
+    "sandbox_recommendations": "Use a Windows kernel-compatible sandbox. The file should be run as Administrator/System to reach the kernel-level code. Monitor registry writes to HKLM and attempts to hook SSDT."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Target location for persistence"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for concurrency control"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for synchronization"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Kernel-mode service table manipulation"
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Main registry persistence and lookup"
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Resource extraction and process creation"
+    }
+  ]
+}

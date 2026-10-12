@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample exhibits capabilities consistent with a kernel-mode rootkit or system privilege escalation tool. It performs string-based dynamic API resolution, accesses kernel structures such as the KeServiceDescriptorTable (SSDT) through memory manipulation techniques (Mdl, VirtualAlloc, ProbeAndLock), and interacts with system processes (likely lsass or system32). It also attempts to hide its existence using mutexes and registry manipulation.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR encoding",
+      "Dynamic API resolution",
+      "Resource-based payload extraction"
+    ],
+    "details": "The file contains XOR-encoded sections (detected in fcn.100015f7). It uses dynamic API loading and resolution techniques to obscure its imports and behavior. Resource IDs (101, 102) are used as containers for data likely representing the driver or shellcode payload."
+  },
+  "capabilities": [
+    {
+      "name": "SSDT Hooking/Modification",
+      "description": "Attempts to access and potentially modify the System Service Descriptor Table (SSDT), a common technique for rootkits to hijack system calls."
+    },
+    {
+      "name": "Memory Manipulation",
+      "description": "Uses IoAllocateMdl, MmProbeAndLockPages, and MmMapLockedPagesSpecifyCache to interact with kernel memory."
+    },
+    {
+      "name": "Process/Registry Manipulation",
+      "description": "Modifies system registry keys, deletes/copies files, and interacts with system processes."
+    },
+    {
+      "name": "Dynamic API Resolution",
+      "description": "Resolves functions from ntdll.dll and ntoskrnl.exe at runtime."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode memory manipulation (mapping locked pages), SSDT interaction (KeServiceDescriptorTable), and persistent registry modifications (aiming at lsass or system-critical paths) provides clear evidence of malicious intent consistent with a rootkit. While some techniques could be used by anti-cheat or DRM, the context of SSDT access and targetting of system-critical process structures is strongly indicative of malicious behavior rather than legitimate software protection.",
+    "general": "High-intent evidence includes calls to KeServiceDescriptorTable (fcn.1000b369), MmProbeAndLockPages (fcn.1000c492), and direct manipulation of system structures. The function fcn.1000b46f uses int 2e (system call interrupt) to perform direct system-level operations, and fcn.100017a0 modifies registry keys to point to 'lsass'.",
+    "uncertainties": "The exact payload hidden within the RCDATA resources remains partially obscured by the XOR routine, which complicates identifying the specific final objective of the rootkit.",
+    "conditions": "Requires administrative privileges (or SYSTEM) to execute successfully as it performs kernel-level operations. It also checks for the existence of specific registry values and environmental variables related to the system root/temp paths.",
+    "sandbox_recommendations": "Use a kernel-mode debugger (WinDbg) with an early-boot configuration. Do not run on a production system. Monitor registry modifications on HKLM\\SYSTEM\\CurrentControlSet and file system activity in System32."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\lsass",
+          "description": "Target registry key for potential modification or hijacking."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "KeServiceDescriptorTable",
+          "description": "String used to locate kernel syscall table."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used to synchronize execution."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Accesses and modifies the SSDT (KeServiceDescriptorTable)."
+    },
+    {
+      "address": "0x1000c492",
+      "name": "fcn.1000c492",
+      "description": "Performs memory manipulation for kernel-level access (MDL/LockPages)."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Performs registry manipulation and file copying related to system components."
+    }
+  ]
+}

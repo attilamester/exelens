@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to manipulate system service descriptor tables (SSDT) and perform process injection-like operations on kernel drivers. It includes components capable of disabling system shutdowns, searching for specific system modules ('win32k.sys', 'ntoskrnl.exe'), and executing custom code in the context of kernel-mode drivers, characteristic of a rootkit or kernel-level malware.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation of resources/strings",
+      "API dynamic loading",
+      "Memory manipulation"
+    ],
+    "details": "The file uses custom XOR loops (e.g., fcn.100075ce) to deobfuscate configuration strings and resource content. The presence of functions like fcn.1000b369 that resolve 'KeServiceDescriptorTable' and manipulate system tables indicates active attempts to bypass kernel security protections."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Uses 'KeServiceDescriptorTable' to hook kernel functions and manipulate system behavior."
+    },
+    {
+      "name": "Process/Driver Injection",
+      "description": "Injects or manipulates code within kernel drivers and system processes using techniques like 'IoAllocateMdl' and 'MmMapLockedPagesSpecifyCache'."
+    },
+    {
+      "name": "Persistence/Evasion",
+      "description": "Registers values in Windows registry keys (e.g., 'o_JYXpY___EoYHHUR_O') and modifies boot-start configurations."
+    },
+    {
+      "name": "Self-Protection",
+      "description": "Creates system-wide mutexes (e.g., 'prkMtx') to ensure single-instance execution and avoid collision with other malware instances."
+    }
+  ],
+  "details": {
+    "reasoning": "The file exhibits clear high-intent indicators of malicious behavior by targeting kernel-level structures ('KeServiceDescriptorTable', 'KeAddSystemServiceTable'). The combination of importing sensitive native API-like functions and performing direct memory manipulation on kernel-mode structures removes this from the 'protector/installer' category and confirms malicious intent.",
+    "general": "High-intent evidence includes calls to 'KeServiceDescriptorTable' (fcn.1000b369), modifications to 'NtShutdownSystem' handlers, and direct mapping of kernel pages ('MmMapLockedPagesSpecifyCache'). These are not legitimate behaviors for standard user-mode applications.",
+    "uncertainties": "While the kernel-level intent is clear, the exact source of the secondary payload, which appears to be decrypted from resources, remains dynamic.",
+    "conditions": "Execution flow depends on successful elevation to kernel-mode and bypassing Driver Signature Enforcement (DSE), which is implied by the presence of these functions.",
+    "sandbox_recommendations": "Run in a kernel-debug-enabled environment. Monitor for registry modifications related to service start and check for unauthorized attempts to hook SSDT entries."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "o_JYXpY___EoYHHUR_O",
+          "description": "Registry value used for persistence or tracking."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name potentially used for cross-process synchronization."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "_system32",
+          "description": "String reference used in path construction for system file modification."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Main routine for SSDT hooking/manipulation."
+    },
+    {
+      "address": "0x1000c492",
+      "name": "fcn.1000c492",
+      "description": "Kernel memory management routine (Mdl allocation and locking)."
+    },
+    {
+      "address": "0x1000c755",
+      "name": "fcn.1000c755",
+      "description": "Locates kernel function addresses for patching/hooking."
+    }
+  ]
+}

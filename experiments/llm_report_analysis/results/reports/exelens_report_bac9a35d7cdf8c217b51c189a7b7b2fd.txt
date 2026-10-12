@@ -1,0 +1,89 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality consistent with a kernel-mode rootkit or security-bypass tool, including attempts to modify kernel structures (e.g., KeServiceDescriptorTable), and uses kernel-mode API names. It performs file operations, registry manipulation for persistence, and interacts with system processes.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource-based loading",
+      "Dynamic API resolution (GetProcAddress)",
+      "Simple XOR-like byte-level transformation"
+    ],
+    "details": "The file uses resources (102) which are likely encrypted/obfuscated using a 0xcd XOR routine, as observed in fcn.10001697. Functions like fcn.10001697 load and decrypt resources, which is indicative of a loader routine."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode structural manipulation",
+      "description": "Attempts to locate and modify kernel structures such as KeServiceDescriptorTable."
+    },
+    {
+      "name": "Persistence",
+      "description": "Uses Registry keys to ensure execution, specifically targeting Run keys via RegCreateKeyExA."
+    },
+    {
+      "name": "Process Hollowing/Injection",
+      "description": "Uses CreateProcessA, possibly in conjunction with code that manually writes to memory (VirtualAlloc/WriteProcessMemory equivalent)."
+    },
+    {
+      "name": "Stealth/Evasion",
+      "description": "Attempts to interact with or hide from kernel-level monitoring by querying system information and manipulating system-related objects."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent actions—specifically direct manipulation of kernel structures like KeServiceDescriptorTable (fcn.1000b369) and the reference to kernel-mode imports/structures—is strongly characteristic of malicious rootkit-like software. The file exhibits clear loader behavior, decrypting and executing obfuscated resources. The use of kernel-mode structures and APIs in a user-mode installer context is not a dual-use feature but a clear indicator of malicious intent to compromise system integrity.",
+    "general": "Evidence is found in fcn.1000b369 (RVA 0x1000b369) which targets 'KeServiceDescriptorTable'. fcn.100017a0 (RVA 0x100017a0) performs registry modifications (RegSetValueExA) and uses 'lsass' as an obfuscated string identifier. The presence of 'NtShutdownSystem' (fcn.1000c755) and related kernel symbols confirms malicious intent to affect system-wide operation.",
+    "uncertainties": "While the binary is clearly a loader, the exact nature of the final payload is hidden in encrypted resources; however, the surrounding logic is distinctly malicious. Input is truncated, so there may be additional C2 domains or payloads I cannot see.",
+    "conditions": "The code checks for specific environment variables (GetEnvironmentVariableA) and requires the presence of certain registry keys/files (e.g., 'prkMtx') to proceed with execution. It likely executes as a system service or installer.",
+    "sandbox_recommendations": "Run in a kernel-aware sandbox. Ensure the system environment mimics a standard Windows environment, as the binary performs extensive environment checks (GetVersionExA, GetSystemDirectoryA, etc.)."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\ServiceGroupOrder",
+          "description": "Targeted for registry manipulation for persistence."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "system32\\win32k.sys",
+          "description": "File path targeted for manipulation."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Potential mutex name used for single-instance checks."
+        },
+        {
+          "value": "lsass",
+          "description": "Target process name or registry key."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Attempts to hook or locate the KeServiceDescriptorTable."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Handles registry key creation and persistent value setting."
+    },
+    {
+      "address": "0x10001697",
+      "name": "fcn.10001697",
+      "description": "Resource decryption and loading routine."
+    }
+  ]
+}

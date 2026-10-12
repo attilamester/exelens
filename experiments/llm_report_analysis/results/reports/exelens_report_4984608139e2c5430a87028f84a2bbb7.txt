@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a malicious driver installer/loader. It checks for system environment variables, uses custom obfuscation/decryption on resources, establishes persistence via registry modification, and executes a secondary payload (likely a kernel-mode driver) using kernel-related APIs (e.g., KeRaiseIrqlToDpcLevel, NtQuerySystemInformation).",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource encryption",
+      "Custom XOR decryption",
+      "Dynamic API resolution (GetProcAddress)"
+    ],
+    "details": "Multiple functions (e.g., fcn.100015f7, fcn.100075ce) perform XOR decryption on loaded resources (ID 101, 102, 103) before execution or usage."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Modifies registry keys (RegSetValueExA) to load system-level components."
+    },
+    {
+      "name": "Kernel-mode interaction",
+      "description": "Uses APIs like KeRaiseIrqlToDpcLevel and probes for ntoskrnl.exe/ntkrnlpa.exe/win32k.sys."
+    },
+    {
+      "name": "Process Injection/Execution",
+      "description": "Uses CreateProcessA to launch secondary payloads with specific file attributes."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Uses Mutexes (GlobalRPCMutex, prkMtx) to ensure single execution and prevent re-detonation."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode symbol resolution, direct manipulation of System Service Descriptor Table (SSDT) via fcn.1000b369 (KeServiceDescriptorTable), and registry persistence is consistent with malicious rootkit/driver droppers. The sample contains no identifiable legitimate interface, and the code logic heavily favors environmental stealth and payload delivery.",
+    "general": "High-intent indicators include fcn.1000b369 attempting to resolve 'KeServiceDescriptorTable', fcn.10009d28 targeting kernel-mode functions like 'KeRaiseIrqlToDpcLevel', and the overall structure of resource extraction and registry-based persistence.",
+    "uncertainties": "The exact nature of the payload extracted from resource 102 (size 106496) is not fully analyzed due to the truncation of the data, but its usage with kernel-related calls confirms it is a driver or low-level module.",
+    "conditions": "Requires specific environmental setup (e.g., non-debugging environment) and access to the system registry. It likely checks for the existence of previous infection artifacts via mutexes.",
+    "sandbox_recommendations": "Run in a kernel-debug capable sandbox. Monitor registry activity for modifications to system service keys and file I/O in System32 directories."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\",
+          "description": "Potential persistence location"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used to prevent concurrent execution"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for synchronization during driver installation"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Attempts to locate and hook KeServiceDescriptorTable (SSDT hooking)."
+    },
+    {
+      "address": "0x10009d28",
+      "name": "fcn.10009d28",
+      "description": "Resolves kernel-mode symbols and performs driver-related initialization."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Main orchestrator for environment checking and registry-based payload setup."
+    }
+  ]
+}

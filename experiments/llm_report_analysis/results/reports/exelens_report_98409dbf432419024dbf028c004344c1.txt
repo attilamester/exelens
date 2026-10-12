@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a service installer/loader that performs persistence manipulation by registering a malicious DLL as a system service. It modifies the registry to point 'Nwsapagent' to a new DLL, likely for DLL hijacking or service-based malware persistence.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed. The high entropy in .rdata (6.63) appears to be legitimate binary data or resource-like structures rather than a packed payload."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence (Registry)",
+      "description": "Modifies registry keys related to service configurations (SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Svchost, ServiceDll)."
+    },
+    {
+      "name": "Service Manipulation",
+      "description": "Creates, configures, and starts Windows services using OpenSCManagerA, CreateServiceA, and StartServiceA."
+    },
+    {
+      "name": "File System Operations",
+      "description": "Writes files to the system directory, sets file attributes, and manipulates file time."
+    },
+    {
+      "name": "Privilege Adjustment",
+      "description": "Iterates through a long list of Se* privileges (e.g., SeDebugPrivilege) to enable them for the current process."
+    }
+  ],
+  "details": {
+    "reasoning": "While the individual functions are dual-use, the combination of enabling broad system privileges (SeDebug, SeTcb, etc.), creating a system service ('Nwsapagent'), and setting the registry's 'ServiceDll' path to point to a dropped DLL in the System32 directory is characteristic of high-intent malicious persistence mechanisms. The program explicitly prepares the environment for a malicious service to load.",
+    "general": "The function fcn.00401333 is the core malicious component; it performs registry manipulation (RegCreateKeyA, RegSetValueExA) to point the 'ServiceDll' for 'Nwsapagent' to 'Nwsapagent.dll' and calls CreateServiceA/StartServiceA to execute the payload. The privilege escalation pattern in fcn.00401065 clearly indicates an intent to operate with elevated system control.",
+    "uncertainties": "The exact contents of the dropped DLL (Nwsapagent.dll) are not visible, but the logic clearly installs and triggers it.",
+    "conditions": "The execution flow is straightforward and does not seem to require specific command-line arguments or environment triggers to initiate the persistence installation.",
+    "sandbox_recommendations": "Run in an isolated Windows VM with procmon monitoring. Monitor registry operations under HKLM\\SYSTEM\\CurrentControlSet\\Services\\ and file creation attempts in C:\\Windows\\System32\\."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Svchost",
+          "description": "Target key for service configuration"
+        },
+        {
+          "value": "SYSTEM\\CurrentControlSet\\Services\\Nwsapagent\\Parameters",
+          "description": "Registry path where ServiceDll is set"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "%SystemRoot%\\System32\\Nwsapagent.dll",
+          "description": "Path of the malicious payload installed as a service"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401333",
+      "name": "fcn.00401333",
+      "description": "Main malicious orchestrator: performs registry persistence and service installation."
+    },
+    {
+      "address": "0x00401065",
+      "name": "fcn.00401065",
+      "description": "Enables various system privileges for the process."
+    },
+    {
+      "address": "0x00401000",
+      "name": "fcn.00401000",
+      "description": "Handles file writing and deployment of the payload."
+    }
+  ]
+}

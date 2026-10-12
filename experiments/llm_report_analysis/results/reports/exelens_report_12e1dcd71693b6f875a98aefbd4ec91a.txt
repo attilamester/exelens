@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample is a modular backdoor/bot that performs environment discovery, establishes persistence via registry keys, and communicates with a Command and Control (C2) server. It uses network-level obfuscation, dynamic API resolution via LoadLibrary/GetProcAddress, and creates mutexes to ensure single-instance execution.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Dynamic API resolution",
+      "XOR-based string/data obfuscation"
+    ],
+    "details": "The sample uses a custom XOR decryption routine (fcn.00401080) to resolve strings and function pointers at runtime, hiding its C2 and configuration logic. Import addresses are resolved dynamically via GetProcAddress."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Uses RegCreateKeyExA and RegSetValueExA to modify Windows registry keys for persistence."
+    },
+    {
+      "name": "Network Communication",
+      "description": "Implements custom C2 protocol over TCP/IP using standard Windows Sockets (WSOCK32.dll) to receive commands and send stolen data."
+    },
+    {
+      "name": "Information Stealing",
+      "description": "Collects system information, file listings, and username/computer name to identify and report the infected environment."
+    },
+    {
+      "name": "Process/Service Injection",
+      "description": "Utilizes CreateThread and potential file copying/moving to run malicious code from hidden directories."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of dynamic API resolution, C2 networking routines (fcn.00402490, fcn.00403c50), and persistent registry modifications (fcn.00401a60) is consistent with malicious backdoor behavior. The file actively checks for proxies (fcn.00402090) and uses a Mutex (OpenMutexA/CreateMutexA) to manage execution. These capabilities are clearly intended for unauthorized control, not legitimate software functions.",
+    "general": "Evidence includes the use of CreateMutexA/OpenMutexA at RVA 0x401db0, dynamic resolution of WSOCK32.dll functions in fcn.00401310, and high-intent registry manipulation found in fcn.00401a60.",
+    "uncertainties": "While the binary is not fully packed, its use of custom XOR loops to conceal configuration strings (like C2 IP patterns) makes some behavior context-dependent on the external payload/C2 communication.",
+    "conditions": "The malware requires an active internet connection to communicate with the C2 (hardcoded hostnames or IPs resolved via WSOCK32) and likely requires specific user privileges to modify run-keys in the registry.",
+    "sandbox_recommendations": "Simulate a live internet connection with DNS redirection. Monitor registry modifications in HKLM/HKCU Software\\Microsoft\\Windows\\CurrentVersion\\Run. Monitor outbound traffic on common ports and attempt to observe the XOR-decryption patterns in memory."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings",
+          "description": "Proxy settings checking for C2 communication."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "Kernel32.dll",
+          "description": "Loaded library used for core system operations."
+        },
+        {
+          "value": "Ws2_32.dll",
+          "description": "Used for socket networking."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401310",
+      "name": "fcn.00401310",
+      "description": "Dynamically resolves API imports and initializes network communication."
+    },
+    {
+      "address": "0x00401db0",
+      "name": "fcn.00401db0",
+      "description": "Handles Mutex creation and file persistence/movement."
+    },
+    {
+      "address": "0x00401a60",
+      "name": "fcn.00401a60",
+      "description": "Performs registry persistence operations."
+    },
+    {
+      "address": "0x00402490",
+      "name": "fcn.00402490",
+      "description": "Main routine for C2 communication setup and command processing."
+    }
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to hook system calls by modifying the System Service Descriptor Table (SSDT), bypass kernel-level protection by manipulating driver-related structures in memory, and persist via registry keys. It appears to act as a rootkit or driver-based loader that performs unauthorized kernel-mode modifications.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based payload decryption",
+      "Dynamic API resolution via GetProcAddress",
+      "Resource-based payload hiding"
+    ],
+    "details": "The file contains a large resource section (RCDATA type) which is extracted and XOR-decrypted at runtime using routines such as fcn.10001697 and fcn.100015f7. The entry point and several key functions are obfuscated, suggesting a loader-based architecture."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode SSDT Hooking",
+      "description": "Functions like fcn.1000b369 and fcn.1000ab6f attempt to locate and modify the KeServiceDescriptorTable to redirect syscalls."
+    },
+    {
+      "name": "Driver Manipulation",
+      "description": "Uses IoAllocateMdl and MmProbeAndLockPages to map kernel memory and overwrite existing code/structures (e.g., fcn.1000c492)."
+    },
+    {
+      "name": "Persistence via Registry",
+      "description": "Uses RegCreateKeyExA and RegSetValueExA to establish persistence in system-level registry keys."
+    },
+    {
+      "name": "Evasion and Anti-Analysis",
+      "description": "Checks for debugger presence and system environment to avoid analysis, including checking for specific driver names and DbgPrint functions."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of SSDT hooking (a high-intent malicious indicator), direct kernel memory manipulation via MDLs (Memory Descriptor Lists), and registry persistence clearly distinguishes this from legitimate software. While packing is a dual-use technique, here it functions specifically to protect a malicious driver loader, as evidenced by the strings 'ntoskrnl.exe', 'KeServiceDescriptorTable', and various driver-related API names.",
+    "general": "High-intent malicious evidence is found in fcn.1000b369 (SSDT modification logic), fcn.1000c492 (MDL manipulation), and the presence of imports like IoAllocateMdl and MmMapLockedPagesSpecifyCache, which are standard for rootkit development. The code specifically targets the SSDT to redirect syscalls to its own malicious handlers.",
+    "uncertainties": "While the core malicious intent is clear, the exact nature of the payload being loaded (the decrypted RCDATA) remains partially hidden without runtime memory dumping.",
+    "conditions": "The execution flow requires the file to be run with high privileges (Administrator/SYSTEM) for the driver/registry modifications to succeed. It also contains explicit checks for Windows version (GetVersionExA) to apply appropriate patching offsets.",
+    "sandbox_recommendations": "Run in an environment that allows kernel-mode debugging (e.g., WinDbg connected to a target VM). Enable monitoring for registry modifications and driver load attempts."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\",
+          "description": "Targeted for driver/service installation for persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "KeServiceDescriptorTable",
+          "description": "Symbol targeted for SSDT hooking."
+        },
+        {
+          "value": "NtShutdownSystem",
+          "description": "Syscall hooked by the sample."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Performs the primary SSDT hooking logic."
+    },
+    {
+      "address": "0x1000c492",
+      "name": "fcn.1000c492",
+      "description": "Handles MDL memory mapping for kernel-mode code overwrites."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Resource decryption and loading routine."
+    }
+  ]
+}

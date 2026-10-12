@@ -1,0 +1,82 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample is a modular backdoor that performs C2 communication over HTTP/Sockets, monitors processes, manipulates file system and registry settings (persistence), and supports remote commands such as file manipulation, process termination, and directory listing.",
+  "packed": {
+    "status": "false",
+    "techniques": [
+      "string obfuscation via XOR and subtraction routines"
+    ],
+    "details": "The executable contains multiple custom decryption routines (e.g., fcn.00401057) that use XOR 0x11 and subtraction 0x25, which obfuscate strings at runtime. The file appears to be compiled C++ code."
+  },
+  "capabilities": [
+    {
+      "name": "C2 Networking",
+      "description": "Utilizes WS2_32.dll for socket communication, HTTP GET/POST requests, and proxy settings discovery."
+    },
+    {
+      "name": "Process Injection/Manipulation",
+      "description": "Uses OpenProcess, CreateToolhelp32Snapshot, and TerminateProcess to interact with or terminate system processes."
+    },
+    {
+      "name": "Persistence",
+      "description": "Manipulates registry keys under Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings and creates files/directories in the Windows directory."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Uses mutexes (CreateMutexA/OpenMutexA) to ensure single execution and likely evasion techniques."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of networking capabilities (C2 over sockets/HTTP), persistence via registry/Windows directory, process enumeration/termination, and file system manipulation (copy/delete/set attributes) confirms malicious intent as a backdoor. The use of custom decryption for strings and the specific command-and-control-like behavior (parsing 'GET'/'POST', '200 OK') removes the possibility of it being a benign utility.",
+    "general": "High-intent malicious behavior is observed in fcn.0040335a (process monitoring), fcn.0040381a (injecting/terminating processes), fcn.00401840 (mutex usage for single-instance persistence), and networking routines like fcn.00402b6c (socket connection to C2).",
+    "uncertainties": "While the C2 address is obfuscated, the function logic strongly indicates remote command execution, but the exact C2 IP/domain remains obscured by the decryption routine.",
+    "conditions": "The malware requires internet connectivity to resolve its C2 communication. It checks the Windows directory and relies on registry keys like 'ProxyEnable' and 'ProxyServer' for its network traffic routing.",
+    "sandbox_recommendations": "Provide an internet connection with a captured gateway or fake DNS/proxy. Simulate standard Windows environment variables (specifically SystemRoot). The sample may require specific command-line arguments if the logic in fcn.00401c24 (entry0) expects them, but it appears to be a stand-alone agent."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings",
+          "description": "Registry key used for proxy/internet configuration manipulation."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "POST",
+          "description": "HTTP command used in C2 communication."
+        },
+        {
+          "value": "GET",
+          "description": "HTTP command used in C2 communication."
+        },
+        {
+          "value": "SeTakeOwnershipPrivilege",
+          "description": "Privilege acquired for system manipulation."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401840",
+      "name": "fcn.00401840",
+      "description": "Mutex check and persistence setup."
+    },
+    {
+      "address": "0x00402b6c",
+      "name": "fcn.00402b6c",
+      "description": "Primary network/socket connection and C2 communication routine."
+    },
+    {
+      "address": "0x0040335a",
+      "name": "fcn.0040335a",
+      "description": "Process enumeration and monitoring."
+    }
+  ]
+}

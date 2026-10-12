@@ -1,0 +1,72 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This file is a command-and-control (C2) agent or backdoor. It installs itself as a Windows Service ('Microsoft .Net Framework COM Support'), establishes communication with a remote host via HTTP, executes shell commands, manages files, and can be used to launch or terminate processes on the infected system.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed. It contains standard CRT boilerplate and clear, readable API calls for service manipulation and network communication."
+  },
+  "capabilities": [
+    {
+      "name": "Service Manipulation",
+      "description": "Uses ADVAPI32 service APIs to install, start, delete, and control services (e.g., CreateServiceA, StartServiceA, DeleteService)."
+    },
+    {
+      "name": "Process Injection/Execution",
+      "description": "Uses CreateProcessA/CreateProcessAsUserA to execute commands, including the ability to launch cmd.exe."
+    },
+    {
+      "name": "Networking",
+      "description": "Utilizes WININET.dll for HTTP communication (InternetOpenA, InternetConnectA, HttpOpenRequestA, HttpSendRequestA)."
+    },
+    {
+      "name": "Persistence",
+      "description": "Installs itself as a persistent Windows Service ('Microsoft .Net Framework COM Support')."
+    }
+  ],
+  "details": {
+    "reasoning": "The application exhibits clear high-intent malicious behavior. It attempts to install itself as a Windows service, disguising its identity by using a misleading name ('Microsoft .Net Framework COM Support'). It contains built-in logic for a remote shell, including 'install', 'uninstall', and 'shell' command handlers, and uses WININET to communicate with an external server. These capabilities, when combined, are characteristic of a C2 agent rather than a legitimate tool.",
+    "general": "The function fcn.00402b9c handles service installation, calling CreateServiceA with the name 'Microsoft_.Net_Framework_COM_Support'. Function fcn.00401c04 manages process execution, creating pipes to redirect cmd.exe I/O. The main C2 loop in fcn.00401406 uses HttpSendRequestA to communicate and parses command responses using string-comparison logic (e.g., 'shell', 'list', 'kill').",
+    "uncertainties": "While the C2 address is configured at runtime/via parameters and not hardcoded in plain sight, the functionality is unmistakably that of a remote access trojan.",
+    "conditions": "The malware expects specific command-line arguments to function properly. It checks for arguments like '_install' to install as a service and likely relies on a remote server to provide instructions via HTTP.",
+    "sandbox_recommendations": "Monitor network traffic for HTTP POST/GET requests to arbitrary hosts. Use an analyst machine with a fake internet response to capture the command-and-control communication patterns. Monitor for new service creation in the Windows Registry."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Microsoft .Net Framework COM Support",
+          "description": "The malicious Windows Service name used for persistence."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "C:\\windows\\svchost.exe",
+          "description": "Target path for service-related file copy operations."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401406",
+      "name": "fcn.00401406",
+      "description": "Main C2 loop handling HTTP network communication and command dispatching."
+    },
+    {
+      "address": "0x00402b9c",
+      "name": "fcn.00402b9c",
+      "description": "Performs installation of the backdoor as a Windows Service."
+    },
+    {
+      "address": "0x00401c04",
+      "name": "fcn.00401c04",
+      "description": "Manages remote command execution and shell redirection (e.g., spawning cmd.exe)."
+    }
+  ]
+}

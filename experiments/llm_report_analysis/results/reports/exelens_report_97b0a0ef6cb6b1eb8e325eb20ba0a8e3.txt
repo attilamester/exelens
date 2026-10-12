@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a modular rootkit/kernel-mode driver installer that uses process hollowing, system registry manipulation, and kernel-level patching techniques to persist and evade detection. It targets system files like 'win32k.sys' and 'ntoskrnl.exe'.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR encoding",
+      "Dynamic API resolution",
+      "Resource obfuscation"
+    ],
+    "details": "The file uses custom XOR-based decoding (e.g., fcn.100015f7, fcn.10001697) to unpack internal resources stored in .rsrc. It dynamically resolves kernel-mode functions (like 'KeRaiseIrqlToDpcLevel', 'NtShutdownSystem') via LoadLibrary/GetProcAddress."
+  },
+  "capabilities": [
+    {
+      "name": "Process Hollowing/Injection",
+      "description": "Utilizes CreateProcessA and writes into memory regions to execute malicious code within legitimate process contexts."
+    },
+    {
+      "name": "Kernel-Mode Patching",
+      "description": "Attempts to locate and modify kernel service descriptor tables and internal kernel structures to redirect execution flow."
+    },
+    {
+      "name": "Registry Manipulation",
+      "description": "Extensive use of RegCreateKeyExA and RegSetValueExA to modify system persistence mechanisms, including hidden driver configurations."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Contains checks for debugger presence and sandbox environments (e.g., GetVolumeInformationA, GetComputerNameA, and environment variable checks)."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode API resolution (NtQuerySystemInformation, KeRaiseIrqlToDpcLevel), direct patching of kernel structures (fcn.100034de), and the modification of critical system drivers ('win32k.sys') confirms malicious intent beyond dual-use utility. The sample acts as a sophisticated dropper for a kernel-level rootkit.",
+    "general": "High-intent indicators include: fcn.100034de (modifying kernel service tables), fcn.10009d28 (patching 'ntoskrnl.exe' functions like KeRaiseIrqlToDpcLevel), and fcn.1000a0fc (targeting 'win32k.sys'). The code explicitly performs disk and registry operations to replace or augment system drivers.",
+    "uncertainties": "The exact payload functionality is partially hidden behind dynamic API resolution; while the loader behavior is clear, the ultimate payload function remains cryptographically bound to the environment.",
+    "conditions": "The primary execution requires Administrator/System privileges due to kernel-level modification attempts. It relies on environment-specific triggers like registry keys containing 'DMWI' or 'cnForm' markers to begin the injection process.",
+    "sandbox_recommendations": "Run in a kernel-aware environment with driver monitoring enabled. Ensure the sandbox environment mimics a standard Windows workstation environment as the sample performs anti-VM checks based on computer name and volume information."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\lsass",
+          "description": "Persistence registry key for hidden driver/service."
+        },
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used to ensure single instance execution."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "%SYSTEM32%\\win32k.sys",
+          "description": "Target of driver manipulation."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10009d28",
+      "name": "fcn.10009d28",
+      "description": "Kernel-mode function patching routine, modifies IRQL levels."
+    },
+    {
+      "address": "0x10003c04",
+      "name": "fcn.10003c04",
+      "description": "File dropper and process creation routine for the malicious payload."
+    },
+    {
+      "address": "0x100034de",
+      "name": "fcn.100034de",
+      "description": "Kernel System Descriptor Table modification logic."
+    }
+  ]
+}

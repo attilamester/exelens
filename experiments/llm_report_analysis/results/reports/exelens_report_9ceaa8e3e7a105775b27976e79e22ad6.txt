@@ -1,0 +1,89 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains sophisticated mechanisms to identify and bypass security protections, including kernel-level API hooking (e.g., NtQuerySystemInformation, NtQueryObject) and manipulation of kernel structures (KeServiceDescriptorTable). It exhibits loader behavior, decrypting an internal resource (0xcd XOR routine in fcn.100015f7), and persistence mechanisms through registry manipulation (Run keys) and service or driver installation patterns.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation (0xcd loop)",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress",
+      "Resource-based loading (FindResource/LoadResource/LockResource)"
+    ],
+    "details": "The file uses a clear XOR-decryption loop (0xcd key) in fcn.100015f7 to unpack resources. The entry point logic and extensive use of GetProcAddress indicate a stage-loader or protected component."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-level manipulation",
+      "description": "Attempts to hook kernel APIs (KeServiceDescriptorTable, NtQuerySystemInformation, NtQueryObject) to hide processes or presence."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies Windows Registry Run keys (RegCreateKeyExA, RegSetValueExA) to ensure execution at system startup."
+    },
+    {
+      "name": "Evasion",
+      "description": "Checks for debugger presence and system environment to avoid analysis, including specific environment variable checks (e.g., 'system32')."
+    },
+    {
+      "name": "Process Injection/Hollowing",
+      "description": "Uses CreateProcessA followed by resource writing to initiate execution in a different memory context."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level structure manipulation (KeServiceDescriptorTable hooking), stealthy process creation, and persistence mechanisms confirms malicious intent beyond mere protection. The file explicitly seeks out system-critical APIs and hooks them, a high-intent indicator for rootkits or advanced persistent threats.",
+    "general": "fcn.1000b369 (KeServiceDescriptorTable hooking), fcn.1000d592 (NtQuerySystemInformation hooking), fcn.1000c8af (NtQueryObject hooking), fcn.100017a0 (Registry modification of lsass), and fcn.100015f7 (XOR payload unpacking).",
+    "uncertainties": "The full payload is likely encrypted and split across multiple resources (101, 102, 103), meaning specific C2 communication or final payload logic is only activated post-detonation.",
+    "conditions": "The malware requires an environment variable (often related to 'system32' or 'temp' paths) and likely needs specific administrative privileges to hook kernel tables successfully.",
+    "sandbox_recommendations": "Simulate a fully configured Windows 7/10 environment; the file may fail to execute in a stripped-down sandbox due to missing registry keys or system environment variables it expects."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Likely persistence target"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "_system32",
+          "description": "Used in file path construction for stealth"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for single-instance enforcement"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Possible additional mutex for kernel synchronization"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Main decryption routine (XOR loop) for loading internal resources."
+    },
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Kernel-level hooking function targeting KeServiceDescriptorTable."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Persistence-related registry manipulation logic."
+    }
+  ]
+}

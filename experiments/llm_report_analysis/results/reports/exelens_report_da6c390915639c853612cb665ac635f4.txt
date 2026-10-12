@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a downloader/backdoor that collects system information, including machine name, username, and processor details, then exfiltrates this data via HTTP POST requests. It maintains persistence by checking for a specific file and creating a mutex to ensure single-instance execution.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The file is not packed; however, it uses custom XOR-based obfuscation routines (fcn.0040259a) for strings and potentially for C2 communications."
+  },
+  "capabilities": [
+    {
+      "name": "Data Exfiltration",
+      "description": "Collects system information (username, computer name, processor info, network adapters) and sends it to a remote server using WinINet API."
+    },
+    {
+      "name": "Persistence / Execution control",
+      "description": "Uses CreateMutexA to ensure single instance execution and checks for file existence to trigger payload activity."
+    },
+    {
+      "name": "Process Injection/Execution",
+      "description": "Uses CreateProcessA to launch files, likely secondary payloads."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Uses Sleep calls and environment checks (GetVersionExA) to potentially evade sandboxes."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of system information gathering (processor, OS version, username) and immediate use of WinINet functions (InternetOpenA, HttpSendRequestA) to exfiltrate this data is indicative of malicious backdoor behavior. While individual APIs like CreateMutex or RegQueryValue are dual-use, their usage here to profile the host and report back to a C2 indicates malicious intent.",
+    "general": "The function fcn.004023cf is a clear downloader/exfiltrator using WININET. It prepares POST requests. fcn.00401df7 gathers system info (computer name, OS info) from registry keys like HARDWAREDESCRIPTIONSystemCentralProcessor0 and SYSTEMCurrentControlSetControlNlsLanguage.",
+    "uncertainties": "The exact C2 domain or IP is not clearly visible in the static strings, suggesting they might be generated or decrypted at runtime.",
+    "conditions": "The malware requires specific files to be present for the main exfiltration logic to trigger. It checks for file existence via SHLWAPI.dll_PathFileExistsA. It also uses Sleep for timing delays.",
+    "sandbox_recommendations": "Provide internet connectivity in the sandbox. Monitor HTTP traffic. Create dummy files if the malware checks for specific file names in the working directory during its initial setup."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HARDWAREDESCRIPTION\\System\\CentralProcessor\\0",
+          "description": "Key queried for CPU information."
+        },
+        {
+          "value": "SYSTEM\\CurrentControlSet\\Control\\Nls\\Language",
+          "description": "Key queried for installation language."
+        },
+        {
+          "value": "SOFTWARE\\MICROSOFT\\WINDOWS_NT\\CurrentVersion",
+          "description": "Key queried for Windows version."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "mimei",
+          "description": "String constant involved in C2 communication logic."
+        },
+        {
+          "value": "POST",
+          "description": "Method used in HTTP requests."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x004023cf",
+      "name": "fcn.004023cf",
+      "description": "Handles network communication using WinINet."
+    },
+    {
+      "address": "0x00401df7",
+      "name": "fcn.00401df7",
+      "description": "Collects system information from registry."
+    },
+    {
+      "address": "0x0040137c",
+      "name": "fcn.0040137c",
+      "description": "Performs file operations and data encoding."
+    }
+  ]
+}

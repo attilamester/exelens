@@ -1,0 +1,68 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a worm, performing directory traversal across all logical drives to replicate itself, while simultaneously establishing persistence via the Windows Registry and installing a global keyboard hook to monitor keystrokes.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The file is not packed. The low entropy (2.67 and 0.25) suggests the sections contain mostly executable code and sparse data, not compressed or encrypted payloads."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Modifies the Windows registry to ensure execution on system startup."
+    },
+    {
+      "name": "Worm/Replication",
+      "description": "Enumerates all logical drives and recursively copies itself across the filesystem."
+    },
+    {
+      "name": "Keylogging",
+      "description": "Uses SetWindowsHookExA to intercept and monitor keyboard input system-wide."
+    },
+    {
+      "name": "Process Injection/Execution",
+      "description": "Uses CreateProcessA to spawn internal copies or malicious components."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistent registry modifications (fcn.004011a0), a system-wide keyboard hook (main -> SetWindowsHookExA), and a recursive drive-traversal worm mechanism (fcn.00401520 and fcn.00401630) clearly indicates malicious intent. These are not typical behaviors for legitimate software, and their coexistence in this single binary confirms a malicious 'worm' payload.",
+    "general": "High-intent malicious evidence includes: 1) fcn.004011a0 calling RegSetValueExA to establish registry persistence. 2) main calling SetWindowsHookExA with a hook procedure (0x401840) for keylogging. 3) fcn.00401520 identifying logical drives followed by fcn.00401630 performing recursive directory traversal and file replication via CopyFileA.",
+    "uncertainties": "The exact hook procedure behavior at RVA 0x401840 is not fully detailed but is functionally linked to a keylogging mechanism via SetWindowsHookExA.",
+    "conditions": "The file requires standard Windows execution and administrative-like access to write to registry keys and perform recursive file system modifications.",
+    "sandbox_recommendations": "Run in an isolated environment with network monitoring enabled, as the worm may attempt to propagate over local shares or network paths."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Registry key path typically targeted for persistence."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401000",
+      "name": "main",
+      "description": "Initializes global state and installs the system-wide keyboard hook."
+    },
+    {
+      "address": "0x004011a0",
+      "name": "fcn.004011a0",
+      "description": "Performs persistence operations via registry manipulation."
+    },
+    {
+      "address": "0x00401520",
+      "name": "fcn.00401520",
+      "description": "Enumerates logical drives for replication targets."
+    },
+    {
+      "address": "0x00401630",
+      "name": "fcn.00401630",
+      "description": "Performs recursive directory traversal and file replication (worm component)."
+    }
+  ]
+}

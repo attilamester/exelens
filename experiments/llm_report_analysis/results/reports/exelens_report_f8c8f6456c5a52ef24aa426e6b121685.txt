@@ -1,0 +1,63 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This kernel-mode driver registers a file system filter driver and a process creation notify routine to monitor system activity, perform process/file lookups, and potentially inject code into processes via APCs.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The file is not packed; the code structure is consistent with a standard Windows kernel-mode driver."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode filter driver registration",
+      "description": "Registers a file system filter using FltRegisterFilter to intercept file I/O."
+    },
+    {
+      "name": "Process notification",
+      "description": "Uses PsSetCreateProcessNotifyRoutine to monitor process creation/exit events."
+    },
+    {
+      "name": "Process injection via APC",
+      "description": "Uses KeInitializeApc and KeInsertQueueApc to execute code within target processes."
+    },
+    {
+      "name": "Registry manipulation",
+      "description": "Uses RtlWriteRegistryValue and CmRegisterCallbackEx to monitor or modify registry access."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode filter registration (FltRegisterFilter), process monitoring (PsSetCreateProcessNotifyRoutine), and the explicit use of Asynchronous Procedure Calls (APC) to queue code execution in external processes (KeInsertQueueApc) is a classic indicator of a rootkit or an advanced persistent threat. While these functions are dual-use, the specific flow involving monitoring process creation and then using APCs strongly indicates an intent to subvert or inject into processes.",
+    "general": "The function fcn.00015750 demonstrates clear high-intent behavior: it calls PsLookupProcessByProcessId, KeStackAttachProcess, and subsequently KeInitializeApc/KeInsertQueueApc to queue code within an external process. Further support is found in fcn.00014720, which registers a registry callback (CmRegisterCallbackEx), indicating an attempt to hide registry keys or monitor sensitive configurations.",
+    "uncertainties": "The exact payload contents injected via the APC were not explicitly visible as cleartext strings in the assembly, but the mechanism is unambiguous.",
+    "conditions": "The driver must be loaded as a service in the kernel. Execution logic is driven by system events: file I/O (filter callbacks), process creation, and registry operations.",
+    "sandbox_recommendations": "Deploy in a Windows kernel debugging environment (WinDbg). Monitor for APC activity in target processes using 'procmon' and observe kernel callbacks via 'driverview' or 'sysmon'."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "4e526272",
+          "description": "Tag used in memory allocation calls (PoolTag)."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00015030",
+      "name": "fcn.00015030",
+      "description": "Registers process notify routines and initiates system thread creation."
+    },
+    {
+      "address": "0x00015750",
+      "name": "fcn.00015750",
+      "description": "Main logic for process lookup, stack attachment, and APC injection."
+    },
+    {
+      "address": "0x00014720",
+      "name": "fcn.00014720",
+      "description": "Registers a registry callback for system-wide registry monitoring."
+    }
+  ]
+}

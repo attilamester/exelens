@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a loader or dropper that retrieves system environment information, manipulates registry keys for persistence, and interacts with system-level resources, including kernel-mode structures or drivers.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation",
+      "Dynamic API resolution"
+    ],
+    "details": "The sample uses XOR-based obfuscation (0xcd, 0xcd) for resource data and potentially for internal payloads. It performs dynamic API resolution via GetProcAddress and uses LoadLibrary/LoadLibraryEx to interact with system DLLs and drivers."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence via Registry",
+      "description": "Uses RegCreateKeyExA and RegSetValueExA to manipulate registry keys, likely for persistence."
+    },
+    {
+      "name": "Process Injection/System Interaction",
+      "description": "Utilizes CreateProcessA, OpenProcess, and potentially interacts with system drivers (e.g., win32k.sys) and system services."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Uses CopyFileA, DeleteFileA, and SetFileAttributesA to manage files in system directories (system32)."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Uses Mutex checks (GlobalRPCMutex) and potential timing delays (Sleep) to complicate sandbox analysis."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistent registry modifications, dynamic loading of system components, and attempts to access protected memory or kernel-related structures (e.g., KeServiceDescriptorTable via GetProcAddress) strongly suggests malicious intent rather than legitimate software behavior.",
+    "general": "The sample contains high-intent indicators such as RegSetValueExA on likely autostart locations and calls to OpenProcess with high privileges (0x1f0fff). It also imports and dynamically resolves kernel-related symbols, indicating it attempts to interact with or hook system components.",
+    "uncertainties": "While the overall intent is clearly malicious, the specific final payload is encrypted/obfuscated in the resources, leaving the final goal (e.g., data theft, ransomware) unknown without dynamic analysis.",
+    "conditions": "The malware uses a mutex ('GlobalRPCMutex') to ensure only one instance is active. It also performs environment variable checks (system32) and version checks before proceeding with core malicious logic.",
+    "sandbox_recommendations": "Ensure the sandbox environment provides a Windows environment with common system services available, and avoid running it with a debugger to prevent detection via IsDebuggerPresent/Mutex checks."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Likely persistence path for registry modification"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used to prevent concurrent execution"
+        },
+        {
+          "value": "win32k.sys",
+          "description": "Driver targeted for interaction/hooks"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Handles registry-based persistence and environment setup"
+    },
+    {
+      "address": "0x100043d2",
+      "name": "fcn.100043d2",
+      "description": "Core loader function, handles resource unpacking and process creation"
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Appears to interact with kernel services or system table hooks"
+    }
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a kernel-mode rootkit dropper. It decrypts a payload (using a custom XOR routine with 0xcd), installs it as a service/driver, and attempts to hide itself and its activities by manipulating system structures in kernel memory, including modifications to the System Service Descriptor Table (SSDT).",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress",
+      "Resource-based payload hiding"
+    ],
+    "details": "The file contains encrypted resources (RCDATA/UNKNOWN 102) which are XORed with 0xcd at runtime. Key functions are dynamically resolved, and it exhibits self-protection mechanisms typical of malware loaders."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Uses functions like 'KeServiceDescriptorTable' and 'KeAddSystemServiceTable' to hook kernel functions."
+    },
+    {
+      "name": "Persistence",
+      "description": "Manipulates registry keys (e.g., 'lsass') to ensure execution."
+    },
+    {
+      "name": "Mutex-based synchronization",
+      "description": "Checks and creates global mutexes (e.g., 'GlobalRPCMutex', 'prkMtx') to prevent multiple infections."
+    },
+    {
+      "name": "Process/Service Hiding",
+      "description": "Attempts to disguise files and registry entries to evade detection."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode API imports (e.g., KeServiceDescriptorTable), XOR decryption of embedded resources, and the clear attempt to modify system kernel structures (SSDT hooking) confirms malicious intent rather than a legitimate installer or protector. The behavior is classic for rootkit deployment.",
+    "general": "The function fcn.1000b369 performs SSDT hooking by resolving 'KeServiceDescriptorTable'. Function fcn.1000788e and fcn.100017a0 perform registry manipulation and file dropping with high intent to persist and disguise, specifically targeting system-like names ('lsass').",
+    "uncertainties": "The exact nature of the final payload is only partially visible due to the XOR encryption, but the loader's behavior is fully consistent with a rootkit.",
+    "conditions": "The malware checks for a 'GlobalRPCMutex' and environment variables to ensure it is not already running or being analyzed, and potentially checks the OS version via 'GetVersionExA'. It will fail to detonate if these environmental conditions are not met.",
+    "sandbox_recommendations": "Run in a kernel-aware sandbox. Use a clean Windows environment and simulate standard system activity. Do not monitor with a user-mode debugger, as it likely contains anti-debugging checks."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\lsass",
+          "description": "Likely persistence mechanism using a name designed to mimic the system lsass service."
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Used for execution control."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Kernel-level synchronization mutex."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Performs SSDT hooking for kernel-level interception."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Primary persistence and registry manipulation logic."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Handles registry key creation and file system operations to drop malicious artifacts."
+    }
+  ]
+}

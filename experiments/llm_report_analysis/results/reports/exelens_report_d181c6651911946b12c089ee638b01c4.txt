@@ -1,0 +1,89 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This file is a malware dropper designed to gain kernel-level persistence. It uses an installer component to create a hidden service (or modify system registry keys) and attempts to perform kernel-mode patching (e.g., modifying KeServiceDescriptorTable) by loading drivers or interacting with system drivers like win32k.sys.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR decryption",
+      "Resource-based payload hiding",
+      "Dynamic API resolution (GetProcAddress)"
+    ],
+    "details": "The file contains encrypted resources (Type 102) that are decrypted in memory using a simple XOR loop (XOR 0xCD) before execution. Many imports are resolved dynamically at runtime, and there are signs of self-modifying code patterns."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Attempts to modify critical kernel structures like the Service Descriptor Table (SSDT)."
+    },
+    {
+      "name": "Persistence via Registry",
+      "description": "Creates or modifies registry keys to ensure execution upon system startup."
+    },
+    {
+      "name": "Mutex-based anti-execution",
+      "description": "Uses mutexes like 'GlobalRPCMutex' to ensure only one instance runs."
+    },
+    {
+      "name": "Process Injection",
+      "description": "Uses CreateProcessA and potentially other APIs to inject code into other processes."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode structures (KeServiceDescriptorTable), low-level system calls (Int 0x2E), and registry persistence mechanisms strongly indicates malicious intent. Legitimate software rarely attempts to patch the SSDT or interact with low-level kernel routines in this manner.",
+    "general": "High-intent indicators include: the use of 'KeServiceDescriptorTable' and 'NtShutdownSystem' (found in strings/imports), code patterns searching for 'KeGetCurrentIrql' (RVA 0x10009e9d), and the use of 'CreateFileW' to open 'win32k.sys'. The function fcn.10003c04 clearly demonstrates the process of dropping a malicious component into the system directory.",
+    "uncertainties": "The exact nature of the payload dropped remains partly obscured by the dynamic decryption, but the functional calls surrounding its execution confirm the malicious path.",
+    "conditions": "The file expects to run with administrative privileges to successfully patch kernel structures or modify sensitive registry keys. It checks for specific environment variables (e.g., 'system32').",
+    "sandbox_recommendations": "Run in an environment that monitors both user-mode and kernel-mode operations. Emulate a Windows environment and provide full administrative privileges. Monitor registry modifications, specifically in HKLM."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\",
+          "description": "Persistence mechanism location."
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Used to prevent multiple infections."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex identified in fcn.100098c4."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "win32k.sys",
+          "description": "System driver targeted by the dropper."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10003c04",
+      "name": "fcn.10003c04",
+      "description": "Main dropper routine: responsible for file creation in the system directory."
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Kernel-mode SSDT patching logic."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Registry and privilege escalation handling routine."
+    }
+  ]
+}

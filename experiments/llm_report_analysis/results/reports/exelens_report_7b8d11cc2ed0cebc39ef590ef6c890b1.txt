@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to detect and interact with Windows system services and kernel objects, indicating rootkit-like or system-manipulation behavior. It performs dynamic API resolution through shellcode-like patterns, manipulates system files (e.g., win32k.sys), and uses persistence mechanisms.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Custom XOR decryption",
+      "Dynamic API resolution",
+      "Resource-based payload extraction"
+    ],
+    "details": "The file uses custom XOR routines (0xcd, 0x5a) to obfuscate data and dynamically resolves imports via GetProcAddress. Significant code is contained in resources and decrypted at runtime."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Modifies system registry keys to ensure execution."
+    },
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Attempts to interact with KeServiceDescriptorTable and system kernel structures."
+    },
+    {
+      "name": "File system manipulation",
+      "description": "Uses SetFileAttributes, CopyFile, and DeleteFile to move and hide malicious files."
+    },
+    {
+      "name": "Mutex creation",
+      "description": "Uses mutexes like 'GlobalRPCMutex' and 'prkMtx' to manage single-instance execution."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level symbol lookups (e.g., PsGetCurrentProcess, KeServiceDescriptorTable), registry manipulation for persistence, and the suspicious use of 'ntoskrnl.exe' and 'win32k.sys' strongly indicates malicious intent. Legitimate software rarely attempts to manipulate the System Service Descriptor Table or uses undocumented kernel calls.",
+    "general": "High-intent indicators include fcn.1000b369 (KeServiceDescriptorTable manipulation), fcn.100096ce (interaction with kernel structures), and the use of GetProcAddress on functions like 'NtShutdownSystem'.",
+    "uncertainties": "The exact nature of the payload inside the resource section 102 could not be fully statically analyzed, but the loader code confirms a high-intent malicious purpose.",
+    "conditions": "The malware requires administrative privileges to interact with kernel-level structures and registry keys. It checks for specific environments (e.g., system directory paths).",
+    "sandbox_recommendations": "Run in a controlled Windows environment with kernel debugging enabled. Monitor registry access to the 'Run' keys and modifications to system files in System32."
+  },
+  "ioc": [
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for process synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for synchronization."
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Likely target for service persistence."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Attempts to access and modify the KeServiceDescriptorTable."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Handles file creation and process spawning."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Orchestrates registry manipulation and privilege escalation checks."
+    }
+  ]
+}

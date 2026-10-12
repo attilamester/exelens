@@ -1,0 +1,64 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This is a malicious kernel-mode driver designed for direct kernel object manipulation (DKOM). It performs unauthorized modifications to system structures by temporarily disabling write protection via the CR0 register, and leverages I/O Request Packets (IRPs) to communicate with kernel objects for stealthy operations.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed; however, it uses a simple obfuscation/anti-analysis check at entry0 involving the KeTickCount to verify its execution environment."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode Direct Memory Manipulation",
+      "description": "Modifies system control registers (CR0) to bypass memory write protection, allowing unauthorized modification of kernel structures."
+    },
+    {
+      "name": "Kernel Driver IRP Manipulation",
+      "description": "Utilizes IoAllocateIrp and IofCallDriver to interact directly with system device objects, facilitating covert communication and command execution."
+    },
+    {
+      "name": "Kernel Object Hooking/Interception",
+      "description": "Uses PsLookupThreadByThreadId and ObReferenceObjectByHandle to access and modify thread and object structures directly in kernel space."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of modifying the CR0 register (to disable WP - Write Protect) followed by direct modification of kernel object memory offsets (e.g., in fcn.000104b8 and fcn.00010542) is a definitive indicator of rootkit behavior. These are not common patterns in legitimate drivers, which would use documented APIs for thread management rather than patching memory structures.",
+    "general": "High-intent malicious evidence is found in fcn.000104b8 and fcn.00010542, where the code executes `mov eax, cr0; and eax, 0xfffeffff; mov cr0, eax` to disable write protection, and subsequently writes into kernel structures provided by `PsLookupThreadByThreadId`. This is a classic rootkit technique for thread hiding or privilege escalation.",
+    "uncertainties": "The exact target of the memory modification is dynamic and depends on the system environment, but the intent to perform unauthorized kernel memory patching is clear.",
+    "conditions": "The driver requires initialization via a specific device object interaction. It checks the execution environment at entry0 using KeTickCount, suggesting it expects a specific timing or boot-time behavior.",
+    "sandbox_recommendations": "Deploy in a kernel-mode debugger (WinDbg) environment. Monitor I/O requests specifically to the device objects opened via IoGetDeviceObjectPointer. Be prepared for potential system instability (BugChecks) if the DKOM triggers system-wide integrity protection."
+  },
+  "ioc": [
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "\\Device\\",
+          "description": "The driver initializes communication with system device objects to conduct its IRP-based attacks."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x000104b8",
+      "name": "fcn.000104b8",
+      "description": "Kernel-mode memory patching routine (disables CR0 WP bit)."
+    },
+    {
+      "address": "0x00010542",
+      "name": "fcn.00010542",
+      "description": "Secondary memory patching routine targeting thread objects."
+    },
+    {
+      "address": "0x00012085",
+      "name": "entry0",
+      "description": "Entry point containing anti-analysis checks based on KeTickCount."
+    },
+    {
+      "address": "0x00010f58",
+      "name": "fcn.00010f58",
+      "description": "Initialization function that orchestrates the driver's setup and resource allocation."
+    }
+  ]
+}

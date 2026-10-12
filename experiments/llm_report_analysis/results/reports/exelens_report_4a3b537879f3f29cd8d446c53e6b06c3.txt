@@ -1,0 +1,89 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a modular backdoor/dropper that performs malicious system-level modifications, including registry manipulation, process injection, and potential kernel-mode hooks. It decrypts internal resources and deploys them to the system directory, often masquerading as system-related components.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation of resource data",
+      "Dynamic API resolution via GetProcAddress",
+      "Memory-resident payload decryption"
+    ],
+    "details": "The sample uses a simple XOR loop (XOR [esi+eax], 0xcd) to decrypt resource data (e.g., in fcn.100015f7). Several functions demonstrate dynamic loading of DLLs and kernel APIs (e.g., KeServiceDescriptorTable, NtShutdownSystem)."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Hooking",
+      "description": "Attempts to interact with ntoskrnl.exe and ntdll.dll, using functions like KeServiceDescriptorTable modification."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies system registry keys, particularly under HKLM, to maintain execution."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Copies, deletes, and sets file attributes for various files in the system directory."
+    },
+    {
+      "name": "System Evasion",
+      "description": "Checks for environment variables, mutex existence, and specific file configurations to prevent multiple instances or sandbox analysis."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level API hooks (KeServiceDescriptorTable), registry manipulation, and the deployment of encrypted resources strongly indicates malicious intent. Benign software does not typically attempt to patch system kernel structures or iterate through kernel service tables to hide its presence.",
+    "general": "High-intent evidence includes calls to modify the KeServiceDescriptorTable (fcn.1000b369), the use of NtShutdownSystem, and the dynamic resolution of undocumented or critical kernel functions like RtlImageDirectoryEntryToData. The sequence of decrypting resources and using SetFileTime/SetFileAttributes to camouflage dropped files is consistent with sophisticated persistent malware.",
+    "uncertainties": "The exact nature of the payload dropped from the unknown resources could not be fully analyzed without runtime execution, but the loader-like behavior is sufficient for a malicious classification.",
+    "conditions": "The file requires specific registry keys to be present for payload activation and uses mutex checks ('GlobalRPCMutex', 'prkMtx') to manage execution state. It also specifically checks for the 'system32' directory and may require administrative privileges to perform registry/kernel modifications.",
+    "sandbox_recommendations": "Run in an environment that simulates a persistent Windows system with typical registry structures. Use a monitor to watch for file system changes in System32 and registry writes to Run/Startup keys."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Targeted for persistence and service manipulation"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "C:\\Windows\\system32",
+          "description": "Target directory for dropped payloads"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for concurrency control"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name for synchronization"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Performs kernel service table modification (SSDTHooking-like activity)."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Handles registry interaction and service installation logic."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Decryption routine for encrypted resources using a static XOR key."
+    }
+  ]
+}

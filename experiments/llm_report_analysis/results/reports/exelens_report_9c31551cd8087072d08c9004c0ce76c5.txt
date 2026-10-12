@@ -1,0 +1,78 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample is a modular backdoor/botnet client that uses process injection and persistence techniques to maintain control. It performs network reconnaissance, utilizes a custom proxy-aware protocol for Command & Control, and attempts to communicate via hardcoded registry configuration.",
+  "packed": {
+    "status": "false",
+    "techniques": [
+      "Custom XOR-based string/data obfuscation"
+    ],
+    "details": "The code uses custom decryption routines (e.g., fcn.00401293) to decode strings and configuration data at runtime. No standard packer signature (like UPX) was identified; the code is compiled, not packed."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Enumeration",
+      "description": "Utilizes CreateToolhelp32Snapshot, Process32First, and Process32Next to enumerate and potentially inject into processes (e.g., using OpenProcess and CreateRemoteThread)."
+    },
+    {
+      "name": "Persistence & Configuration",
+      "description": "Manipulates registry keys under Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings and custom keys to store configuration and state flags."
+    },
+    {
+      "name": "Network Communication",
+      "description": "Implements a custom proxy-capable C2 communication routine, utilizing WSOCK32.dll and socket operations to exfiltrate data or receive commands."
+    },
+    {
+      "name": "Anti-Analysis Gates",
+      "description": "Uses Sleep calls and timing checks (GetTickCount) to potentially delay execution and evade sandbox detection."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of process injection capabilities, persistent registry manipulation, and network C2 functionality indicates clear malicious intent. The sample is not merely using system DLLs for legitimate purposes; it is actively scanning for processes and communicating with external servers using custom protocol logic.",
+    "general": "High-intent indicators: Use of CreateToolhelp32Snapshot/Process32Next (fcn.004024c1) to enumerate processes for injection, and extensive registry manipulation using RegCreateKeyExA/RegSetValueExA (fcn.00401788) for persistence. Networking logic in fcn.00406e9e demonstrates proxy-aware communication, standard for C2 agents.",
+    "uncertainties": "Minor uncertainties regarding the exact nature of the C2 commands, as the protocol is custom-encoded (fcn.00402974). However, the malicious intent remains high-confidence based on the functional structure.",
+    "conditions": "The primary execution flow requires network connectivity and active configuration flags in the registry. It may also require specific environment strings or mutex checks to prevent multiple instances from running simultaneously.",
+    "sandbox_recommendations": "Simulate a live internet connection with DNS traffic. Ensure the sandbox environment provides standard Windows registry access and allows socket creation. Monitor for registry modifications under the HKCU hive."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings",
+          "description": "Targeted for proxy setting persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "qazWSX123",
+          "description": "Possibly used as a hardcoded mutex or authentication key."
+        },
+        {
+          "value": "KB985109.log",
+          "description": "Log file name observed in sprintf operations."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401000",
+      "name": "main",
+      "description": "Initializes and triggers the core backdoor routines."
+    },
+    {
+      "address": "0x004012b3",
+      "name": "fcn.004012b3",
+      "description": "Dynamic API resolution routine; critical for loading network/system functions at runtime."
+    },
+    {
+      "address": "0x004071d7",
+      "name": "fcn.004071d7",
+      "description": "Core C2 request handler that manages socket communication and proxy logic."
+    }
+  ]
+}

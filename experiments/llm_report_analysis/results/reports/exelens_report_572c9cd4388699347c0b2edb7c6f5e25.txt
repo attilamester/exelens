@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample is a downloader/dropper masquerading as a GUI application (MFC). It performs network communication, checks for persistence via mutexes, and uses file system manipulation to drop and execute hidden payloads, including potential anti-analysis techniques.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "String obfuscation via XOR",
+      "Dynamic API resolution"
+    ],
+    "details": "The sample contains manual decryption loops (e.g., fcn.0040316f) and dynamic loading of KERNEL32 and WS2_32 functions, which are characteristic of dropper behavior to hinder static analysis."
+  },
+  "capabilities": [
+    {
+      "name": "Network Communication",
+      "description": "Uses WinSock (WSAStartup, socket, connect, send, recv) to communicate with external command-and-control servers, often using custom HTTP-like protocols."
+    },
+    {
+      "name": "File System Persistence/Dropping",
+      "description": "Checks system paths, drops files using SHGetSpecialFolderPathA and CreateFileA, and sets file attributes to hidden."
+    },
+    {
+      "name": "Anti-Analysis / Stealth",
+      "description": "Uses mutexes (CreateMutexA) to ensure single instance execution and perform basic environment checks to evade sandbox detection."
+    },
+    {
+      "name": "Process/Registry Manipulation",
+      "description": "Interacts with the registry (RegQueryValueExA, RegSetValueExA) to store configuration or host IDs and uses CreateProcessA to launch dropped payloads."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent networking, persistent mutex checks, and the systematic dropping/execution of files from system directories confirms malicious intent. While it uses MFC libraries to appear as a legitimate GUI application, the underlying call graph reveals a sophisticated loader structure rather than typical user-interactive logic.",
+    "general": "High-intent evidence includes dynamic socket creation for C2, the use of CreateProcessA for payload execution (fcn.00403f6b), and registry key manipulation to maintain a 'hostid' (fcn.00401e50). The code structure indicates a multi-stage downloader.",
+    "uncertainties": "The exact nature of the final payload downloaded is obfuscated behind network traffic that requires real-time C2 interaction to capture.",
+    "conditions": "The malware requires an active internet connection and will likely wait for a specific C2 handshake ('200 OK') before proceeding with payload extraction or execution.",
+    "sandbox_recommendations": "Provide an active internet connection to a controlled gateway. Ensure the sandbox environment mimics a standard Windows workstation (e.g., registry present, common software paths) to trigger the downloader's logic."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings",
+          "description": "Registry key used for querying proxy settings."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "_ver.txt",
+          "description": "Potential indicator file dropped or checked."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401b87",
+      "name": "fcn.00401b87",
+      "description": "Initializes network stack and loads external DLLs to support C2 connectivity."
+    },
+    {
+      "address": "0x004025d1",
+      "name": "fcn.004025d1",
+      "description": "Core communication function handling socket connections and HTTP request formatting."
+    },
+    {
+      "address": "0x00403f6b",
+      "name": "fcn.00403f6b",
+      "description": "Handles process creation and execution of secondary payloads."
+    },
+    {
+      "address": "0x00401e50",
+      "name": "fcn.00401e50",
+      "description": "Manages persistence and machine-specific identification via registry."
+    }
+  ]
+}

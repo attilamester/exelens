@@ -1,0 +1,74 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample is a network-aware backdoored trojan. It uses process injection techniques and registry persistence to communicate with a C2 server, execute remote commands, and manipulate the local filesystem.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "UPX"
+    ],
+    "details": "The file uses UPX packing, evidenced by the section names UPX0 and UPX1 with low/medium entropy and characteristic entrypoint behavior."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "Uses CreateToolhelp32Snapshot, OpenProcess, and WriteProcessMemory (fcn.00403392) to inject code into other processes."
+    },
+    {
+      "name": "Persistence",
+      "description": "Creates registry keys in Run locations (RegCreateKeyExA) to ensure execution on system startup."
+    },
+    {
+      "name": "Networking",
+      "description": "Implements a remote access trojan (RAT) interface using Winsock (WS2_32.dll) for C2 communication, data exfiltration, and remote shell capabilities."
+    },
+    {
+      "name": "Evasion",
+      "description": "Implements anti-debugging and anti-analysis gates using GetLastError and Mutex checking to avoid execution in monitored environments."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of networking capabilities (Winsock imports), process injection (fcn.00403392), and registry modification (RegCreateKeyExA) is indicative of a backdoor trojan rather than a protected legitimate application. The code specifically performs environment checks and communicates via a C2 structure, confirming malicious intent.",
+    "general": "High-intent malicious activity is evidenced by the network connection sequence starting at fcn.004019e6 (connect) followed by data handling routines (send/recv) and process injection at fcn.00403392 (OpenProcess + Token manipulation).",
+    "uncertainties": "While the binary is packed, the core functionality (RAT behaviors) is clearly visible in the decompiled logic, reducing uncertainty.",
+    "conditions": "The sample requires an active network connection and will attempt to establish a persistent hold in the registry on first run. It also uses a Mutex (OpenMutexA, fcn.004016a8) to ensure only one instance is active.",
+    "sandbox_recommendations": "Provide an emulated C2 response for the initial socket communication to allow the RAT to proceed to its command processing stage. Simulate system boot-up timing."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Registry key typically used for persistence."
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "0x4070a8",
+          "description": "Mutex used for single-instance execution check."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00403392",
+      "name": "fcn.00403392",
+      "description": "Handles process opening and token adjustment for injection."
+    },
+    {
+      "address": "0x004019e6",
+      "name": "fcn.004019e6",
+      "description": "Socket networking core for C2 communication."
+    },
+    {
+      "address": "0x004016a8",
+      "name": "fcn.004016a8",
+      "description": "Mutex initialization and persistence setup."
+    }
+  ]
+}

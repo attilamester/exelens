@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a self-replicating dropper that uses a custom XOR-based decryption routine to unpack a payload in memory (specifically 'AdobeDisplayer.exe'). It then installs itself into the Windows Registry Run key for persistence and attempts to move/rename itself using environment variables to hide its presence.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR-based decryption",
+      "Dynamic memory protection manipulation (VirtualProtect)"
+    ],
+    "details": "The function fcn.004013b0 and fcn.00401410 implement a custom XOR decryption loop. The routine uses VirtualProtect (RVA 0x401410) to make memory executable after decryption, a clear indicator of a runtime-unpacked payload."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Writes to HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run via RegCreateKeyA and RegSetValueExA."
+    },
+    {
+      "name": "Process/File Hiding",
+      "description": "Uses MoveFileA and GetEnvironmentVariableA (APPDATA) to move the executable to potentially obscure system locations."
+    },
+    {
+      "name": "Self-Replication/Dropping",
+      "description": "Drops a secondary executable named 'AdobeDisplayer.exe'."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Executes a long sequence of Sleep(1000) calls to delay execution and bypass sandbox timeouts."
+    }
+  ],
+  "details": {
+    "reasoning": "While the file imports MFC42.dll and appears to have GUI components (CDialog, CFrameWnd), the presence of core malware functionality—specifically registry-based persistence, custom decryption of a secondary payload ('AdobeDisplayer.exe'), and the use of Sleep loops to evade automated sandboxes—far outweighs any legitimate GUI-based functionality. The file's logic is explicitly designed to drop and execute a hidden component.",
+    "general": "High-intent indicators include: fcn.004010b0 (registry persistence), the decryption loop in fcn.00401410, and the sequence of Sleep calls in fcn.004013b0 targeting persistence and execution. The code directly references 'AdobeDisplayer' and 'AdobeDisplayer.exe', suggesting a masquerading attempt.",
+    "uncertainties": "The exact content of the decrypted payload is not visible; only the decryption logic and the target name are known.",
+    "conditions": "The malware executes automatically on process launch. It likely requires administrative or standard user permissions to write to the Registry Run keys.",
+    "sandbox_recommendations": "Run with a faked environment where the 'APPDATA' variable is accessible. Ensure the sandbox is configured to monitor Registry 'Run' key modifications. Increase the analysis timeout to exceed 10 seconds to account for the Sleep loop."
+  },
+  "ioc": [
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "AdobeDisplayer.exe",
+          "description": "Dropped malicious executable."
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Registry key used for persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "APPDATA",
+          "description": "Environment variable queried for file migration."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x004010b0",
+      "name": "fcn.004010b0",
+      "description": "Handles registry persistence and file moving."
+    },
+    {
+      "address": "0x00401410",
+      "name": "fcn.00401410",
+      "description": "Decrypts the payload and modifies memory protection using VirtualProtect."
+    },
+    {
+      "address": "0x004013b0",
+      "name": "fcn.004013b0",
+      "description": "Contains the main decryption loop and persistence invocation."
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a dropper/loader. It reads its own file content, writes it to a file in the user's temporary directory, and subsequently performs process hollowing by injecting code into a spawned process (typically iexplore.exe).",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed; the logic is clearly visible in the disassembly."
+  },
+  "capabilities": [
+    {
+      "name": "Process Hollowing/Injection",
+      "description": "Uses VirtualAllocEx, WriteProcessMemory, and CreateRemoteThread to execute code in another process."
+    },
+    {
+      "name": "File Dropping",
+      "description": "Reads its own executable data and writes it to a new location in the system temporary directory."
+    },
+    {
+      "name": "Persistence/Configuration",
+      "description": "Utilizes WritePrivateProfileStringA to modify .ini files, suggesting configuration of malware behavior."
+    },
+    {
+      "name": "Environment Checks",
+      "description": "Checks for specific software (Kaspersky Lab) in Program Files to evade detection."
+    }
+  ],
+  "details": {
+    "reasoning": "While the binary uses legitimate APIs (VirtualAllocEx, CreateRemoteThread), the context is explicitly malicious. The code identifies itself via GetModuleFileNameA, reads its own file bytes via CreateFileA/ReadFile, drops them into the Temp folder, and then executes them via process injection (hollowing) into a targeted process (iexplore.exe). The presence of anti-analysis checks (Kaspersky directory checks) and the mechanism of loading its own body into a remote thread confirms malicious intent rather than a legitimate installer behavior.",
+    "general": "In fcn.00401000, the sequence KERNEL32.dll_OpenProcess -> VirtualAllocEx -> WriteProcessMemory -> GetProcAddress(CreateRemoteThread) -> CreateRemoteThread is the classic process hollowing pattern. The file-reading loop in main/fcn.004019b3 captures the binary's own image, which is then re-used in the injection routine.",
+    "uncertainties": "The exact nature of the payload being injected is derived from the current file's own content, indicating it is self-injecting, but the exact malicious outcome (C2 communication, info-stealing) depends on the dropped payload content, which could be further modified during its routine execution.",
+    "conditions": "Execution requires the file to be present on the disk (it reads its own filename/path). It checks for 'Kaspersky Lab' presence, implying it may attempt to alter behavior or abort if a specific security product is identified.",
+    "sandbox_recommendations": "Use a monitor to log file system changes in %TEMP%. Allow the process to spawn 'iexplore.exe' and monitor the remote thread creation and memory writes in that child process. Do not simulate a machine with Kaspersky installed as it may trigger evasion."
+  },
+  "ioc": [
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "C:\\Program Files\\Internet Explorer\\iexplore.exe",
+          "description": "Injection target process"
+        },
+        {
+          "value": "_ssmaxpnp.exe",
+          "description": "Dropped file name"
+        },
+        {
+          "value": "_spert2012.ini",
+          "description": "Configuration file"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "Hunter_2012_Is_Running_",
+          "description": "Mutex name used for single-instance check"
+        },
+        {
+          "value": "Kaspersky_Lab",
+          "description": "Anti-analysis check"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401000",
+      "name": "fcn.00401000",
+      "description": "Primary injection/hollowing routine."
+    },
+    {
+      "address": "0x004019b3",
+      "name": "fcn.004019b3",
+      "description": "Handles file reading and configuration parsing."
+    },
+    {
+      "address": "0x0040184b",
+      "name": "fcn.0040184b",
+      "description": "Responsible for spawning the target process for injection."
+    }
+  ]
+}

@@ -1,0 +1,72 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample performs advanced credential theft by decrypting sensitive data from password managers (Far Manager, Google Talk, WinSCP) and mail clients, then exfiltrates the data to a remote server.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The file is not packed; it appears to be a compiled binary using standard C/C++ runtime library boilerplate."
+  },
+  "capabilities": [
+    {
+      "name": "Credential Theft",
+      "description": "The executable contains specific routines to extract stored credentials from multiple applications: WinSCP, Google Talk, Far Manager, and mail clients (Outlook, Mozilla Thunderbird)."
+    },
+    {
+      "name": "Data Exfiltration",
+      "description": "Uses 'urlmon.dll_URLDownloadToFileA' and custom networking code to POST stolen data to a hardcoded URL: 'http://82.146.51.22/dir.php'."
+    },
+    {
+      "name": "System Evasion and Persistence",
+      "description": "Utilizes batch scripts and 'WinExec' to perform anti-analysis tasks, including deleting traces and potentially disabling security tools."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of specific code to access known credential-storage locations (e.g., WinSCP registry keys, Thunderbird profiles, Google Talk accounts) coupled with exfiltration logic targeting an IP-based HTTP URL (82.146.51.22) confirms malicious intent. The dual-use nature of APIs like 'RegQueryValueExA' and 'CryptUnprotectData' is negated by the clear, context-specific application targeting (e.g., 'Software\\\\Martin_Prikryl\\\\WinSCP_2Sessions').",
+    "general": "The function 'fcn.004055b6' targets WinSCP credentials via registry queries, 'fcn.00403b3d' targets MS Outlook, and 'fcn.0040da3b' prepares data for exfiltration to the URL 'http://82.146.51.22/dir.php'. High-intent persistence is shown via the creation of batch files ('cmd' files) to perform cleanup and system modifications (e.g., 'del' and 'attrib' commands in 'fcn.00404acd').",
+    "uncertainties": "While the network exfiltration behavior is clear, the exact data handling for some specific legacy formats is complex, though its role as a credential stealer is definitive.",
+    "conditions": "The malware performs environment checks (e.g., 'fcn.0040a8f4' for VMware detection) and typically triggers data harvesting once it enumerates specific software installations identified via registry keys.",
+    "sandbox_recommendations": "The analyst should allow network access to the target IP 82.146.51.22 in a controlled manner, set up a fake registry environment with dummy credentials for the target software (WinSCP, Outlook, Thunderbird), and monitor for the creation of temporary .bat files in the system temp directory."
+  },
+  "ioc": [
+    {
+      "type": "url",
+      "values": [
+        {
+          "value": "http://82.146.51.22/dir.php",
+          "description": "Hardcoded C2 endpoint for stolen data exfiltration."
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Martin_Prikryl\\WinSCP_2Sessions",
+          "description": "Registry path targeted for credential theft."
+        },
+        {
+          "value": "Software\\Google\\Google Talk\\Accounts",
+          "description": "Registry path targeted for credential theft."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x0040da3b",
+      "name": "fcn.0040da3b",
+      "description": "Handles data exfiltration logic via HTTP POST requests to the C2 server."
+    },
+    {
+      "address": "0x004055b6",
+      "name": "fcn.004055b6",
+      "description": "Performs WinSCP registry enumeration and credential decryption."
+    },
+    {
+      "address": "0x00403b3d",
+      "name": "fcn.00403b3d",
+      "description": "Primary dispatcher for credential harvesting routines."
+    }
+  ]
+}

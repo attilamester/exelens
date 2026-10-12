@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a system-level component that performs kernel-mode operations, including modifying the System Service Descriptor Table (SSDT), interacting with system processes, and establishing persistence via registry modifications. It uses anti-debugging and anti-analysis techniques to protect its core logic.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation of resources",
+      "Dynamic API resolution (GetProcAddress)",
+      "Kernel-mode function hooking"
+    ],
+    "details": "The executable contains multiple encrypted resources (e.g., ID 102/103) which are decrypted at runtime via XOR loops (0xcd key). It performs dynamic loading of system DLLs to resolve functions, suggesting an attempt to evade static analysis of its imported capabilities."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-Mode Hooking",
+      "description": "Modifies the System Service Descriptor Table (SSDT) to intercept system calls via fcn.1000b369."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies registry keys (e.g., Run keys or similar) to ensure execution on system startup."
+    },
+    {
+      "name": "Evasion",
+      "description": "Checks for debugger presence and system environment to alter or block execution."
+    },
+    {
+      "name": "Process Injection",
+      "description": "Uses CreateProcessA and related APIs to manipulate or replace system processes like 'lsass'."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of SSDT modification (fcn.1000b369), manipulation of system-critical processes (lsass), and the use of obfuscated, encrypted resources points to high-intent malicious behavior rather than a standard system installer. The function fcn.1000b369 specifically targets kernel structures to intercept system calls, a characteristic behavior of rootkits.",
+    "general": "High-intent malicious intent is demonstrated by fcn.1000b369 (SSDT hooking logic) and fcn.100017a0 (registry persistence for system processes). The code actively decrypts internal resource data using an XOR 0xcd key and subsequently uses these resources for system-level modifications.",
+    "uncertainties": "While the core logic is identified as kernel-mode hooking, the full extent of the decrypted payload functionality (ID 102) depends on the environment, as the binary performs multiple environment checks.",
+    "conditions": "The malware checks for a Global RPC Mutex and requires specific registry configurations (e.g., DMWI keys) for the main execution flow to proceed.",
+    "sandbox_recommendations": "Ensure the sandbox supports kernel-level hooks and monitor registry activity closely. Use a Windows environment with administrator privileges."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Targeted for persistence."
+        },
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\lsass",
+          "description": "Targeted for system process modification."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for synchronization."
+        },
+        {
+          "value": "lsass",
+          "description": "System process name targeted for modification."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Modifies the System Service Descriptor Table (SSDT) for kernel-mode hooking."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Manages registry persistence and modifies system binaries."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Payload deployment and process creation."
+    }
+  ]
+}

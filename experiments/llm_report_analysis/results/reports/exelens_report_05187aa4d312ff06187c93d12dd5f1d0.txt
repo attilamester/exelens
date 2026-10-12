@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to search for specific files (fanny.bmp), manipulate registry keys (DMWI), and drop a malicious library/payload. It uses custom string obfuscation routines (XOR 0xCD) and imports functions typical of backdoors or droppers (e.g., process injection/file manipulation).",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based string/data obfuscation",
+      "Dynamic API resolution (GetProcAddress)"
+    ],
+    "details": "The sample uses XOR 0xCD for basic data/string obfuscation (observed in fcn.10001697 and fcn.10001723). It dynamically resolves APIs from loaded modules."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Persistence",
+      "description": "Utilizes CreateProcessA, RegCreateKeyExA, and RegSetValueExA to ensure persistence."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Searches for, copies, sets attributes of, and deletes files, specifically referencing 'fanny.bmp' and 'kernel32.dll' in system directories."
+    },
+    {
+      "name": "Registry Manipulation",
+      "description": "Interacts with 'DMWI' and 'DMWH' registry keys, common locations for persistence or configuration storage."
+    },
+    {
+      "name": "Mutex Creation",
+      "description": "Creates a global mutex 'GlobalRPCMutex' and 'prkMtx' to prevent multiple instances."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistence mechanisms (Registry Run keys), file system modification in protected system folders, and specific naming conventions (fanny.bmp, DMWI) indicates malicious intent consistent with a backdoor or information stealer rather than legitimate software. The use of custom XOR routines and dynamic API loading further suggests evasion.",
+    "general": "High-intent evidence includes RegSetValueExA (fcn.10001000) for persistence, CreateProcessA (fcn.10001b34) for executing payloads, and the presence of suspicious resource decryption routines (fcn.10001697).",
+    "uncertainties": "While the primary behavior is clearly malicious, the full extent of the payload decrypted from resources is limited by the static analysis constraints.",
+    "conditions": "The malware performs environment checks using GetEnvironmentVariableA for 'system32' and 'temp' and uses mutexes to check for pre-existing infections.",
+    "sandbox_recommendations": "Simulate a standard Windows environment, ensure a 'temp' and 'system32' directory exist, and monitor registry writes to HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for process synchronization."
+        },
+        {
+          "value": "fanny.bmp",
+          "description": "Likely a decoy file or marker."
+        },
+        {
+          "value": "DMWI",
+          "description": "Registry key used for persistence."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000d41b",
+      "name": "entry0",
+      "description": "Main entry point, initializes runtime and control flow."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Payload dropping and process creation function."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Registry manipulation for persistence."
+    },
+    {
+      "address": "0x10001697",
+      "name": "fcn.10001697",
+      "description": "Resource decryption and file attribute modification."
+    }
+  ]
+}

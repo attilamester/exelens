@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The file is a sophisticated loader that decrypts embedded resources, performs file operations, manipulates system registry settings, and uses advanced techniques like kernel-mode service descriptor table hooking.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "XOR-based obfuscation",
+      "Resource encryption",
+      "Dynamic API resolution"
+    ],
+    "details": "The file uses custom XOR routines (e.g., fcn.10001697) to decrypt data stored in resources. It manually resolves APIs from system DLLs (ntdll.dll, user32.dll) to evade static detection."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Hooking",
+      "description": "Manipulates the System Service Descriptor Table (SSDT) to hook kernel functions like NtShutdownSystem, likely for stealth or control."
+    },
+    {
+      "name": "File System Persistence",
+      "description": "Copies files into system directories and uses CopyFileA, DeleteFileA, and SetFileAttributesA to manage artifacts."
+    },
+    {
+      "name": "Registry Persistence",
+      "description": "Modifies Windows Registry keys via RegSetValueExA and RegCreateKeyExA to maintain presence."
+    },
+    {
+      "name": "Stealth/Evasion",
+      "description": "Uses Mutexes (e.g., 'prkMtx') to ensure only one instance runs and checks for the presence of debuggers or analysis environments."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode service descriptor table manipulation, registry key modification targeting lsass, and the use of hardcoded obfuscated function names strongly indicates malicious intent rather than a legitimate installer behavior. The code clearly executes techniques intended to hide activity and manipulate the operating system at a low level.",
+    "general": "High-intent evidence includes SSDT hooking observed in fcn.1000b73a and fcn.1000ab6f using NtShutdownSystem hooks. Registry persistence targeting critical system components is explicitly handled in fcn.100017a0. The binary's structure indicates it is a custom-coded dropper/backdoor.",
+    "uncertainties": "While the kernel-level hooks are clear, the full extent of the final payload is hidden by the encrypted resource section (102).",
+    "conditions": "Execution is likely triggered by specific registry keys or environment variables (e.g., check for _system32) and requires high privileges to successfully modify kernel tables.",
+    "sandbox_recommendations": "Run in a kernel-mode debugger compatible environment. Monitor registry keys associated with 'lsass' and look for unauthorized modifications to the SSDT."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa",
+          "description": "Registry path targetted for manipulation, specifically related to lsass."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for synchronization."
+        },
+        {
+          "value": "lsass",
+          "description": "Visible string indicating target process/registry key manipulation."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b73a",
+      "name": "fcn.1000b73a",
+      "description": "Responsible for SSDT hooking/kernel-level modifications."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Handles registry-based persistence and file system manipulation."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Drops and executes a secondary payload via CreateProcessA."
+    }
+  ]
+}

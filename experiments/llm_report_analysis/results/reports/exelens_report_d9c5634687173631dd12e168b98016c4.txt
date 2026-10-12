@@ -1,0 +1,94 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple high-intent capabilities characteristic of rootkit or kernel-level malware, including direct modification of kernel service tables (SSDT hooking), system-level registry manipulation, and file system evasion. It includes resource-based decryption routines that likely unpack malicious drivers or payloads.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Resource-based packing",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress",
+      "XOR-based decryption (0xcd key)",
+      "System-level service table hooking"
+    ],
+    "details": "The file uses FindResourceA, LoadResource, and LockResource to fetch encrypted data, which is then decrypted using an XOR routine (0xcd) in fcn.100015f7 and fcn.10001723. It dynamically resolves sensitive kernel-related APIs at runtime."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode hook capability",
+      "description": "Functions like fcn.1000b369 and fcn.1000aa69 explicitly target 'KeServiceDescriptorTable' and 'KeAddSystemServiceTable', indicating intent to hijack system calls."
+    },
+    {
+      "name": "Persistence and Evasion",
+      "description": "Uses RegSetValueExA, CopyFileA, and SetFileAttributesA (hidden/system) to persist and mask its presence. Attempts to disable or manipulate system files like 'win32k.sys' or 'ntoskrnl.exe'."
+    },
+    {
+      "name": "Privilege Escalation / Token Manipulation",
+      "description": "Uses DuplicateTokenEx, OpenProcessToken, and GetSidSubAuthorityCount to manipulate access tokens and potentially gain higher privileges."
+    },
+    {
+      "name": "Anti-debugging/Anti-VM",
+      "description": "Checks for debugger presence and system environment variables; uses 'GlobalRPCMutex' to prevent multiple instances."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level service table modification (SSDT hooking), file system manipulation targeting core OS components (win32k.sys, ntoskrnl.exe), and the use of explicit kernel-mode APIs (DbgPrint, KeRaiseIrqlToDpcLevel) confirms malicious intent. This is not a standard application; it performs system-wide interception and evasion.",
+    "general": "High-intent evidence found in fcn.1000b369 (KeServiceDescriptorTable), fcn.10009d28 (KeRaiseIrqlToDpcLevel), and fcn.10009b69 (NtQuerySystemInformation / NtQueryObject). The use of these functions specifically for the purpose of subverting the OS integrity is unequivocal evidence of malware.",
+    "uncertainties": "While the code structure is highly indicative of a kernel rootkit/driver, full execution logic for the specific payload relies on the integrity of the encrypted resource data, which I could not fully reconstruct.",
+    "conditions": "The main payload activates when it detects specific environment variables (GetEnvironmentVariableA/W) or configuration strings in the registry. It also requires the existence of specific mutexes ('GlobalRPCMutex', 'prkMtx') to proceed.",
+    "sandbox_recommendations": "Run in a kernel-aware sandbox. Use a monitor to track registry key modifications, especially those related to system services. Do not run with administrator privileges on a production machine."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Likely used for persistence."
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Ensures single instance."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for synchronization during malicious operations."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "win32k.sys",
+          "description": "Target file for system-level hooking."
+        },
+        {
+          "value": "ntoskrnl.exe",
+          "description": "Target file for kernel-level hooking."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Handles KeServiceDescriptorTable modification."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Core resource decryption routine."
+    },
+    {
+      "address": "0x10009d28",
+      "name": "fcn.10009d28",
+      "description": "Initializes kernel IRQL manipulation."
+    }
+  ]
+}

@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality consistent with a kernel-mode rootkit installer, including mechanisms to hook system services by modifying the System Service Descriptor Table (SSDT), persistence via registry manipulation, and extensive anti-analysis checks.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based payload decryption",
+      "Dynamic API resolution"
+    ],
+    "details": "The file uses a resource-based payload storage. It decrypts resources by XORing with 0xCD and dynamically resolves functions from ntoskrnl.exe and ntdll.dll."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode service modification",
+      "description": "Uses 'KeServiceDescriptorTable' and 'NtQuerySystemInformation' to identify and hook SSDT entries."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies system registry keys to ensure execution on boot, specifically targeting registry paths often used by drivers."
+    },
+    {
+      "name": "Process Injection/Hooking",
+      "description": "Utilizes 'CreateRemoteThread' and 'WriteProcessMemory' patterns or similar techniques to inject code into other processes."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Checks for debugger presence and system environment variables to avoid sandboxes."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of SSDT hooking capabilities (fcn.1000b369, fcn.1000ab6f), direct interaction with kernel structures (KeServiceDescriptorTable), and the systematic registry manipulation indicates a clear malicious intent to gain persistent, low-level control over the operating system, which is a classic behavior of rootkit malware.",
+    "general": "High-intent evidence is provided by the use of internal kernel labels like 'KeServiceDescriptorTable', 'NtShutdownSystem', and 'PsGetCurrentProcess' combined with code that attempts to locate and modify these structures in memory via `fcn.1000b369`.",
+    "uncertainties": "While the kernel-level code is clear, the exact payload being injected is stored as encrypted resources, so the full extent of the final malicious payload (e.g., keylogger, remote shell) remains hidden.",
+    "conditions": "The malware performs environment checks using `GetEnvironmentVariableA` and registry checks; it likely only proceeds with the installation if it detects specific system conditions (e.g., a vulnerable Windows version or absence of security tools).",
+    "sandbox_recommendations": "Run in a Windows kernel-debugging environment (e.g., WinDbg connected to a target VM). Monitor for attempts to write to the 'System' or 'Drivers' directory and watch for modifications to the SSDT memory region."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Targeted registry keys for driver persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for process synchronization."
+        },
+        {
+          "value": "ntoskrnl.exe",
+          "description": "Target kernel component for hooking."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Function responsible for locating and hooking the SSDT."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Registry-based persistence installer."
+    },
+    {
+      "address": "0x100043d2",
+      "name": "fcn.100043d2",
+      "description": "Payload deployment and service installation function."
+    }
+  ]
+}

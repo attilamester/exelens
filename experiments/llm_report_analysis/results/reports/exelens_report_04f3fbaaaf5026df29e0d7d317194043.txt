@@ -1,0 +1,63 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample is a Windows kernel driver that performs process injection by attaching to external processes and manually mapping a payload into their memory space. It also contains obfuscated code, anti-analysis checks (like DbgPrint debugging), and imports that strongly suggest it is a rootkit or loader.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "manual PE mapping",
+      "XOR-based payload obfuscation",
+      "dynamic API resolution via system information queries"
+    ],
+    "details": "The file uses custom functions like fcn.00010668 and fcn.00011306 to resolve system information, locate kernel APIs, and allocate/protect memory for payload injection. Sections such as .data have high entropy (7.56), and there is an encrypted overlay (entropy 7.05) which likely contains the hidden payload."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "Uses ZwAllocateVirtualMemory and KeStackAttachProcess to inject and execute code in external processes."
+    },
+    {
+      "name": "Kernel-mode Evasion",
+      "description": "Manipulates CR0 registers (fcn.00010602) to bypass write-protection, a common rootkit technique."
+    },
+    {
+      "name": "Persistence/System Modification",
+      "description": "Enumerates registry keys and interacts with system processes to potentially hide or install hooks."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode memory manipulation (ZwAllocateVirtualMemory), cross-process memory access (KeStackAttachProcess), and CR0 register toggling to bypass write protection confirms malicious intent. This is not legitimate behavior for standard software and indicates a kernel-mode rootkit or sophisticated injector.",
+    "general": "High-intent indicators include: fcn.00010602/fcn.00010616 (toggling CR0 to disable write protection), fcn.00011306 (manual PE loader implementation), and fcn.00011a3e (using KeStackAttachProcess to perform cross-process memory injection).",
+    "uncertainties": "The exact payload hidden in the .data section or overlay could not be fully analyzed, but the loader's functionality is unambiguously malicious.",
+    "conditions": "The driver requires a Windows kernel environment to execute. Payload activation is triggered by detecting specific process IDs or registry configurations during enumeration.",
+    "sandbox_recommendations": "Use a kernel-mode debugger (WinDbg) with a target VM. Monitor ZwAllocateVirtualMemory and KeStackAttachProcess calls to intercept the target process and memory destination."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "EnumKey",
+          "description": "The driver enumerates system registry keys, likely to identify target processes or persistence mechanisms."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00011306",
+      "name": "fcn.00011306",
+      "description": "Manual PE loader; maps an executable payload into target memory."
+    },
+    {
+      "address": "0x00011a3e",
+      "name": "fcn.00011a3e",
+      "description": "Handles process attachment and code execution via APC injection."
+    },
+    {
+      "address": "0x00010602",
+      "name": "fcn.00010602",
+      "description": "Disables WP (Write Protect) bit in CR0 register to modify read-only kernel memory."
+    }
+  ]
+}

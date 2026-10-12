@@ -1,0 +1,67 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This kernel-mode driver performs advanced kernel-mode process/thread/callback manipulation and hides its own presence by patching critical kernel data structures. It uses a custom obfuscation/anti-analysis layer and attempts to disable kernel protections (e.g., cr0 register modification) to modify protected code sections.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Custom anti-disassembly/patching routines",
+      "Control flow obfuscation",
+      "Self-modifying code in kernel memory"
+    ],
+    "details": "The sample uses a custom dispatcher (fcn.00011c2a) to interpret bytecode instructions and performs dynamic patching of kernel code sections. It manually disables write protection by toggling the WP bit in the cr0 register, indicative of rootkit-like behavior."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode hook/patching",
+      "description": "Modifies protected kernel memory to intercept or alter execution flow."
+    },
+    {
+      "name": "CR0 Write Protection Bypass",
+      "description": "Clears the WP bit to write to read-only memory pages."
+    },
+    {
+      "name": "System Information Enumeration",
+      "description": "Uses ZwQuerySystemInformation to find process information."
+    },
+    {
+      "name": "Kernel Object Manipulation",
+      "description": "Hooks kernel objects and handles via IoAttachDeviceByPointer and direct memory editing."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of CR0 WP bit manipulation, explicit patching of kernel-mode functions (using memcpy/memset to overwrite code), and the creation of a hidden device object (IoCreateDevice) confirms high-intent malicious behavior typical of a rootkit, rather than legitimate driver functionality.",
+    "general": "The function fcn.00011d8a implements the core malicious logic: it modifies the cr0 register to disable write protection, then uses memcpy/memset to overwrite kernel code. Function fcn.000105d6 demonstrates clear intent to unlink and modify internal kernel structures to hide itself.",
+    "uncertainties": "While the logic for patching is clearly visible, the final destination for the hooked data is partially obscured by the custom dispatcher (fcn.00011c2a), which interprets encoded operational codes.",
+    "conditions": "The driver must be loaded into kernel space. Execution is guarded by an internal check of the Windows build number (NtBuildNumber) and specific registry/directory object validations via ObReferenceObjectByHandle.",
+    "sandbox_recommendations": "Deploy in an isolated Windows kernel-debugging environment (WinDbg). Monitor CR0 register transitions and access to internal kernel function pointers. Emulate the existence of specific directory objects expected by ZwOpenDirectoryObject."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "NtBuildNumber",
+          "description": "Used to verify OS version before execution."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00011d8a",
+      "name": "fcn.00011d8a",
+      "description": "Primary kernel-mode patching routine that disables WP bit and overwrites memory."
+    },
+    {
+      "address": "0x000105d6",
+      "name": "fcn.000105d6",
+      "description": "Direct kernel structure manipulation for hiding or unlinking objects."
+    },
+    {
+      "address": "0x00010702",
+      "name": "fcn.00010702",
+      "description": "Handles interaction with system directory objects to establish control."
+    }
+  ]
+}

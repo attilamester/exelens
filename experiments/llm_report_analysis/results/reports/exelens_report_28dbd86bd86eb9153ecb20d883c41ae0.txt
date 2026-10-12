@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This executable acts as a backdoor/remote administration tool. It installs itself as a service, connects to a hardcoded domain ('us.issnbgkit.net') via HTTP, and provides remote command execution capabilities (via 'cmd.exe') and file transfer/management functionality, controlled by a remote C2.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed; the functions are visible and show standard logic for network communication, service management, and process creation."
+  },
+  "capabilities": [
+    {
+      "name": "Remote Command Execution",
+      "description": "Uses CreatePipe and CreateProcessA to redirect input/output of 'cmd.exe' and communicate results back to the C2."
+    },
+    {
+      "name": "Network Communication",
+      "description": "Utilizes WININET.dll and WS2_32.dll to initiate outbound connections, send commands, and receive data."
+    },
+    {
+      "name": "Persistence",
+      "description": "Uses ADVAPI32 service management APIs to install/uninstall as a system service."
+    },
+    {
+      "name": "File Management",
+      "description": "Capabilities to download, read, and write files based on remote C2 instructions."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of specific high-intent capabilities, including establishing a connection to a hardcoded domain, implementing a command-and-control loop (select/recv/send), and spawning 'cmd.exe' with redirected pipes, confirms malicious intent. While individual APIs like 'CreateProcessA' or 'InternetConnectA' can be dual-use, their orchestration here is consistent only with a remote-access backdoor.",
+    "general": "The function 'fcn.1000152c' contains the core C2 loop, initiating 'cmd.exe' via 'CreateProcessA' with pipes. 'fcn.10002067' manages the connection to 'us.issnbgkit.net'. 'fcn.10001e7c' handles file transfers. The code explicitly looks for commands like 'getfile', 'exit', 'quit', and 'chdir' from the remote server.",
+    "uncertainties": "No significant uncertainties; the functional logic is clearly exposed in the provided assembly.",
+    "conditions": "The sample performs environmental checks and sleep delays (via KERNEL32.dll_Sleep). It attempts to connect to the hardcoded domain 'us.issnbgkit.net'. If the connection fails, it enters a retry loop or exits.",
+    "sandbox_recommendations": "Provide network simulation for the domain 'us.issnbgkit.net'. Expect HTTP GET/POST requests. The malware may require being installed as a service to reach its full functional state."
+  },
+  "ioc": [
+    {
+      "type": "domain",
+      "values": [
+        {
+          "value": "us.issnbgkit.net",
+          "description": "Hardcoded C2 domain used for communication."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "cmd.exe /c",
+          "description": "Command used for remote shell execution."
+        },
+        {
+          "value": "getfile",
+          "description": "C2 command for file transfer."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000152c",
+      "name": "fcn.1000152c",
+      "description": "Main C2 loop: manages pipes, 'cmd.exe' execution, and command parsing."
+    },
+    {
+      "address": "0x10002067",
+      "name": "fcn.10002067",
+      "description": "Networking module: initiates connection to the remote domain and handles HTTP communication."
+    },
+    {
+      "address": "0x10001e7c",
+      "name": "fcn.10001e7c",
+      "description": "File operations: handles file downloads and persistence of received data."
+    }
+  ]
+}

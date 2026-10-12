@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a modular installer/loader that performs privilege escalation checks, attempts to manipulate kernel structures (e.g., SSDT/IRQL modifications), and installs services or persistence mechanisms using obfuscated registry operations and system-level API hooking.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Custom XOR decryption loop",
+      "Dynamic API resolution via GetProcAddress",
+      "Resource-based loading of secondary modules"
+    ],
+    "details": "The executable contains multiple encrypted/compressed resources (Resource 102/103) decrypted at runtime using XOR routines and memory manipulation. It dynamically imports and resolves functions from system libraries (ntdll, ntoskrnl) to perform low-level OS operations."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Attempts to interact with KeServiceDescriptorTable and modify IRQL levels to bypass security checks."
+    },
+    {
+      "name": "Process/Service persistence",
+      "description": "Uses RegCreateKeyExA and RegSetValueExA to establish persistence in registry run keys and system service configurations."
+    },
+    {
+      "name": "Privilege Escalation",
+      "description": "Uses ADVAPI32 functions like AllocateAndInitializeSid, DuplicateTokenEx, and AccessCheck to perform token impersonation or security descriptor modification."
+    },
+    {
+      "name": "File System Evasion",
+      "description": "Uses SetFileAttributesA/W and CopyFileA to hide or manipulate system-critical files (e.g., system32 directory)."
+    }
+  ],
+  "details": {
+    "reasoning": "While installers use these functions, the combination of specific kernel-level memory hooking (SSDT), direct attempts to load system drivers (e.g., ntoskrnl.exe via LoadLibrary), and the use of hardcoded string obfuscation (XOR loops) strongly indicate malicious intent aimed at compromising the host kernel integrity rather than legitimate software installation.",
+    "general": "High-intent indicators include fcn.1000b369 (SSDT/KeServiceDescriptorTable manipulation), fcn.1000b73a (NtShutdownSystem hooking), and fcn.10009d28 (Kernel memory patching and IRQL modifications).",
+    "uncertainties": "The exact nature of the payload inside resources 101/102 is masked; however, the loader's behavior is overtly hostile towards system security.",
+    "conditions": "The payload requires execution with elevated (Administrator) privileges to successfully perform the observed kernel-level hookings and service registry modifications.",
+    "sandbox_recommendations": "Use a kernel-mode debugger (e.g., WinDbg) attached to the target VM to monitor SSDT changes. Monitor registry operations specifically targeting HKLM\\System\\CurrentControlSet."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\System\\CurrentControlSet\\Services\\lsass",
+          "description": "Registry key modified for persistence or process masquerading"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for synchronization during infection"
+        },
+        {
+          "value": "cnFormSyncExFBC",
+          "description": "Internal class or component name referenced for manipulation"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Manipulates KeServiceDescriptorTable (SSDT) to hook system calls."
+    },
+    {
+      "address": "0x1000b73a",
+      "name": "fcn.1000b73a",
+      "description": "Hooks NtShutdownSystem or similar kernel functions to influence system lifecycle events."
+    },
+    {
+      "address": "0x10009d28",
+      "name": "fcn.10009d28",
+      "description": "Performs memory patching of kernel-mode functions (e.g., KeRaiseIrqlToDpcLevel)."
+    }
+  ]
+}

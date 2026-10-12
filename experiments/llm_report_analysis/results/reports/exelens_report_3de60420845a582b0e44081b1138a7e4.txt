@@ -1,0 +1,85 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a downloader/dropper that communicates with hard-coded URLs to exfiltrate information and receive commands. It uses persistence through the Windows Registry, process injection/execution, and environment checks.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code appears to be compiled C++ utilizing standard Windows APIs and networking libraries. It does not exhibit signs of packing, but uses obfuscated internal string and API handling routines."
+  },
+  "capabilities": [
+    {
+      "name": "Network Communication",
+      "description": "Uses WININET.dll for HTTP POST/GET requests to remote servers (e.g., ohb_technology.brgh.de, rolls_royce.humanforce.co.uk)."
+    },
+    {
+      "name": "Persistence",
+      "description": "Adds a registry key to Software\\Microsoft\\Windows\\CurrentVersion\\Run to ensure execution on system boot."
+    },
+    {
+      "name": "Information Exfiltration",
+      "description": "Collects system information (IP, hostname) via WS2_32.dll and likely exfiltrates it to the C2 server."
+    },
+    {
+      "name": "Process Execution",
+      "description": "Uses CreateProcessA and ShellExecuteW to launch secondary payloads or system utilities."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistent registry modifications, active network communication with unauthorized external domains, and dynamic generation of files (e.g., .exe) strongly indicates malicious behavior, specifically the profile of a downloader/bot.",
+    "general": "High-intent evidence includes calling 'ADVAPI32.dll_RegSetValueExW' on 'Software\\Microsoft\\Windows\\CurrentVersion\\Run' (persistence), 'WININET.dll_HttpSendRequestA' to external C2 infrastructure, and 'CreateProcessA' which, in the context of the observed exfiltration logic, points to execution of malicious payloads.",
+    "uncertainties": "While the binary is not packed, the internal data manipulation routines (fcn.00402668, etc.) involve encoding/decoding logic that may hide specific command payloads; however, the C2 intent is clear.",
+    "conditions": "The malware contains hard-coded URLs, a mutex 'COPYRIGHTMM2011V2' to prevent multiple instances, and environment-dependent logic based on 'WinDir' and 'USERPROFILE'. It likely expects the network to be reachable to initiate its C2 loop.",
+    "sandbox_recommendations": "Simulate network connectivity to the identified hostnames or intercept the WININET calls. Ensure the registry key 'Run' can be monitored. Monitor for file creation in common temporary directories."
+  },
+  "ioc": [
+    {
+      "type": "url",
+      "values": [
+        {
+          "value": "http://ohb_technology.brgh.de/news/media/info.html",
+          "description": "C2 Server URL"
+        },
+        {
+          "value": "http://rolls_royce.humanforce.co.uk/news/media/info.html",
+          "description": "C2 Server URL"
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Persistence key path"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "COPYRIGHTMM2011V2",
+          "description": "Mutex name used for execution synchronization"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x0040289f",
+      "name": "fcn.0040289f",
+      "description": "Initial environment preparation and file path management."
+    },
+    {
+      "address": "0x00401a96",
+      "name": "fcn.00401a96",
+      "description": "Core communication routine building multi-part HTTP requests."
+    },
+    {
+      "address": "0x00402d01",
+      "name": "fcn.00402d01",
+      "description": "Main logic loop driving the downloader behavior."
+    }
+  ]
+}

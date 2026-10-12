@@ -1,0 +1,65 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This file is a kernel-mode rootkit driver designed to hide registry keys and monitor system activity by registering callbacks and intercepting driver communications.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom packing/obfuscation of the driver binary"
+    ],
+    "details": "The section .upx0 is large and has high entropy (7.03), while the overlay also shows high entropy (7.37), characteristic of packed malware. The entrypoint logic and various functions exhibit self-modifying code patterns and heavy indirection."
+  },
+  "capabilities": [
+    {
+      "name": "Rootkit Functionality",
+      "description": "Registers a kernel-mode callback (CmRegisterCallback) to monitor registry activity."
+    },
+    {
+      "name": "Process/Driver Obfuscation",
+      "description": "Uses PsSetCreateProcessNotifyRoutine to monitor process creation and system thread creation to maintain persistence."
+    },
+    {
+      "name": "System Interception",
+      "description": "Hooks I/O Request Packets (IRPs) via IofCallDriver and IoBuildDeviceIoControlRequest to monitor or tamper with device driver communication."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level registry callback registration (CmRegisterCallback), IRP hooking, and the presence of high-entropy packed sections strongly indicates a malicious rootkit. The functionality to enumerate and delete registry keys programmatically (fcn.00012a10) coupled with the intent to monitor process execution (PsSetCreateProcessNotifyRoutine) is consistent with advanced persistent threat (APT) rootkit behavior.",
+    "general": "High-intent malicious actions include the usage of ntoskrnl.exe_CmRegisterCallback, ntoskrnl.exe_PsSetCreateProcessNotifyRoutine, and the manipulation of driver device objects through IofCallDriver, typically used for intercepting and filtering system traffic.",
+    "uncertainties": "The presence of heavy obfuscation and dynamic function resolution through MmGetSystemRoutineAddress makes full reconstruction of the logic difficult; however, the core rootkit functionality is evident.",
+    "conditions": "The driver likely activates during the boot process via Service Control Manager registration or manual loading via the Service Manager.",
+    "sandbox_recommendations": "Analyze in a isolated kernel-mode debugging environment (e.g., WinDbg). Monitor for registry modifications and callbacks using tools like Sysinternals Procmon and WinDbg commands (e.g., !callback, !drvobj)."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "REGISTRY\\MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Browser Helper Objects",
+          "description": "Targeted registry path for persistence/manipulation."
+        },
+        {
+          "value": "REGISTRY\\MACHINE\\SOFTWARE\\Classes\\CLSID",
+          "description": "Targeted registry key for modification."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x000188b0",
+      "name": "fcn.000188b0",
+      "description": "Likely initializes the rootkit persistence and process monitoring threads (PsCreateSystemThread)."
+    },
+    {
+      "address": "0x00012a10",
+      "name": "fcn.00012a10",
+      "description": "Handles registry key enumeration and deletion."
+    },
+    {
+      "address": "0x00023cb0",
+      "name": "fcn.00023cb0",
+      "description": "Hooks I/O requests (IRP) by building and sending device control requests."
+    }
+  ]
+}

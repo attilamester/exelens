@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to modify system-level structures by manipulating the System Service Descriptor Table (SSDT), typical of rootkit or kernel-level malicious activity. It also performs registry persistence and file manipulation.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR encoding of resources",
+      "Dynamic API resolution"
+    ],
+    "details": "Resources containing potential payloads are decrypted at runtime using a static XOR key (0xcd). Import addresses are dynamically resolved using GetProcAddress after loading system DLLs."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode service table manipulation",
+      "description": "Functions like fcn.1000ab6f and fcn.1000b46f interact with KeServiceDescriptorTable to hook system services."
+    },
+    {
+      "name": "Persistence via Registry",
+      "description": "Uses RegCreateKeyExA and RegSetValueExA to modify Windows registry keys, likely for persistence."
+    },
+    {
+      "name": "Resource Decryption and Loading",
+      "description": "Decodes embedded data from resources (e.g., 102) using XOR 0xcd, and uses CreateProcessA to launch it."
+    },
+    {
+      "name": "Dynamic API Hooking",
+      "description": "The sample attempts to locate and hook functions like NtShutdownSystem and DbgPrint."
+    }
+  ],
+  "details": {
+    "reasoning": "While parts of the code show dual-use behavior (e.g., resource loading, registry access), the inclusion of functions specifically designed to modify the KeServiceDescriptorTable (SSDT) and bypass kernel-mode security checks (e.g., modifying system calls) is indicative of high-intent malicious behavior (rootkit). The combination of resource decryption, registry persistence, and kernel-level manipulation confirms a malicious verdict.",
+    "general": "High-intent evidence includes the logic in fcn.1000b46f and fcn.1000ab6f, which attempt to locate KeServiceDescriptorTable and modify system service pointers. The sample also uses XOR loops (e.g., in fcn.100015f7 and fcn.10001723) to mask its payload, confirming an intent to evade detection.",
+    "uncertainties": "The exact payload hidden within the XOR-encrypted resources could not be extracted statically, though the loader logic confirms it is a self-contained executable.",
+    "conditions": "The primary execution triggers include registry lookups (e.g., for specific versioning or environment variables), the presence of a mutex (e.g., GlobalRPCMutex), and potential environmental checks to ensure it is running on a compatible Windows kernel.",
+    "sandbox_recommendations": "Ensure the sandbox environment supports advanced monitoring of kernel-mode transitions and SSDT modification. Run the sample without a debugger to bypass anti-debug checks."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\",
+          "description": "Persistence registry locations accessed for modification."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used to ensure single instance execution."
+        },
+        {
+          "value": "lsass",
+          "description": "String used for registry key/value manipulation."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Kernel-mode SSDT manipulation routine."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "XOR-based payload decryption and resource loader."
+    },
+    {
+      "address": "0x10003c04",
+      "name": "fcn.10003c04",
+      "description": "Primary installer/deployment logic."
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to manipulate system service descriptor tables (SSDT) and perform kernel-mode memory patching (e.g., KeRaiseIrqlToDpcLevel patching, NtShutdownSystem hooking). It includes routines for obfuscating and loading a driver-like payload or kernel-level component from its resources.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR encoding",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress",
+      "Resource-based loading"
+    ],
+    "details": "Routine fcn.100015f7 and others perform XOR decryption (key 0xcd) on resource data, which is then mapped into memory, indicating an attempt to hide the main functional payload."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode hook injection",
+      "description": "Utilizes KeServiceDescriptorTable and system service hooking techniques."
+    },
+    {
+      "name": "Persistence",
+      "description": "Uses Registry Run keys and file attribute manipulation (SetFileAttributesA) to hide or protect its components."
+    },
+    {
+      "name": "System/Privilege modification",
+      "description": "Uses ADVAPI32 functions to modify Security Descriptors and manipulate process tokens (e.g., DuplicateTokenEx)."
+    },
+    {
+      "name": "Resource loading",
+      "description": "Reads and decodes data from embedded resources (IDs 101, 102, 103) likely for payload injection."
+    }
+  ],
+  "details": {
+    "reasoning": "While some components (registry operations, resource loading) can be dual-use, the assembly code shows high-intent malicious logic such as SSDT hooking (fcn.1000b369), kernel-level callback modification, and the use of undocumented/sensitive APIs like 'NtQuerySystemInformation' and 'NtQueryObject' for process/object enumeration. These are characteristic of rootkit or kernel-mode malware designed for evasion and persistence at the system level.",
+    "general": "High-intent indicators include: fcn.1000b369 (SSDT manipulation), fcn.1000b73a (NtShutdownSystem hooking), and fcn.10009bd3 (ntoskrnl.exe/ntkrnlpa.exe patching). The presence of functions to probe kernel-level symbols like 'KeRaiseIrqlToDpcLevel' confirms intent to bypass standard user-mode restrictions.",
+    "uncertainties": "The exact nature of the payload inside the resource is inferred from the loader routines (fcn.100015f7). Without the specific binary payload, one cannot verify the final goal, but the hooks are clearly malicious.",
+    "conditions": "The primary execution requires Administrator or SYSTEM privileges to perform registry key creation and system-level hooking. It likely checks for the existence of specific files or registry keys (e.g., fcn.10001086 environment variable checks) to determine if it is already installed.",
+    "sandbox_recommendations": "Run in an environment with kernel debugging enabled (WinDbg). Monitor registry activity on HKLM/Software/Microsoft/Windows/CurrentVersion/Run. The sample may require a reboot or specific mutex presence to fully activate the kernel hooks."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Persistence mechanism registry key."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "system32\\win32k.sys",
+          "description": "Target file for system-level interaction or hooking."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Kernel-level SSDT patching and service descriptor table manipulation."
+    },
+    {
+      "address": "0x1000b73a",
+      "name": "fcn.1000b73a",
+      "description": "Hooking of system shutdown routines or kernel APIs."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Resource decryption and loading routine."
+    }
+  ]
+}

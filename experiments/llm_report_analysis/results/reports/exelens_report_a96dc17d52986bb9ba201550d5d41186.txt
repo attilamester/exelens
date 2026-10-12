@@ -1,0 +1,89 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple components designed for system-level persistence and stealth, including kernel-mode service descriptor table hooking, registry modification to register persistent tasks, and file manipulation. It hides its functionality behind resource decryption and dynamic API resolution, and attempts to evade detection by checking for debugger/environment conditions.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource-based payload hiding",
+      "Dynamic API resolution via GetProcAddress",
+      "XOR-based decryption of resources"
+    ],
+    "details": "The file contains a large resource (106KB) that is decrypted at runtime via a simple XOR loop (XOR [esi + eax], 0xcd in fcn.100015f7). Several functions demonstrate dynamic lookup of kernel-related APIs (NtQuerySystemInformation, NtQueryObject) suggesting rootkit or system monitoring capabilities."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Uses RegSetValueExA to modify registry keys and copies itself into system directories."
+    },
+    {
+      "name": "Kernel-mode Interaction",
+      "description": "Attempts to interact with the system service descriptor table and uses undocumented NT APIs like NtQuerySystemInformation."
+    },
+    {
+      "name": "Stealth/Evasion",
+      "description": "Uses GetEnvironmentVariable and mutex checks (GlobalRPCMutex, prkMtx) to detect if another instance is running and to avoid re-infection."
+    },
+    {
+      "name": "File Manipulation",
+      "description": "Uses CopyFileA and DeleteFileA to potentially replace system files or install malicious drivers/libraries."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level API hooking (KeServiceDescriptorTable, KeAddSystemServiceTable) and persistent registry modifications (Registering 'cnFormSyncExFBC') confirms malicious intent beyond mere protection. The file acts as a downloader/dropper that establishes system-level persistence.",
+    "general": "High-intent evidence includes calls to KeServiceDescriptorTable (fcn.1000b369), KeAddSystemServiceTable, and NtShutdownSystem, which are typical of low-level kernel rootkit behavior. These are guarded by environmental checks.",
+    "uncertainties": "The exact nature of the decrypted resource remains partially hidden without further dynamic memory extraction, though its structure is consistent with a kernel-mode driver.",
+    "conditions": "Execution is gated by the creation of a 'GlobalRPCMutex' or 'prkMtx'. It also checks environment variables (e.g., 'system32') and verifies the presence of specific OS versions or registry keys (e.g., 'cnFormSyncExFBC') before executing the payload.",
+    "sandbox_recommendations": "Use a sandbox that supports kernel-mode logging. Ensure registry monitoring is enabled for HKLM\\SYSTEM\\CurrentControlSet\\Services. Do not execute in a standard user profile; try a domain controller environment to trigger potential lateral movement behaviors."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\cnFormSyncExFBC",
+          "description": "Persistence mechanism registry key"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "system32\\win32k.sys",
+          "description": "Target path for file operations"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for instance locking"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for process synchronization"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Decryption routine for resources using XOR 0xcd."
+    },
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Hooks KeServiceDescriptorTable to intercept system calls."
+    },
+    {
+      "address": "0x10004d5c",
+      "name": "fcn.10004d5c",
+      "description": "Primary payload logic, includes registry interaction and process creation."
+    }
+  ]
+}

@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to manipulate system internals, including patching kernel-mode structures and modifying the system shutdown process, characteristic of a rootkit or sophisticated malware payload.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based payload decryption",
+      "Dynamic API resolution"
+    ],
+    "details": "Resource-based payload is encrypted/obfuscated with 0xCD and requires resolution of kernel APIs (e.g., NtShutdownSystem) for execution."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Attempts to interact with KeServiceDescriptorTable and system tables."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies Windows Registry Run/Load keys to ensure execution on startup."
+    },
+    {
+      "name": "Process Hollowing/Injection",
+      "description": "Uses CreateProcessA followed by writing to the process memory space."
+    },
+    {
+      "name": "Anti-debugging/Evasion",
+      "description": "Checks for debugger presence and system environment variables to avoid analysis."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode API resolution (KeServiceDescriptorTable), patching system dispatch tables, and manual process creation indicates high malicious intent. These capabilities are consistent with rootkit behavior designed to hide presence and maintain persistent access to the kernel.",
+    "general": "Functions like fcn.1000b46f and fcn.1000ab6f demonstrate direct interaction with kernel dispatch tables (KeServiceDescriptorTable, KeAddSystemServiceTable). fcn.10001b34 illustrates a loader pattern that decrypts and executes a hidden process, while fcn.100017a0 modifies registry keys for persistence.",
+    "uncertainties": "The exact nature of the decrypted binary data in the resource section (102) remains unknown without dynamic analysis to fully capture the unpacked state.",
+    "conditions": "The malware requires an environment that allows writing to system registry keys and potentially driver-loading privileges. It may check for specific system versions and environment variables (e.g., '_system32') to activate its payload.",
+    "sandbox_recommendations": "Use a kernel-mode debugger (Windbg) and intercept registry and file system APIs. The sample might require a simulated Windows kernel environment to trigger advanced features."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "DMWH",
+          "description": "Registry key/value used for persistence."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for process synchronization."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "fanny.bmp",
+          "description": "Referenced image file likely used for file system operations or as a cover."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Primary routine for modifying kernel-mode system service tables."
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Routine involved in system dispatch table manipulation."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Payload loader: handles resource loading, decryption, and process creation."
+    }
+  ]
+}

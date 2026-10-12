@@ -1,0 +1,72 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable extracts a resource, writes it to disk as 'ersvc.dll', modifies the Windows registry to register this DLL as a service, and attempts to self-delete using ShellExecute.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed; the logic of resource extraction and registry manipulation is clearly visible in the assembly."
+  },
+  "capabilities": [
+    {
+      "name": "Resource Extraction",
+      "description": "Uses FindResource, LoadResource, and LockResource to extract embedded data."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Writes extracted data to a file using CreateFileA and WriteFile."
+    },
+    {
+      "name": "Registry Persistence",
+      "description": "Modifies Registry keys under HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\ to establish persistence."
+    },
+    {
+      "name": "Self-Deletion",
+      "description": "Uses ShellExecuteA with 'cmd.exe /c del' to delete its own executable file."
+    }
+  ],
+  "details": {
+    "reasoning": "The application exhibits high-intent behavior by installing a service via registry manipulation and then attempting to hide its tracks by deleting itself. While installers often use these APIs, the combination of dropping a DLL, configuring it as a service ('ERSvc'), and immediate self-deletion is characteristic of a dropper or persistence mechanism rather than a standard software installer.",
+    "general": "The function fcn.004011c0 explicitly writes a file named 'ersvc.dll' from a resource. Subsequently, fcn.00401380 uses RegOpenKeyExA and RegSetValueExA to point a registry key under 'SYSTEM\\CurrentControlSet\\Services\\ERSvc\\Parameters' to this file. Finally, fcn.004014c0 executes a shell command to delete the original executable.",
+    "uncertainties": "The content of the resource (ersvc.dll) is not visible, so its exact malicious functionality as a service cannot be confirmed, but the intent to install a persistent system service is clear.",
+    "conditions": "The execution flow proceeds linearly upon start. No complex conditions were identified, though the code assumes proper privilege levels to modify HKLM registry keys.",
+    "sandbox_recommendations": "Ensure the analysis environment has HKLM registry write access and monitor for the creation of 'ersvc.dll' in the system directory. Capture registry changes in the CurrentControlSet key."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\ERSvc",
+          "description": "Service registry key for persistence."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "ersvc.dll",
+          "description": "The dropped malicious DLL."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x004011c0",
+      "name": "fcn.004011c0",
+      "description": "Extracts the resource and writes it to disk as a DLL."
+    },
+    {
+      "address": "0x00401380",
+      "name": "fcn.00401380",
+      "description": "Configures registry keys for service persistence."
+    },
+    {
+      "address": "0x004014c0",
+      "name": "fcn.004014c0",
+      "description": "Deletes the original executable file using cmd.exe."
+    }
+  ]
+}

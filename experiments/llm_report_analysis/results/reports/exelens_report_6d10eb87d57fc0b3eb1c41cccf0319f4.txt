@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The file is a malicious installer/loader that attempts to gain high-privilege access by manipulating kernel structures or security descriptors, likely to bypass security checks or gain persistence.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "XOR-based obfuscation of embedded resources",
+      "Dynamic API resolution"
+    ],
+    "details": "The file uses resources (e.g., in functions fcn.100015f7 and fcn.10001b34) that are decrypted using an XOR 0xCD operation, likely masking a payload or configuration data. It resolves critical functions from DLLs dynamically at runtime, as seen in fcn.10002f79."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence and Registry Manipulation",
+      "description": "Uses RegCreateKeyExA and RegSetValueExA to modify system registry keys, potentially for autostart persistence."
+    },
+    {
+      "name": "Mutex Creation",
+      "description": "Creates system-wide mutexes (e.g., 'GlobalRPCMutex') to ensure single-instance execution or anti-sandboxing."
+    },
+    {
+      "name": "Kernel-Level Operations",
+      "description": "Attempts to interact with system internals, specifically targeting 'KeServiceDescriptorTable', 'ntoskrnl.exe', and security descriptors, suggesting rootkit-like intent."
+    },
+    {
+      "name": "Process Injection/Hooking",
+      "description": "Manipulates process tokens and service descriptor tables, commonly used for privilege escalation."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level symbol lookups (e.g., 'KeServiceDescriptorTable', 'NtShutdownSystem'), registry manipulation, and the use of explicit access control modification functions (SetSecurityDescriptorDacl, SetSecurityDescriptorOwner) strongly points to malicious intent rather than a legitimate software installation. The file's logic explicitly looks for ways to override or hook system calls, which is high-intent malicious behavior.",
+    "general": "The function fcn.1000ab6f and fcn.1000b46f explicitly target 'KeServiceDescriptorTable'. Functions fcn.10006f75, fcn.100071d7, and fcn.10007315 demonstrate intent to manipulate security descriptors and token information to bypass standard Windows security.",
+    "uncertainties": "The exact nature of the encrypted resource (106496 bytes) is inferred from its usage in decryption routines. The final payload logic is likely partially obfuscated within the memory-resident portions of the execution flow.",
+    "conditions": "Requires administrative privileges to successfully execute the kernel-level hooks and registry modifications. Likely requires execution within a standard user environment that permits interaction with the target service.",
+    "sandbox_recommendations": "Run in an environment with monitoring enabled for kernel mode transitions and registry access. Set the system date to a time conducive to execution (if time checks exist) and simulate a standard Windows environment with common system services running."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "System-wide mutex used to track execution."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "ntoskrnl.exe",
+          "description": "Targeted system executable."
+        },
+        {
+          "value": "KeServiceDescriptorTable",
+          "description": "Targeted kernel symbol for hooking."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Resource decryption and extraction function."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Registry and privilege management entry point."
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Manipulates kernel service tables for system modification."
+    }
+  ]
+}

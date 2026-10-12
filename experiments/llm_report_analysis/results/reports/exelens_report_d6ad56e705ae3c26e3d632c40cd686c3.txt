@@ -1,0 +1,72 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This executable acts as a dropper and kernel-mode driver loader/injector. It extracts an embedded payload from resources, performs XOR-based obfuscation/deobfuscation, and interacts with kernel-mode structures to inject or modify system-level code (e.g., KeServiceDescriptorTable hooks).",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource-based embedding",
+      "XOR-based payload obfuscation",
+      "Dynamic API resolution"
+    ],
+    "details": "The payload is stored in the .rsrc section (ID 102). Functions like fcn.100015f7 and fcn.10001b34 load and deobfuscate this data. It uses XOR 0xCD for decryption."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Hooking",
+      "description": "Utilizes NtQuerySystemInformation, KeServiceDescriptorTable, and potentially maps kernel memory to perform system-level hooking."
+    },
+    {
+      "name": "Persistence Mechanism",
+      "description": "Manipulates registry keys (e.g., Run keys, services) to ensure execution on system startup."
+    },
+    {
+      "name": "Anti-Analysis/Evasion",
+      "description": "Performs environment checks (GetSystemDirectory, environment variables) and uses kernel-mode techniques to hide from user-mode analysis."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode API imports (e.g., KeServiceDescriptorTable, KeAddSystemServiceTable) and routines that modify memory protections and perform hooking, alongside the presence of an obfuscated payload in resources, confirms malicious intent beyond a benign installer or protector.",
+    "general": "High-intent indicators include fcn.1000b369 (modifying SSDT), fcn.100017a0 (modifying registry to inject/replace system binaries like lsass), and fcn.1000a0fc (interacting with win32k.sys). These are not dual-use in this context.",
+    "uncertainties": "While I cannot observe the actual payload being injected due to truncation, the presence of code dedicated to syscall table manipulation and process memory injection provides sufficient evidence of malicious nature.",
+    "conditions": "The file expects to be run with specific administrative or system privileges to perform SSDT modification. It also contains logic that appears to target specific OS versions (checked via GetVersionExA).",
+    "sandbox_recommendations": "Run in a virtualized Windows environment with kernel debugging enabled. Ensure system snapshots are taken before execution as it may modify critical system files."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Common location for service persistence."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "_system32",
+          "description": "Indicates attempt to operate within System32 directories."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Coordinates payload initialization and registry interaction."
+    },
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Modifies the System Service Descriptor Table (SSDT), a classic rootkit capability."
+    },
+    {
+      "address": "0x100043d2",
+      "name": "fcn.100043d2",
+      "description": "Main payload decryption and injection routine."
+    }
+  ]
+}

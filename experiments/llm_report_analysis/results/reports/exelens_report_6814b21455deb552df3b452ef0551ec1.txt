@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to manipulate system internals, including patching system service tables, modifying kernel-mode structures, and installing persistent registry-based loaders. It uses obfuscated strings, dynamic API resolution (GetProcAddress), and self-injection capabilities to facilitate its operation.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation",
+      "Dynamic API resolution",
+      "Resource-based payload hiding"
+    ],
+    "details": "The file uses custom XOR routines and resource-based loading (FindResourceA/LoadResource) to obfuscate its primary components. It also employs dynamic API resolution to hide its reliance on sensitive Windows APIs (e.g., NtQuerySystemInformation, NtQueryObject)."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode service table manipulation",
+      "description": "Functions like fcn.1000b369 and fcn.1000ab6f attempt to locate and modify the KeServiceDescriptorTable to hook system services."
+    },
+    {
+      "name": "Process/Service persistence",
+      "description": "Extensive use of RegCreateKeyExA and RegSetValueExA to modify Run keys and service configurations."
+    },
+    {
+      "name": "File system persistence",
+      "description": "Copies itself to system directories (e.g., system32) and modifies attributes to hide files."
+    },
+    {
+      "name": "Evasion and Anti-Analysis",
+      "description": "Contains checks for kernel versions and uses specific techniques to bypass security software by registering and manipulating system objects."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode service table patching (KeServiceDescriptorTable manipulation), persistence in system registry keys, and evasion techniques involving system object registration (win32k.sys-related names) strongly indicates malicious intent. These are not standard behaviors for legitimate software and align with rootkit or advanced persistent threat (APT) behavior.",
+    "general": "fcn.1000b369 performs direct manipulation of KeServiceDescriptorTable. fcn.1000ab6f and fcn.1000a2cd interact with registry paths likely designed to maintain persistence under legitimate-sounding names. The use of NtQuerySystemInformation and attempts to locate kernel modules demonstrate an intent to operate at a low system level.",
+    "uncertainties": "The truncated code listings limit visibility into the final stage of payload decryption, but the existing high-level control flow structures (kernel patching and system service hooking) remain clear indicators of malicious intent.",
+    "conditions": "The execution flow requires the sample to have appropriate permissions to interact with kernel-level structures and system registry hives, typically needing administrative or system-level privileges. It also performs environment checks against the OS version, specifically targeting older or specific versions of Windows (e.g., via GetVersionExA).",
+    "sandbox_recommendations": "Run in an environment that simulates administrative privileges. Monitor registry access patterns, specifically writes to Software\\Microsoft\\Windows\\CurrentVersion\\Run. Use kernel monitoring tools to observe modifications to the system service descriptor table."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Targeted registry key for persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "KeServiceDescriptorTable",
+          "description": "Kernel structure target for hooking."
+        },
+        {
+          "value": "NtShutdownSystem",
+          "description": "System function target for interception."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Patches KeServiceDescriptorTable to hook system calls."
+    },
+    {
+      "address": "0x100043d2",
+      "name": "fcn.100043d2",
+      "description": "Performs system registry manipulation and persistence installation."
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Installs system hooks and manipulates service descriptors."
+    }
+  ]
+}

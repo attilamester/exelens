@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple functionalities typical of a kernel-mode rootkit/trojan, including process injection, registry manipulation for persistence, and low-level kernel memory manipulation using dynamic API resolution.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR encoding",
+      "Dynamic API resolution",
+      "Resource-based payload hiding"
+    ],
+    "details": "The file uses XOR loops (e.g., fcn.10001697) to decode data at runtime. It also hides its primary components in resources and uses custom routines to resolve imports dynamically via LoadLibrary and GetProcAddress."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "Uses CreateProcess, WriteFile and kernel-mode API hooks to manipulate processes."
+    },
+    {
+      "name": "Kernel-mode Rootkit Features",
+      "description": "Interfaces with ntkrnlpa.exe, ntquerysysteminformation, and manages SSDT/System Service Descriptor Table hooks to hide activity."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies Windows Registry keys (RegSetValueExA, RegCreateKeyExA) for automated execution."
+    },
+    {
+      "name": "Data Exfiltration/Collection",
+      "description": "Enumerates local files and gathers system/user environment information."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode API calls, SSDT hooking (KeServiceDescriptorTable), and process-hollowing-like techniques (WriteFile/CreateProcess/SetFileAttributes) confirms a highly malicious rootkit component. Legitimate software does not routinely hook kernel service tables or attempt to bypass system security descriptors in this manner.",
+    "general": "High-intent evidence includes SSDT hooking observed in fcn.1000b369 (KeServiceDescriptorTable manipulation), the presence of rootkit-specific strings (e.g., 'prkMtx'), and the use of 'NtShutdownSystem' hooking via fcn.1000c755 to override system-level functions.",
+    "uncertainties": "The file requires specific environment checks (GetVersionExA/GetSystemTime) to fully decrypt and execute its primary payloads, which might not be met in a standard sandbox environment.",
+    "conditions": "The primary malicious payload is activated only after the file successfully verifies the environment (version check), finds specific resources, and confirms the absence of an existing mutex (prkMtx/GlobalRPCMutex).",
+    "sandbox_recommendations": "Use a kernel-aware debugger or driver monitor. Ensure the environment mimics a standard Windows workstation (version check 5.x or 6.x) and allow the mutex creation to proceed without prior existing mutexes of the same name."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "DMWI__",
+          "description": "Registry key used for persistence"
+        },
+        {
+          "value": "DMWH",
+          "description": "Registry key potentially used for configuration"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for inter-process synchronization of the malicious payload"
+        },
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name for ensuring single instance execution"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Performs SSDT hooking to intercept system calls"
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Main process creation/loader routine"
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Regulates persistence via registry key modification"
+    }
+  ]
+}

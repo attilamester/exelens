@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable performs stealthy system surveillance, captures images, and exfiltrates information to a remote server. It includes functionality to hide itself in system directories, persist through registry keys, and delete itself/traces.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The file is not packed; it appears to be a compiled MFC application."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Enumeration",
+      "description": "Uses PSAPI.dll to enumerate processes and inject modules."
+    },
+    {
+      "name": "Network Exfiltration",
+      "description": "Utilizes CInternetSession, CHttpConnection to upload stolen data to a remote server."
+    },
+    {
+      "name": "Stealth & Persistence",
+      "description": "Modifies Windows Registry (e.g., ProxyEnable, Run keys) and manipulates system files to maintain persistence and evade detection."
+    },
+    {
+      "name": "Screen/Capture",
+      "description": "Uses AVICAP32.dll for capture window creation and GDI32.dll to capture screen pixels."
+    }
+  ],
+  "details": {
+    "reasoning": "The application exhibits high-intent malicious behavior. While it uses legitimate MFC/Internet libraries, the specific sequence of capturing screen pixels, querying system information (GetUserName, GetComputerName), enumerating system processes, and exfiltrating this data via HTTP requests to hard-coded patterns (e.g., in fcn.00408ed0 and fcn.004099c0) is characteristic of info-stealing malware. The deliberate effort to mimic legitimate system names (e.g., 'wuaucpl.exe') and manipulation of the registry confirms malicious intent.",
+    "general": "The function fcn.00408ed0 demonstrates data exfiltration. Function fcn.0040acb0 performs system profiling. The usage of 'NtQuerySystemInformation' (loaded dynamically via LoadLibrary/GetProcAddress) is a common evasion technique for process hiding.",
+    "uncertainties": "The exact C2 domain is obscured by string formatting, but the behavior remains constant across versions.",
+    "conditions": "The malware expects a network connection to reach its C2 infrastructure and typically requires administrative privileges to modify registry keys and system service configuration.",
+    "sandbox_recommendations": "Provide an active network connection with simulated C2 response, as the malware will likely terminate or stall without network connectivity. Run in a Windows XP or Windows 7 environment to ensure compatibility with the legacy MFC42.dll imports."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "System.dat",
+          "description": "Potential storage file for stolen data."
+        },
+        {
+          "value": "wuaucpl.exe",
+          "description": "Disguised malicious process name."
+        },
+        {
+          "value": "NtQuerySystemInformation",
+          "description": "API used for process enumeration and evasion."
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings",
+          "description": "Registry path manipulated to intercept/modify network proxy settings."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00408ed0",
+      "name": "fcn.00408ed0",
+      "description": "Main routine responsible for system profiling and staging data for exfiltration."
+    },
+    {
+      "address": "0x004099c0",
+      "name": "fcn.004099c0",
+      "description": "Handles the network communication and HTTP data transmission."
+    },
+    {
+      "address": "0x00406800",
+      "name": "fcn.00406800",
+      "description": "Service manipulation routine used for persistence."
+    }
+  ]
+}

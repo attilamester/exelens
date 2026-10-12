@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample is a sophisticated dropper/installer that attempts to disable security features or gain elevated privileges. It uses resource-based decryption, mutex synchronization, and performs direct kernel-mode interaction via NtQuerySystemInformation and possibly modifying kernel structures (KeServiceDescriptorTable), indicating an attempt to bypass security or perform rootkit-like persistence.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource encryption (XOR with 0xcd)",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress",
+      "Dynamic modification of kernel function addresses"
+    ],
+    "details": "The file contains a large resource (106KB) that is decrypted at runtime via an XOR 0xcd loop. Critical function addresses are resolved dynamically, and it attempts to interact with kernel-level interfaces."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/System modification",
+      "description": "Utilizes NtQuerySystemInformation and KeServiceDescriptorTable to interact with kernel data structures."
+    },
+    {
+      "name": "Persistence/Registry Manipulation",
+      "description": "Extensive use of RegCreateKeyExA and RegSetValueExA to manage system configuration and potentially install persistence."
+    },
+    {
+      "name": "Anti-Analysis/Evasion",
+      "description": "Checks for mutexes (GlobalRPCMutex, prkMtx) to ensure single-instance execution and avoid sandbox detection."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Copies, deletes, and sets attributes on files, including system-critical files like lsass and win32k.sys."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level structure modification (KeServiceDescriptorTable), registry manipulation for persistence, and the suspicious use of NtQuerySystemInformation suggests malicious intent rather than simple software protection. The file explicitly attempts to interact with system drivers and security-related registry keys.",
+    "general": "High-intent indicators include: fcn.1000ab6f and fcn.1000a2cd which resolve KeServiceDescriptorTable and KeAddSystemServiceTable; fcn.100017a0 which modifies registry keys referencing 'lsass'; and the use of XOR 0xcd to decrypt embedded resources in fcn.100015f7.",
+    "uncertainties": "The exact nature of the decrypted resource payload is inferred from functional call analysis rather than direct inspection, as the input was truncated.",
+    "conditions": "Execution is likely triggered by specific registry keys or environment variables being set, and the sample checks for the presence of specific mutexes ('prkMtx', 'GlobalRPCMutex') to avoid multiple concurrent executions.",
+    "sandbox_recommendations": "Provide a simulated Windows NT/2000/XP environment with kernel-level monitoring. Specifically, monitor attempts to access the System Service Descriptor Table (SSDT) and registry changes in HKLM\\SYSTEM\\CurrentControlSet."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\ServiceGroupOrder",
+          "description": "Registry key targeted for modification or query."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for kernel-level synchronization."
+        },
+        {
+          "value": "lsass",
+          "description": "Target process/file potentially being mimicked or hooked."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Main routine for security token and SID manipulation, likely for privilege escalation."
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Handles SSDT (System Service Descriptor Table) hooking and kernel interaction."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Resource decryption and extraction function."
+    }
+  ]
+}

@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a complex, multi-stage loader. It uses anti-debugging techniques, decrypts embedded resources, and performs kernel-level operations to inject or modify system-level structures, indicating clear malicious intent to gain persistence or elevate privileges.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom encryption/obfuscation routine",
+      "Resource decryption (FindResourceA/LoadResource/LockResource)"
+    ],
+    "details": "The sample contains high-entropy sections (.rsrc, .text) and functions like fcn.100015f7 and fcn.1000b73a demonstrate clear resource decryption using XOR operations with static keys (e.g., 0xcd), followed by control flow transfer."
+  },
+  "capabilities": [
+    {
+      "name": "Process Hollowing/Injection",
+      "description": "Uses KERNEL32!CreateProcessA and potentially manipulates process memory or threads."
+    },
+    {
+      "name": "Kernel Mode Modification",
+      "description": "Attempts to interact with KeServiceDescriptorTable (SSDT) and perform kernel-mode function hooking."
+    },
+    {
+      "name": "Anti-Analysis / Evasion",
+      "description": "Checks for debugger presence and system environment variables; uses timing loops (Sleep) and hardware checks."
+    },
+    {
+      "name": "Registry Persistence",
+      "description": "Extensive use of RegCreateKeyExA and RegSetValueExA to ensure execution on system startup."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level SSDT modification (fcn.1000ab6f, fcn.1000b369), process hollowing, and persistence mechanisms (RegSetValueExA) confirms malicious intent. The dual-use nature of APIs like VirtualAlloc or LoadLibrary is mitigated by their explicit, identified use in unpacking and hooking sensitive system structures.",
+    "general": "High-intent malicious behavior is confirmed by fcn.1000ab6f and fcn.1000b369 which attempt to modify the KeServiceDescriptorTable. fcn.10001b34 performs file operations coupled with CreateProcessA, suggesting a hollowing sequence. fcn.10001697 uses GetEnvironmentVariable and string manipulation to target system paths.",
+    "uncertainties": "The exact nature of the encrypted payload remains opaque without dynamic unpacking, but the loader's behavior is explicitly malicious in its target selection.",
+    "conditions": "The execution flow depends on environment variable checks (GetEnvironmentVariable) and registry keys (RegOpenKeyExA). It requires specific registry sub-keys to proceed with payload deployment.",
+    "sandbox_recommendations": "Simulate a Windows environment with high-privilege access; monitor for file system and registry changes. Set breakpoints on KeServiceDescriptorTable access and kernel-mode API calls."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\",
+          "description": "Registry paths associated with service-based persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for process synchronization."
+        },
+        {
+          "value": "lsass",
+          "description": "Possible target or alias used for hiding within system processes."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Kernel-mode SSDT hooking function."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Resource decryption and loading function."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Process creation and file manipulation for secondary stage loading."
+    }
+  ]
+}

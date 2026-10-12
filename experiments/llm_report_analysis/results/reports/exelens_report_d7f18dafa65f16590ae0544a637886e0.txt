@@ -1,0 +1,81 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a complex, multi-stage loader. It exhibits sophisticated anti-analysis techniques including resource-based payload storage, string decryption (XOR loops), dynamic API resolution (GetProcAddress/LoadLibrary), and process injection mechanisms. It actively performs system-level modifications, including registry manipulation (Run keys), file system persistence (lsass.exe mimicry), and kernel-level interaction attempts (e.g., KeServiceDescriptorTable checks).",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR decryption",
+      "Dynamic API resolution",
+      "Resource-based storage of encrypted payloads"
+    ],
+    "details": "The file uses resources (specifically 102/103) as storage for encrypted payloads. Decryption is performed via basic XOR loops (e.g., 0xCD) during execution. It dynamically resolves Windows APIs using custom loader logic to bypass static analysis tools."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Persistence",
+      "description": "Creates persistence in the registry (RegCreateKeyExA) and copies files to system directories, often under the guise of legitimate system binaries like 'lsass.exe'."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Checks for debugger presence and uses timing loops (Sleep) to evade sandbox detection."
+    },
+    {
+      "name": "Kernel Interaction",
+      "description": "Contains code to locate and manipulate the System Service Descriptor Table (SSDT), a common technique for rootkits to hook system calls."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent malicious actions—specifically the manipulation of kernel structures (SSDT), masquerading persistence mechanisms, and the presence of decryption routines for external resources—rules out a benign purpose. While some APIs (e.g., VirtualAlloc, LoadLibrary) are dual-use, their application here in context with registry-based persistence and process manipulation strongly indicates malicious intent.",
+    "general": "The function fcn.1000b369 performs SSDT manipulation (KeServiceDescriptorTable). The function fcn.100017a0 implements persistence by copying files to locations named 'lsass.exe' and registering them via registry keys. These are clear indicators of malicious intent.",
+    "uncertainties": "While the kernel-level code (SSDT) suggests rootkit capabilities, it is unclear if the specific OS version target prevents this execution on modern, protected Windows environments. The truncated assembly prevents full recovery of the decrypted payload.",
+    "conditions": "The malware requires standard administrative privileges to modify registry keys and system directory files. It may rely on specific environment variables (GetEnvironmentVariableA) or existing mutexes ('GlobalRPCMutex') to ensure only one instance is running.",
+    "sandbox_recommendations": "Run in an isolated Windows environment (Windows 7/10). Use a process monitor to watch for file system operations on the 'lsass.exe' filename. Ensure the sandbox simulates a full user environment, as the file checks for existing system registry keys and environment variables."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Persistence registry key"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "C:\\Windows\\system32\\lsass.exe",
+          "description": "Targeted directory for persistence masquerade"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for synchronization"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Handles SSDT (System Service Descriptor Table) lookup and hook/manipulation logic."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Implements persistence by registry modification and file copying."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Performs system-wide enumeration and registry interaction to deploy payload components."
+    }
+  ]
+}

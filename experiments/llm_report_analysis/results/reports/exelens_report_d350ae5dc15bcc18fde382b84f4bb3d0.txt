@@ -1,0 +1,67 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable performs reflective PE injection. It reads itself from disk, allocates memory with RWX permissions, parses its own import table and relocations, and executes an embedded payload.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom entry point obfuscation",
+      "Dynamic API resolution (GetProcAddress/LoadLibraryA)",
+      "Reflective PE loading"
+    ],
+    "details": "The file uses a custom loader (fcn.10001800) to map and execute a secondary PE image in memory. It uses VirtualAlloc and VirtualProtect to prepare the memory space for the decrypted payload, which is then manually mapped and executed."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Hollowing",
+      "description": "Uses VirtualAlloc and VirtualProtect to map a PE file into memory, manually resolving imports using LoadLibrary/GetProcAddress."
+    },
+    {
+      "name": "Self-Modifying/Decryption Code",
+      "description": "Contains code that XORs a memory region with a dynamic key before execution (fcn.10001130)."
+    },
+    {
+      "name": "Debugger Evasion",
+      "description": "Checks for the presence of a debugger using IsDebuggerPresent and handles exceptions to potentially crash if observed."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of manual PE header parsing (fcn.10001530), manual import resolution (fcn.10001720), and transferring control to an arbitrary memory location via VirtualAlloc (fcn.10001800) is characteristic of malicious reflective loaders. These are not common patterns for legitimate software, which typically relies on the OS loader.",
+    "general": "The function fcn.10001800 performs manual mapping of a PE file. Function fcn.10001530 iterates through sections and imports, and fcn.10001130 demonstrates a decryption loop (XORing with 0x99) before executing the payload. These are strong indicators of malicious intent.",
+    "uncertainties": "The exact nature of the final payload remains unknown as it is decrypted at runtime from memory; however, the loader behavior itself is definitively malicious.",
+    "conditions": "The file requires the ability to read its own executable file from disk to extract the embedded payload. Execution flow triggers include passing specific environment checks and successful decryption of the memory-resident payload.",
+    "sandbox_recommendations": "Run in a controlled sandbox with full process monitoring. Ensure the file name is preserved as it may check its own filename (GetModuleFileNameA) to determine the payload to load."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "_svchost.exe",
+          "description": "Filename string used in comparison/check routines."
+        },
+        {
+          "value": "_netsvcs",
+          "description": "Service-related string possibly used in environment checks."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001800",
+      "name": "fcn.10001800",
+      "description": "Core reflective loader function allocating RWX memory and executing the payload."
+    },
+    {
+      "address": "0x10001720",
+      "name": "fcn.10001720",
+      "description": "Manual import resolution routine using GetProcAddress."
+    },
+    {
+      "address": "0x10001130",
+      "name": "fcn.10001130",
+      "description": "Main routine responsible for decryption and triggering the loader."
+    }
+  ]
+}

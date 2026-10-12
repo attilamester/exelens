@@ -1,0 +1,72 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample is a custom-packed executable that performs reflective DLL loading and process hollowing/injection. It uses anti-debugging and anti-analysis checks, followed by decrypting an embedded payload in memory (xor 0x99) and loading it into the current process or potentially spawning a thread to execute it.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR decryption loop",
+      "Reflective loading",
+      "API resolution obfuscation"
+    ],
+    "details": "The file contains a custom decryption routine (fcn.10001130) using a rolling XOR key (starting with 0x99) and a packer/loader that allocates executable memory via VirtualAlloc, maps sections, and resolves imports using GetProcAddress."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Loading",
+      "description": "Reflective DLL loading capability allowing execution of code directly from memory."
+    },
+    {
+      "name": "Anti-Debugging",
+      "description": "Utilizes IsDebuggerPresent and exception-based checks (SetUnhandledExceptionFilter) to detect and terminate analysis."
+    },
+    {
+      "name": "Payload Decryption",
+      "description": "Contains an XOR-based decryption routine targeting an encrypted resource/buffer in the .data section."
+    }
+  ],
+  "details": {
+    "reasoning": "The presence of a reflective loader (fcn.10001800), manual import resolution (fcn.10001720), and process-termination logic upon debugger detection (fcn.10001ba4) confirms malicious intent. The binary does not perform any documented application functionality, instead focusing entirely on unpacking, mapping, and executing a secondary payload.",
+    "general": "High-intent indicators include fcn.10001800 (VirtualAlloc of 0x40/0x2000), fcn.100015e0 (VirtualProtect), and the manual mapping of PE structures. The call sequence involving IsDebuggerPresent, TerminateProcess, and custom exception filtering (fcn.10001ba4) is a hallmark of defensive malware behavior.",
+    "uncertainties": "The specific nature of the final decrypted payload is not fully visible, as it resides in a runtime-allocated buffer. Analysis assumes the decrypted data is an executable PE binary based on standard reflective loader behavior.",
+    "conditions": "Execution flow proceeds if the environment check passes (IsDebuggerPresent returns false) and if it is able to successfully open and map its embedded resources. It relies on the presence of the base address in the data section to function properly.",
+    "sandbox_recommendations": "Run with a debugger hidden (e.g., ScyllaHide/TitanHide). The binary performs environment checks, so ensure the sandbox name and MAC address do not appear like common virtualized analysis environments."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "_svchost.exe",
+          "description": "Target string for potential process injection."
+        },
+        {
+          "value": "_netsvcs",
+          "description": "Possibly used for service registration or configuration check."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001800",
+      "name": "fcn.10001800",
+      "description": "Reflective loader/mapper routine."
+    },
+    {
+      "address": "0x10001130",
+      "name": "fcn.10001130",
+      "description": "Main decryption and execution dispatcher."
+    },
+    {
+      "address": "0x10001720",
+      "name": "fcn.10001720",
+      "description": "Manual import resolution via GetProcAddress/LoadLibrary."
+    },
+    {
+      "address": "0x10001ba4",
+      "name": "fcn.10001ba4",
+      "description": "Anti-debugging and anti-analysis wrapper."
+    }
+  ]
+}

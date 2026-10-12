@@ -1,0 +1,71 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample exhibits typical downloader and dropper behavior: it establishes persistence via registry RunOnce, performs system environment enumeration (CPU identification, NIC MAC address), and communicates over HTTP to a C2 server to fetch and execute payloads. It uses XOR-based obfuscation for network communication and configuration strings.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR obfuscation",
+      "Dynamic API resolution (GetProcAddress)"
+    ],
+    "details": "Configuration strings and network data are obfuscated using a custom XOR routine (fcn.00401280). The file structure itself is not packed, but the payload retrieval logic relies on dynamically resolved imports."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Uses RegCreateKeyExA and RegSetValueExA on the 'RunOnce' registry key to ensure re-execution."
+    },
+    {
+      "name": "Network Communication",
+      "description": "Utilizes WININET functions (HttpOpenRequestA, HttpSendRequestA) for C2 communication."
+    },
+    {
+      "name": "System Enumeration",
+      "description": "Collects hardware identifiers, including CPU name and network adapter MAC addresses, via IPHLPAPI and Registry queries."
+    },
+    {
+      "name": "Dynamic Code Execution",
+      "description": "Downloads data and uses GetProcAddress/CreateProcess-like logic to execute potentially malicious payloads."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistence, system fingerprinting, and HTTP-based C2 communication clearly indicates malicious intent. The dual-use features (e.g., registry modification, HTTP networking) are utilized here in a coordinated sequence designed to maintain an infection, exfiltrate system data, and fetch secondary payloads, which is characteristic of a malicious dropper/downloader.",
+    "general": "High-intent indicators include: persistence via 'SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce' in fcn.00401400; NIC MAC address fingerprinting in fcn.00401b40; C2 communication pattern in fcn.00401000 involving HttpSendRequestA; and string obfuscation via fcn.00401280.",
+    "uncertainties": "While the dropper/downloader behavior is certain, the exact nature of the final payload downloaded from the C2 is not visible as it is retrieved at runtime.",
+    "conditions": "Execution is gated by successful environment checks, including CPU identification and NIC presence (fcn.004015e0). It periodically sleeps to evade immediate detection.",
+    "sandbox_recommendations": "Provide an active internet connection to satisfy the C2 communication requirements. Simulate standard Windows registry and environment values to allow the fingerprinting logic to pass."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce",
+          "description": "Persistence mechanism registry key."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401000",
+      "name": "fcn.00401000",
+      "description": "Primary network communication handler using WININET APIs."
+    },
+    {
+      "address": "0x00401400",
+      "name": "fcn.00401400",
+      "description": "Installs persistence via the RunOnce registry key."
+    },
+    {
+      "address": "0x00401b40",
+      "name": "fcn.00401b40",
+      "description": "Performs system fingerprinting, including MAC address collection."
+    },
+    {
+      "address": "0x00401280",
+      "name": "fcn.00401280",
+      "description": "Core XOR-based string and data de-obfuscation routine."
+    }
+  ]
+}

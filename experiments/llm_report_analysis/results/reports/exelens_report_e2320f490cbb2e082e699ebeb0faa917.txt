@@ -1,0 +1,72 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to detect the OS version and patch kernel structures, indicative of a rootkit or privilege escalation toolkit. It uses dynamic API resolution, performs file system operations to drop components, and hooks system services.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Custom XOR obfuscation of resource data",
+      "Dynamic API resolution (GetProcAddress, LoadLibrary)",
+      "System service table modification"
+    ],
+    "details": "The sample contains encrypted/encoded data in the .rsrc section (resource 102). It uses custom XOR routines and dynamic API loading to hide its high-intent malicious actions."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Attempts to patch KeServiceDescriptorTable to hook system calls."
+    },
+    {
+      "name": "Privilege escalation/Persistence",
+      "description": "Manipulates registry keys (Run keys or service configurations) and uses ACL manipulation to hide or persist."
+    },
+    {
+      "name": "File system modification",
+      "description": "Copies files to system directories (e.g., system32) and hides them by setting file attributes."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel service table hooking (fcn.1000ab6f, fcn.1000b46f), and high-privilege registry modifications (fcn.100017a0) indicates clear malicious intent to gain kernel-level persistence and evade detection. This is not dual-use; these functions are clearly designed for rootkit behavior.",
+    "general": "High-intent evidence includes calls to modify system structures (e.g., fcn.1000b46f/fcn.1000ab6f using 'KeServiceDescriptorTable'), access checks/ACL modification (ADVAPI32.dll_AccessCheck, ADVAPI32.dll_SetSecurityDescriptorDacl), and code that targets kernel files like win32k.sys.",
+    "uncertainties": "While the kernel-mode hooking code is clearly malicious, the full payload unpacked from resource 102 could not be fully analyzed, so specific C2 infrastructure or exfiltration methods remain unconfirmed.",
+    "conditions": "The payload appears to be triggered by standard execution; however, several functions (fcn.10009bd3, fcn.100096ce) suggest environment-specific checks, possibly requiring a Windows kernel environment or specific OS versions to function.",
+    "sandbox_recommendations": "Run in a controlled kernel-debugging environment (e.g., WinDbg attached to a guest VM). Monitor system calls, specifically those related to file I/O in system32 and any changes to the System Service Descriptor Table (SSDT)."
+  },
+  "ioc": [
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "system32\\win32k.sys",
+          "description": "Path identified in environment checks/file manipulation."
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet",
+          "description": "Common target for registry manipulation functions."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Contains logic for hooking the KeServiceDescriptorTable."
+    },
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Implements service table modifications and registry configuration."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Handles complex service and security descriptor logic for persistence."
+    }
+  ]
+}

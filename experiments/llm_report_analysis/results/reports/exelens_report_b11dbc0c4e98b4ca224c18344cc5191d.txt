@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample exhibits typical behavior of a sophisticated kernel-mode backdoor/rootkit. It utilizes custom XOR obfuscation for its embedded resources, performs extensive anti-analysis checks, dynamically resolves system function addresses at runtime, manages persistence via registry modification, and injects code into system processes. It also contains logic to interact with internal kernel structures like the System Service Descriptor Table (SSDT).",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Custom XOR routine for resource decryption",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress",
+      "Memory-resident code execution via VirtualAlloc"
+    ],
+    "details": "The file contains a large resource (106KB) that is decrypted at runtime using a XOR 0xCD loop (RVA 0x1000167b). Further, it dynamically resolves imports using strings that are likely obfuscated or dynamically constructed."
+  },
+  "capabilities": [
+    {
+      "name": "Process/Service Manipulation",
+      "description": "Utilizes CreateProcessA, CreateThread, and service-related operations."
+    },
+    {
+      "name": "Rootkit Functionality",
+      "description": "Direct interaction with SSDT (KeServiceDescriptorTable) via fcn.1000b369."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies registry keys (RegSetValueExA) to maintain presence across reboots."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Checks for debugger presence and system environment variables."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level hooking (SSDT modification), hidden payload decryption, process hollowing/injection techniques, and direct registry manipulation for persistence points clearly to malicious intent rather than a legitimate installer or protector. The sample specifically targets system components like 'win32k.sys' and attempts to modify kernel dispatch tables.",
+    "general": "High-intent evidence includes the SSDT hooking routine in fcn.1000b369, the use of custom XOR decryption for embedded resources at 0x1000167b, and the manipulation of system process memory and service registry keys throughout the analyzed functions.",
+    "uncertainties": "The exact nature of the decrypted resource remains somewhat obscured without dynamic tracing, but the code structure confirms it is a kernel-mode payload.",
+    "conditions": "Requires administrative privileges to modify registry keys and load drivers/hooks. The code checks for environment variables and performs specific mutex checks (GlobalRPCMutex) to ensure single instance execution.",
+    "sandbox_recommendations": "Use an isolated environment with a Windows 7 or XP target for compatibility with the observed API calls. Monitor registry activity specifically under HKLM\\SYSTEM\\CurrentControlSet\\Services."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Potential persistence location."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for synchronization."
+        },
+        {
+          "value": "win32k.sys",
+          "description": "Target system file for modification."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Hooks KeServiceDescriptorTable to intercept system calls."
+    },
+    {
+      "address": "0x10001697",
+      "name": "fcn.10001697",
+      "description": "Primary loader function responsible for resource decryption."
+    },
+    {
+      "address": "0x100028d6",
+      "name": "fcn.100028d6",
+      "description": "Registry-based persistence and configuration routine."
+    }
+  ]
+}

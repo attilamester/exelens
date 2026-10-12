@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a complex backdoor and kernel-mode driver loader. It extracts an embedded resource, performs XOR-based obfuscation, and interacts with low-level system components, including kernel memory manipulation and modification of system service tables.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Resource-based embedding",
+      "XOR-based obfuscation (0xCD)",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress"
+    ],
+    "details": "The file contains a 106KB unknown resource (RVA 0x1000788e, 0x10001b34) which is loaded, XORed with 0xCD, and decrypted in memory. This is a common pattern for loading a hidden malicious secondary stage."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Modifies Windows Registry keys to ensure execution on system startup."
+    },
+    {
+      "name": "Process Injection/Driver Loading",
+      "description": "Utilizes kernel-level functions like KeAddSystemServiceTable and MmMapLockedPagesSpecifyCache to manipulate kernel-mode structures."
+    },
+    {
+      "name": "Mutex Evasion",
+      "description": "Checks for existing system-wide mutexes (e.g., 'GlobalRPCMutex') to avoid re-infection and detect sandboxes."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Implements checks for debugger presence and utilizes dynamic API resolution to hide its true capabilities from static analysis."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode API calls (e.g., KeServiceDescriptorTable manipulation), dynamic loading of system-sensitive libraries (ntoskrnl, hal, win32k), and the presence of obfuscated resource data provides high-confidence evidence of malicious intent. The code specifically targets system-level integrity mechanisms, which cannot be justified as legitimate application behavior.",
+    "general": "High-intent malicious actions are confirmed by fcn.1000b369 (manipulation of KeServiceDescriptorTable), fcn.10009d28 (driver loading/verification), and fcn.100017a0 (modifying the 'lsass' registry path).",
+    "uncertainties": "The truncated nature of some assembly blocks makes it difficult to definitively identify the specific C2 infrastructure used, though networking capabilities are heavily implied by the dynamic loading of WS2_32 and related socket-like structures.",
+    "conditions": "Execution requires elevated privileges (likely Administrative or SYSTEM) due to kernel-mode modifications. It also likely requires the presence of specific OS versions (e.g., Windows 5.x/6.x checks in fcn.10009d28).",
+    "sandbox_recommendations": "Must be run in an environment with kernel-level debugging protection disabled. The analyst should monitor registry modifications, particularly those affecting the 'lsass' service, and watch for kernel-memory write operations."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex string used for single-instance checks"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex string used for synchronization"
+        },
+        {
+          "value": "lsass",
+          "description": "Registry path manipulation target"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "_system32win32k.sys",
+          "description": "Target file path for operations"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Manipulates KeServiceDescriptorTable for system call hooking."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Modifies Registry values to maintain persistence."
+    },
+    {
+      "address": "0x10009d28",
+      "name": "fcn.10009d28",
+      "description": "Loads and prepares kernel drivers for execution."
+    }
+  ]
+}

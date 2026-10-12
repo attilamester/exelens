@@ -1,0 +1,83 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple functionalities designed for system-level persistence, process hollowing/injection, and privilege escalation. It uses internal custom resources and dynamically resolves APIs to perform operations typically associated with kernel-mode rootkits and driver loading.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR decryption",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress"
+    ],
+    "details": "The entrypoint (entry0) performs basic initialization before branching into resource-based decryption routines. Specific functions like fcn.100015f7 and fcn.10001697 handle the extraction of encrypted resource data (XOR 0xcd), which is indicative of a loader behavior."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/System modification",
+      "description": "Utilizes CreateProcess and memory writing primitives to target system processes like lsass."
+    },
+    {
+      "name": "Persistence & Registry Manipulation",
+      "description": "Extensive use of RegCreateKeyExA and RegSetValueExA to modify system configuration and likely ensure execution across reboots."
+    },
+    {
+      "name": "Kernel-mode interaction",
+      "description": "Contains routines accessing KeServiceDescriptorTable, NtQueryObject, and NtQuerySystemInformation, targeting kernel driver functionality."
+    },
+    {
+      "name": "Evasion",
+      "description": "Uses Mutex checks (GlobalRPCMutex, prkMtx) to prevent multiple instances and environment checks to detect if it is running in specific system environments."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level API calls (NtQuerySystemInformation), process hollowing logic (CreateProcess/VirtualAlloc in fcn.10001b34), and persistent registry modifications targeting sensitive processes like lsass demonstrates clear malicious intent beyond legitimate software protection.",
+    "general": "High-intent evidence includes the direct interaction with the System Service Descriptor Table (SSDT) in fcn.1000b369, the use of CreateProcessA to launch extracted payloads (fcn.10001b34), and the decryption of embedded resources using XOR 0xcd (fcn.10001697).",
+    "uncertainties": "While the code contains several complex routines related to kernel manipulation, the exact payload is not fully visible due to the obfuscated resource-based loading process. The analysis relies on the demonstrated loading and injection patterns.",
+    "conditions": "The malware checks for a 'GlobalRPCMutex' and specifically targets system environments with identified registry structures. It likely requires administrative privileges to interact with kernel tables (SSDT) successfully.",
+    "sandbox_recommendations": "Run in an environment that simulates a full Windows system with administrative privileges. Ensure the sandbox supports monitoring inter-process communication and registry changes, specifically targeting Run keys and service entries."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Registry keys targeted for persistence and driver installation."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for synchronization."
+        },
+        {
+          "value": "lsass",
+          "description": "Targeted process name."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Handles interaction with the SSDT (KeServiceDescriptorTable)."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Payload loader and process creation function."
+    },
+    {
+      "address": "0x10001697",
+      "name": "fcn.10001697",
+      "description": "Decrypts and extracts embedded resources."
+    }
+  ]
+}

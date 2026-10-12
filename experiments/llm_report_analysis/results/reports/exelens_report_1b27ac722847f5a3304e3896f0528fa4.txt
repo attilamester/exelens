@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple functionalities designed to perform kernel-mode manipulation, including service table modification, process hollowing/injection techniques, and registry persistence. It utilizes complex anti-analysis routines, custom resource-based payloads, and encrypted strings.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR decryption",
+      "Resource-based payload loading",
+      "Dynamic API resolution (GetProcAddress)"
+    ],
+    "details": "The file uses resources (specifically RCDATA or similar) to store encrypted payloads. Several functions (e.g., fcn.100015f7) handle resource loading, while fcn.10001697 and others include XOR-based decryption logic using a 0xCD key before executing the data."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Uses RegCreateKeyExA and RegSetValueExA to modify system registry keys, likely for persistence or configuration."
+    },
+    {
+      "name": "Kernel-mode Modification",
+      "description": "Attempts to locate and modify the system service descriptor table (KeServiceDescriptorTable) via fcn.1000b369."
+    },
+    {
+      "name": "Process Injection",
+      "description": "Contains routines for creating remote threads or process manipulation using CreateProcessA and related APIs."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Checks for debugger presence and system environment variables to evade detection."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode structures access (KeServiceDescriptorTable), self-modification/decryption loops, and the registry manipulation intended to replace system-level binary paths (e.g., lsass, system32) indicates clear malicious intent, ruling out benign software.",
+    "general": "High-intent indicators include RVA 0x1000b369 (fcn.1000b369) which targets kernel structures, RVA 0x100017a0 (fcn.100017a0) which modifies registry keys to likely facilitate process replacement, and the decryption loop at RVA 0x10001697 using a 0xCD XOR key.",
+    "uncertainties": "While the kernel-mode interaction is visible, the specific payload decrypted by the routines at runtime could not be fully analyzed statically, though its intent is clearly hostile.",
+    "conditions": "The sample performs environment checks (GetEnvironmentVariable) and registry checks (RegOpenKeyExA). It requires specific conditions regarding the OS version (GetVersionExA) to proceed with kernel modifications.",
+    "sandbox_recommendations": "Run in a kernel-aware sandbox; monitor registry key access for persistence and track attempts to modify the System Service Descriptor Table (SSDT)."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Persistence path modification"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for process synchronization"
+        },
+        {
+          "value": "lsass",
+          "description": "Targeted process name for injection/hollowing"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Locates and modifies the System Service Descriptor Table (SSDT)."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Manipulates registry keys for system file replacement or persistence."
+    },
+    {
+      "address": "0x10001697",
+      "name": "fcn.10001697",
+      "description": "Decryption routine for encrypted resource payload."
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a downloader/dropper that performs process injection into explorer.exe. It decrypts an embedded payload, installs it, and attempts to hide its presence by renaming files, manipulating file attributes, and modifying file timestamps to match system binaries.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Custom decompression/decryption routines",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress",
+      "Manual PE loading and mapping"
+    ],
+    "details": "The sample uses a custom decompression routine (functions like fcn.10006200 and fcn.10007240) to unpack an embedded payload into memory. It then performs process hollowing or injection into explorer.exe using techniques involving VirtualAllocEx and WriteProcessMemory."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "Utilizes CreateRemoteThread, VirtualAllocEx, and WriteProcessMemory to inject code into other processes (e.g., explorer.exe)."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Changes file attributes (SetFileAttributesA), deletes files (DeleteFileA), and copies files (CopyFileA)."
+    },
+    {
+      "name": "Stealth/Anti-Forensics",
+      "description": "Modifies file creation/access timestamps using SystemTimeToFileTime and SetFileTime, and renames files to masquerade as legitimate Windows files."
+    },
+    {
+      "name": "Dynamic API Resolution",
+      "description": "Resolves functions at runtime using LoadLibrary and GetProcAddress to evade static import analysis."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of process injection capabilities, file system stealth (timestamp modification), and the presence of decryption/decompression logic for an internal payload confirms malicious intent beyond dual-use utility.",
+    "general": "High-intent malicious evidence includes the injection sequence targeting 'explorer.exe' (RVA 0x10003fb0 calling CreateFileMappingA and MapViewOfFile) and the use of 'SeDebugPrivilege' (fcn.10004390) to escalate permissions for cross-process operations.",
+    "uncertainties": "The exact nature of the final injected payload remains obscured by the custom decompression routine, although the loader behavior is clearly identified.",
+    "conditions": "Execution is gated by environment checks including OS version validation (fcn.10002c6a) and potentially the location of the running binary (checks against 'explorer.exe' and 'sysprep.exe').",
+    "sandbox_recommendations": "Run in an environment that allows network calls, as the dropper may fetch secondary components. Ensure the sample is named correctly if checked by the binary (e.g., sysprep.exe or explorer.exe) and simulate a full Windows environment to pass version checks."
+  },
+  "ioc": [
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "C:\\Windows\\System32\\sysprep\\sysprep.exe",
+          "description": "Injection target/masking location"
+        },
+        {
+          "value": "C:\\Windows\\System32\\KB975552.log",
+          "description": "Log file used during file renaming operations"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "explorer.exe",
+          "description": "Target process for injection"
+        },
+        {
+          "value": "SeDebugPrivilege",
+          "description": "Privilege required for injection"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10004440",
+      "name": "fcn.10004440",
+      "description": "Primary injector responsible for process injection logic."
+    },
+    {
+      "address": "0x10002777",
+      "name": "fcn.10002777",
+      "description": "Function responsible for time-stomping and attribute modification of system files."
+    },
+    {
+      "address": "0x10006200",
+      "name": "fcn.10006200",
+      "description": "Core decompression/decryption routine for the embedded payload."
+    }
+  ]
+}

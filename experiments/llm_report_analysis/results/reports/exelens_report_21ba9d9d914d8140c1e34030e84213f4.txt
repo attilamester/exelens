@@ -1,0 +1,93 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable performs system reconnaissance, gathers hardware and user information, generates a report, and exfiltrates it to a remote server using HTTP POST requests. It includes self-deletion capabilities and checks for command-and-control instructions via file-based input.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "String obfuscation",
+      "Dynamic API loading",
+      "Code decryption/transformation"
+    ],
+    "details": "The file uses custom transformation routines (fcn.00402990) and XOR-based string obfuscation. Large sections of encrypted/compressed data are present in the overlay (entropy 7.10)."
+  },
+  "capabilities": [
+    {
+      "name": "System Reconnaissance",
+      "description": "Collects computer name, username, processor name, and network adapter information."
+    },
+    {
+      "name": "Command and Control",
+      "description": "Initiates HTTP POST requests using WININET.dll to interact with remote infrastructure."
+    },
+    {
+      "name": "Persistence/Anti-Forensics",
+      "description": "Attempts to delete its own files or configuration files after execution via KERNEL32.dll_DeleteFileA."
+    },
+    {
+      "name": "Data Exfiltration",
+      "description": "Encodes and sends gathered system information to a remote server."
+    }
+  ],
+  "details": {
+    "reasoning": "The application exhibits high-intent malicious behavior. While it uses dual-use functions (e.g., RegQueryValueExA, InternetOpenA), the context—gathering sensitive system data, performing cryptographic transformations on the data, and exfiltrating it via HTTP POST—is characteristic of a malware downloader or information stealer. The use of custom obfuscation and the dynamic resolution of functions (GetProcAddress) further confirm malicious intent.",
+    "general": "High-intent indicators include: calls to `WININET.dll` for `HttpSendRequestA` (RVA 0x40228c), evidence of `DeleteFileA` (RVA 0x4026c7) for anti-forensics, and extensive registry querying for system identifiers (fcn.00401540).",
+    "uncertainties": "Specific C2 IP/Domain hardcoded values were not fully resolved due to the dynamic nature of the obfuscated strings and the custom transformation routine.",
+    "conditions": "Execution is gated by environment checks (e.g., GetAdaptersInfo) and may require specific network conditions to receive a valid response from the remote server.",
+    "sandbox_recommendations": "Provide an internet-connected sandbox environment. Simulate DNS responses for likely C2 traffic and monitor file system activity for created .dat files or self-deletion attempts."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0",
+          "description": "Registry key used for CPU identification."
+        },
+        {
+          "value": "SYSTEM\\CurrentControlSet\\Control\\Nls\\Language",
+          "description": "Registry key used for locale identification."
+        },
+        {
+          "value": "SOFTWARE\\MICROSOFT\\WINDOWS_NT\\CurrentVersion",
+          "description": "Registry key used for OS version identification."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "proto.dat",
+          "description": "Target file for existence check."
+        },
+        {
+          "value": "agfmpileifqj",
+          "description": "Base string used in path construction."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401000",
+      "name": "main",
+      "description": "Primary execution loop, initializes mutexes and network connections."
+    },
+    {
+      "address": "0x00401540",
+      "name": "fcn.00401540",
+      "description": "Performs system reconnaissance and report generation."
+    },
+    {
+      "address": "0x004021b0",
+      "name": "fcn.004021b0",
+      "description": "Handles HTTP communication, including InternetOpen and HttpSendRequest."
+    },
+    {
+      "address": "0x00402990",
+      "name": "fcn.00402990",
+      "description": "Transformation routine used for data encryption or obfuscation."
+    }
+  ]
+}

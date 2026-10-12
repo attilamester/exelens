@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains a complex installer routine that performs resource decryption, process-specific registry modifications, and kernel-level manipulations. It includes code that appears designed to interact with 'ntoskrnl.exe' or 'win32k.sys' for low-level system operations, including potential service table manipulation.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom decryption loop using XOR 0xCD",
+      "Dynamic API resolution through GetProcAddress and GetModuleHandle",
+      "Resource-based payload storage"
+    ],
+    "details": "The executable contains multiple encrypted resources (e.g., RVA 0x100015f7 calls FindResourceA and LoadResource, then applies a XOR 0xCD loop) and performs dynamic loading of system libraries to resolve kernel-related functions."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Hooking",
+      "description": "Evidence of mapping and potentially hooking system service descriptor tables (KeServiceDescriptorTable)."
+    },
+    {
+      "name": "Persistence",
+      "description": "Extensive registry modifications on Run keys and system-wide service installation."
+    },
+    {
+      "name": "Hidden Payload Execution",
+      "description": "Decrypts resource-based blobs in memory and executes them."
+    },
+    {
+      "name": "Kernel Interaction",
+      "description": "Contains routines to resolve and interact with low-level kernel APIs like NtQuerySystemInformation, NtQueryObject, and KeRaiseIrqlToDpcLevel."
+    }
+  ],
+  "details": {
+    "reasoning": "While the file exhibits some installer-like behavior, the combination of kernel-level API imports (e.g., KeServiceDescriptorTable manipulation, NtQuerySystemInformation) and the decryption/execution of hidden resources strongly confirms malicious intent rather than a legitimate software installation.",
+    "general": "High-intent evidence includes functions fcn.1000ab6f and fcn.1000a2cd that interact with KeServiceDescriptorTable and system registry keys, alongside fcn.1000b46f which uses 'int 0x2e' for direct system calls, indicating evasion or direct kernel interaction.",
+    "uncertainties": "The exact nature of the decrypted resource payloads (102, 101, 103) is inferred from the execution flow as the payloads are only decrypted and executed in memory.",
+    "conditions": "Execution is likely triggered by specific registry keys or system states as the file checks for existing mutexes (e.g., 'prkMtx', 'GlobalRPCMutex') and volume information.",
+    "sandbox_recommendations": "Ensure the sandbox has Windows 10/7 kernel-mode debugging disabled or monitor via a hypervisor-based tool. Simulate standard OS registry hive presence to avoid anti-analysis triggers."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\",
+          "description": "Targeted registry path for service installation"
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Used for execution single-instance check"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Used to synchronize access or prevent multiple infections"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Resource decryption routine using XOR 0xCD."
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Kernel service table manipulation function."
+    },
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Performs system calls via int 0x2e."
+    }
+  ]
+}

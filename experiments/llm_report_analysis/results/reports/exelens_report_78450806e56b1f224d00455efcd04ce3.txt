@@ -1,0 +1,63 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains code designed to perform kernel-mode process injection. It uses ZwQuerySystemInformation and PsLookupProcessByProcessId to locate the system process, and then uses a custom IOCTL (0x120028) to communicate with a driver (loaded as .TCP) to perform memory allocation and thread execution in the target process context.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The file is not packed. It contains standard debug information and CRT boilerplate."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "Utilizes a driver to execute code within a target process via DeviceIoControl."
+    },
+    {
+      "name": "Kernel-mode API resolution",
+      "description": "Uses LoadLibrary and GetProcAddress to resolve internal Windows kernel functions (ZwQuerySystemInformation, PsLookupProcessByProcessId)."
+    },
+    {
+      "name": "Anti-Debugging",
+      "description": "Checks IsDebuggerPresent and contains runtime checks (RTC) that terminate the process if a debugger is detected."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode function imports (PsLookupProcessByProcessId, ZwQuerySystemInformation) and the specific usage of DeviceIoControl with a handle to a device named '.TCP' is a strong indicator of malicious intent to perform process injection or system-level monitoring. The explicit termination logic upon finding a debugger further confirms malicious intent.",
+    "general": "High-intent malicious actions identified in fcn.00411410 and fcn.004118f0. RVA 0x411516 (DeviceIoControl) sends 0x120028 code. fcn.004118f0 resolves PsLookupProcessByProcessId (RVA 0x411c5b).",
+    "uncertainties": "No specific target process is hardcoded; the injection logic depends on the result of PsLookupProcessByProcessId, which is likely resolving the system process.",
+    "conditions": "Requires the presence of the '.TCP' device driver and elevated (Administrator) privileges to load or interact with kernel-mode drivers.",
+    "sandbox_recommendations": "Run in an environment where kernel-level driver loading is permitted or where the specific '.TCP' device exists. Monitor for DeviceIoControl calls with code 0x120028."
+  },
+  "ioc": [
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": ".TCP",
+          "description": "Device name for driver communication"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "PsLookupProcessByProcessId",
+          "description": "Internal kernel function used for process identification"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00411410",
+      "name": "fcn.00411410",
+      "description": "Primary execution routine that initiates device communication and process creation."
+    },
+    {
+      "address": "0x004118f0",
+      "name": "fcn.004118f0",
+      "description": "Performs anti-analysis and resolves sensitive kernel-mode functions via ntdll."
+    }
+  ]
+}

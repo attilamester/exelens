@@ -1,0 +1,72 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This executable acts as a remote administration tool (RAT) that uses HTTP for C2 communication, persistent command execution, and file management on the infected host.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "No packing detected. The code appears to be compiled C/C++ code with direct WinINET and networking imports."
+  },
+  "capabilities": [
+    {
+      "name": "C2 Communication",
+      "description": "Communicates with a hard-coded domain (us.gnpes.org) via HTTP POST requests using the WININET library."
+    },
+    {
+      "name": "Process Execution",
+      "description": "Utilizes CreatePipe and CreateThread to redirect output from command-line shells back to the C2 server."
+    },
+    {
+      "name": "File System Operations",
+      "description": "Supports remote file listing, uploading, and downloading through custom commands."
+    },
+    {
+      "name": "Persistence / Cleanup",
+      "description": "Attempts self-deletion by executing a shell command that deletes its own executable file path."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of C2 communication, remote shell capabilities, and file system management confirms malicious intent. While individual functions like 'CreateThread' or 'InternetOpenA' are dual-use, their combined usage in a command-loop architecture (processing commands such as 'shell', 'listfiles', 'delclient') indicates a clear Remote Access Trojan functionality.",
+    "general": "The function fcn.00402960 implements the primary C2 command loop. It processes commands like 'shell' (fcn.003430), which executes commands via CreatePipe, and 'delclient'/'listfiles' using string comparisons. Networking is handled via fcn.004018c0 and related WININET functions.",
+    "uncertainties": "While the binary is not packed, some function names and logic flow are reconstructed from standard CRT boilerplate and high-level networking library patterns.",
+    "conditions": "The malware requires an active internet connection to contact 'http://us.gnpes.org/1.asp'. It also uses a mutex named 'letusgohtppmmv1.0' to ensure single-instance execution.",
+    "sandbox_recommendations": "Ensure the sandbox provides a fake internet connection responding to HTTP requests on port 80 to the domain us.gnpes.org. Observe the creation of the named pipe and the subsequent cmd.exe spawn."
+  },
+  "ioc": [
+    {
+      "type": "url",
+      "values": [
+        {
+          "value": "http://us.gnpes.org/1.asp",
+          "description": "C2 server URL used for communication."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "letusgohtppmmv1.0",
+          "description": "Mutex name used for persistence and single-instance checks."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00402960",
+      "name": "fcn.00402960",
+      "description": "Main C2 command processing loop."
+    },
+    {
+      "address": "0x004018c0",
+      "name": "fcn.004018c0",
+      "description": "Handles HTTP POST requests for command transmission."
+    },
+    {
+      "address": "0x00403430",
+      "name": "fcn.00403430",
+      "description": "Performs file actions and command formatting for C2 responses."
+    }
+  ]
+}

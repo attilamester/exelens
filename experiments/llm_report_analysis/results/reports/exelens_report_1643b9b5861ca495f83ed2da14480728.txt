@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to hook system calls by modifying the System Service Descriptor Table (SSDT), a common technique for rootkits. It also includes code for file hiding, registry manipulation, and process interaction (lsass), suggesting it is designed to maintain persistence and evade detection on Windows systems.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation",
+      "Dynamic API resolution",
+      "Resource-based payload storage"
+    ],
+    "details": "The sample uses a custom XOR routine (RVA 0x1000167b) to decrypt portions of its resources and code in memory. It dynamically resolves functions at runtime using LoadLibrary/GetProcAddress."
+  },
+  "capabilities": [
+    {
+      "name": "SSDT Hooking",
+      "description": "Modifies system service tables to intercept and potentially modify system calls, a high-intent indicator for rootkits."
+    },
+    {
+      "name": "Process Hollowing/Injection",
+      "description": "Contains routines to create processes and write/modify their memory space (e.g., CreateProcess, WriteFile)."
+    },
+    {
+      "name": "Persistence Mechanism",
+      "description": "Manipulates registry keys (e.g., Run keys via RegSetValueExA) and copies files to system directories."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Checks for debugger presence and system environment details to evade sandbox detonation."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of SSDT modification (fcn.1000b369), manipulation of 'lsass' (fcn.100017a0), and the presence of low-level kernel-like functions (KeRaiseIrqlToDpcLevel, KeGetCurrentIrql) demonstrates malicious intent beyond mere protection. The file acts as a system-level implant rather than legitimate software.",
+    "general": "High-intent indicators include SSDT hooking via fcn.1000b369 and fcn.1000ab6f. The manipulation of lsass.exe via registry modification (fcn.100017a0) and the use of hardcoded strings like 'prkMtx' (mutex) and specific driver/kernel function names suggest targeted malicious activity.",
+    "uncertainties": "The truncated nature of some large functions means certain secondary behaviors may be missed, though the primary malicious logic is evident in the SSDT hooking routines.",
+    "conditions": "The payload appears to trigger based on the system version check (fcn.100082ce) and requires specific environment conditions, possibly checking for the presence of certain system files or drivers.",
+    "sandbox_recommendations": "Run in a Windows kernel-debugging environment. Simulate specific registry paths (e.g., Run keys) and provide system environment variables that match a standard desktop configuration to trigger the payload's main logic."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Persistence key for automatic execution."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "lsass",
+          "description": "Target process for modification."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used to ensure single-instance execution."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Kernel-mode SSDT hooking routine."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Manipulates lsass registry keys for persistence."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Payload extraction and process creation."
+    }
+  ]
+}

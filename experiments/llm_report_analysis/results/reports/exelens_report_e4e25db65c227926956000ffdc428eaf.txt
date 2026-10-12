@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This sample is a complex dropper/installer that decrypts embedded resources to drop malicious files, performs system-level modifications, and attempts to interact with kernel-mode drivers, likely to establish persistence and bypass security restrictions.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation of embedded resources",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress",
+      "Resource-based payload hiding"
+    ],
+    "details": "The file uses custom XOR routines (e.g., fcn.100075ce) to decrypt payloads hidden within RCDATA resources. It dynamically resolves functions from ntdll.dll and other system libraries to perform operations."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Persistence",
+      "description": "Uses CreateProcess, WriteFile, and registry modification to install or maintain presence."
+    },
+    {
+      "name": "System Modification",
+      "description": "Modifies system registry keys (Run keys) and interacts with system files (e.g., win32k.sys, ntoskrnl.exe)."
+    },
+    {
+      "name": "Evasion",
+      "description": "Contains code to check for debuggers and interacts with kernel structures, likely to evade user-mode security software."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent indicators, specifically the use of kernel-related function names (e.g., KeRaiseIrqlToDpcLevel, KeGetCurrentIrql, KeServiceDescriptorTable), combined with code that modifies system registry keys and drops files into system directories, confirms malicious intent. The dual-use features (e.g., resource decryption) are clearly part of a loader mechanism for an external, unauthorized payload.",
+    "general": "High-intent evidence includes calls to fcn.1000a2cd (which interacts with KeServiceDescriptorTable) and fcn.10009d28, which specifically looks for and attempts to hook kernel-level functions in ntoskrnl.exe/ntkrnlpa.exe. The use of ADVAPI32.dll for registry persistence (RegSetValueExA) targeting known system locations is also clearly malicious.",
+    "uncertainties": "While the function-level analysis shows clear intent, the actual final payload content was not fully unpacked, meaning its ultimate goal (spyware, ransomware, etc.) is inferred from the installation behavior.",
+    "conditions": "The malware checks for environment variables (e.g., 'system32') and uses mutexes ('GlobalRPCMutex', 'prkMtx') to ensure single-instance execution. It may require administrative privileges to successfully modify system files.",
+    "sandbox_recommendations": "Run in an environment that allows monitoring of kernel-mode activity. Use a tool like Procmon to track registry keys created in HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run. Intercept calls to LoadLibrary/GetProcAddress."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Used for persistence"
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for single-instance check"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for kernel-mode synchronization"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Primary resource decryption and payload installation function."
+    },
+    {
+      "address": "0x10009d28",
+      "name": "fcn.10009d28",
+      "description": "Kernel-mode function hooking and system structure modification routine."
+    },
+    {
+      "address": "0x1000a2cd",
+      "name": "fcn.1000a2cd",
+      "description": "Registry-based persistence and configuration setup."
+    }
+  ]
+}

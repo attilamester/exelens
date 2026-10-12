@@ -1,0 +1,93 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The malware is a macOS downloader that gathers system information (OS version, username, and running processes), encrypts this data, and exfiltrates it to remote servers. It subsequently executes commands or files received from those servers, maintaining persistence and evasion capabilities.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based string obfuscation",
+      "Dynamic API resolution (via Objective-C selectors)",
+      "Base64-encoded network payloads"
+    ],
+    "details": "The sample uses a custom Loader class that decrypts configuration, strings, and server URLs using a known XOR key (sym.XOR_KEY) at runtime. Network requests are dynamically constructed using objective-c runtime messaging."
+  },
+  "capabilities": [
+    {
+      "name": "System Information Discovery",
+      "description": "Collects OS version, username, and process list via ps aux."
+    },
+    {
+      "name": "Command and Control (C2)",
+      "description": "Communicates with remote servers via HTTP POST requests to receive tasks."
+    },
+    {
+      "name": "Process Execution",
+      "description": "Executes arbitrary commands and files using system() and NSTask."
+    },
+    {
+      "name": "Anti-Debugging/Analysis",
+      "description": "Checks for the presence of a debugger using a dedicated function before execution."
+    },
+    {
+      "name": "Persistence/Cleanup",
+      "description": "Includes functionality to delete files (sym.BLOCK_DELETE) and execute shell commands."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of process information harvesting (method.InfoOS.getProcessList), arbitrary command execution via system(), and server-side control over file execution (method.FileExplorer.executeFile) confirms malicious intent. The dual-use nature of 'system()' and 'popen()' is negated by the clear intent to use them as part of a C2 loop.",
+    "general": "The function 'method.InfoOS.getProcessList' (RVA 0x100004430) uses 'popen' with 'ps aux' to exfiltrate system process information. The function 'method.FileExplorer.executeFile' (RVA 0x100001840) directly executes downloaded files using 'system' or 'NSTask'. These behaviors, combined with anti-debugging checks (sym.AmIBeingDebugged__), characterize a functional backdoor.",
+    "uncertainties": "The exact remote C2 infrastructure addresses are not fully visible in the provided assembly as they are stored in an obfuscated format (sym.SERVERS) and decrypted at runtime.",
+    "conditions": "The sample performs an environment check (sym.AmIBeingDebugged__) and requires an active internet connection (method.Loader.connectedToInternet__) to initiate the main payload logic.",
+    "sandbox_recommendations": "Ensure the sandbox has internet access, and consider providing fake process list output or DNS resolutions to observe how the binary reacts to different environments. No special CLI arguments are required for basic execution."
+  },
+  "ioc": [
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "/dev/null",
+          "description": "Used in shell commands to suppress output"
+        },
+        {
+          "value": "/dev/urandom",
+          "description": "Used as a seed for random number generation"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "ps aux",
+          "description": "Command used to enumerate processes"
+        },
+        {
+          "value": "application/x-www-form-urlencoded; charset=utf-8",
+          "description": "HTTP Content-Type header used for exfiltration"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100004430",
+      "name": "method.InfoOS.getProcessList__",
+      "description": "Enumerates running system processes for exfiltration."
+    },
+    {
+      "address": "0x100001840",
+      "name": "method.FileExplorer.executeFile_char_const__unsigned_long_",
+      "description": "Executes downloaded files or shell commands."
+    },
+    {
+      "address": "0x100006100",
+      "name": "method.Loader.startLoader__",
+      "description": "Main entry point for the loader functionality."
+    },
+    {
+      "address": "0x100006c80",
+      "name": "entry0",
+      "description": "Initialization and anti-debugging check entry point."
+    }
+  ]
+}

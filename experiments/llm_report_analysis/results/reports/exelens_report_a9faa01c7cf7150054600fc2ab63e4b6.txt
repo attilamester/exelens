@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a downloader and persistence mechanism. It performs network reconnaissance, downloads files, decrypts them via simple XOR operations, and establishes persistence through registry run keys.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed; however, it uses basic string obfuscation and a simple XOR-based decryption routine (RVA 0x401848) for the payload data."
+  },
+  "capabilities": [
+    {
+      "name": "Network Communication",
+      "description": "Uses WININET.dll (InternetOpenA, HttpOpenRequestA, HttpSendRequestA) to initiate web requests."
+    },
+    {
+      "name": "Persistence",
+      "description": "Manipulates registry keys (RegCreateKeyExA) under 'Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce' and 'Run'."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Writes, deletes, and modifies file attributes (DeleteFileA, SetFileAttributesA) for temporary files."
+    },
+    {
+      "name": "Process Injection/Execution Control",
+      "description": "Uses RegCreateKeyExA and GetProcAddress with WriteProcessMemory-like behavior patterns to ensure execution."
+    },
+    {
+      "name": "Environment Reconnaissance",
+      "description": "Enumerates hostnames and network interfaces via WS2_32.dll (gethostname, gethostbyname, inet_ntoa)."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of downloading data from the internet, performing XOR decryption, writing files to the system, and creating registry persistence keys constitutes clear evidence of malicious intent. These actions are characteristic of a stage-one dropper/loader rather than legitimate software.",
+    "general": "The function at 0x401476 uses WININET functions to fetch data. This data is then decrypted by 0x401848 (XOR 0x55). The binary then uses ADVAPI32.dll at 0x4012eb to add its own path to the 'RunOnce' registry key.",
+    "uncertainties": "The exact source URLs for the downloads are obfuscated via local string manipulations, so the specific C2 infrastructure is not visible in static analysis, though the logic is confirmed.",
+    "conditions": "The malware requires internet access to reach the C2 server. It checks for the existence of specific temporary files in the system's temporary directory. It also performs a date/time check (comparing system time via FileTimeToLocalFileTime) before activation.",
+    "sandbox_recommendations": "Ensure the sandbox provides a fake internet connection (simulated C2 server). Monitor the HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce registry hive for new entries."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "POST",
+          "description": "HTTP request method used to send data."
+        },
+        {
+          "value": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce",
+          "description": "Registry key path for persistence."
+        },
+        {
+          "value": "toolbar.exe",
+          "description": "File name referenced for persistence."
+        },
+        {
+          "value": "DirectXupdate.exe",
+          "description": "File name referenced for persistence."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x401476",
+      "name": "fcn.00401476",
+      "description": "Main downloader logic using WININET APIs."
+    },
+    {
+      "address": "0x4012eb",
+      "name": "fcn.004012eb",
+      "description": "Persistence establishment via Registry keys."
+    },
+    {
+      "address": "0x401848",
+      "name": "fcn.00401848",
+      "description": "Simple XOR decryption routine used on payloads."
+    }
+  ]
+}

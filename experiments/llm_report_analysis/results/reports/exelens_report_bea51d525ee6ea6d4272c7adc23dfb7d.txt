@@ -1,0 +1,66 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a file-transfer downloader that communicates over a network socket to upload/download files, while attempting to maintain persistence by modifying the Windows Registry.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR decryption loop in .text section",
+      "High-entropy overlay containing encrypted payload"
+    ],
+    "details": "The code contains a loop (fcn.00401000) that XORs data with 0x05, typical of a custom packer or stage-one loader. The 6.3KB overlay with 7.39 entropy strongly suggests an encrypted payload appended to the main executable."
+  },
+  "capabilities": [
+    {
+      "name": "Network Communication",
+      "description": "Utilizes Winsock (WS2_32.dll) to connect, send, and receive data from a remote host."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies the registry key 'Software\\Microsoft\\Windows\\CurrentVersion\\Run' to ensure execution on system startup."
+    },
+    {
+      "name": "File System Operations",
+      "description": "Capabilities for reading/writing files and interacting with temporary system directories."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of Winsock communication, registry manipulation for persistence (Google_Update), and a high-entropy overlay is characteristic of a Trojan downloader or remote access tool (RAT). While some components (registry writes) are dual-use, the context of establishing a socket connection specifically for 'File Upload' and 'File Download' operations, combined with obfuscation techniques, confirms malicious intent.",
+    "general": "The function fcn.00401b90 performs file operations and calls socket send functions (fcn.00401f30). Registry persistence is explicitly handled in entry0/main logic using Advapi32 functions to modify 'Software\\Microsoft\\Windows\\CurrentVersion\\Run'. The presence of a custom XOR loop to decrypt code at runtime (fcn.00401000) indicates an intent to hide functionality from static analysis.",
+    "uncertainties": "The exact C2 address is obfuscated or dynamically resolved, and the specific payload decrypted from the overlay was not fully reconstructed, meaning the final stage's payload is unknown.",
+    "conditions": "The file requires network connectivity to a pre-defined or resolved IP address to succeed in its primary functionality. Persistence logic is triggered during the normal entry sequence.",
+    "sandbox_recommendations": "Monitor network traffic for socket connections. Use a registry monitor to observe the 'Google_Update' entry being created in the Run key. Detonate in an environment where network requests can be intercepted."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Registry key used for persistence"
+        },
+        {
+          "value": "Google_Update",
+          "description": "Value name used in the Run key for camouflage"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00402200",
+      "name": "main",
+      "description": "Orchestrates registry persistence and initiates core logic."
+    },
+    {
+      "address": "0x00401b90",
+      "name": "fcn.00401b90",
+      "description": "Primary network communication and file transfer handler."
+    },
+    {
+      "address": "0x00401000",
+      "name": "section..text",
+      "description": "Decrypts obfuscated code using a custom XOR algorithm."
+    }
+  ]
+}

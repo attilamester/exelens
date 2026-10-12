@@ -1,0 +1,81 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a persistent backdoor that communicates with a C2 server, manages files, modifies registry keys, and attempts process injection/hollowing via registry-based persistence and system file manipulation.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Dynamic API resolution using LoadLibraryA/GetProcAddress",
+      "XOR-based string/data obfuscation",
+      "Instruction obfuscation/junk code"
+    ],
+    "details": "The binary dynamically resolves many Windows and Networking APIs. Strings and critical constants are XOR-obfuscated and decrypted at runtime via fcn.004010b0."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Modifies Windows Registry keys (e.g., Run keys) to ensure execution on startup."
+    },
+    {
+      "name": "Network Communication",
+      "description": "Uses WSOCK32.dll to initiate HTTP/TCP connections, likely for C2 communication (recv, send, connect, select)."
+    },
+    {
+      "name": "Process Injection/System Manipulation",
+      "description": "Uses CreateProcessA, CreateThread, and file system manipulation to copy and potentially execute malicious components."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Checks for existing mutexes to prevent multiple instances and uses Sleep/timing checks to evade simple sandbox detonation."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of dynamic API resolution, persistence through registry manipulation, and network communication with C2 capability (evidenced by HTTP request construction and socket operations) confirms malicious intent. The binary purposefully hides its C2 logic and uses system API manipulation (e.g., SetSecurityInfo, CopyFileA) to maintain a foothold, which is inconsistent with legitimate software.",
+    "general": "High-intent malicious evidence includes fcn.00401310 (dynamic API resolution for network/process functions), fcn.004021a0 (socket communication), and fcn.00401a60 (registry persistence). The use of WSOCK32.dll to send/receive commands combined with file system modification (fcn.00401db0) points to a classic remote access trojan (RAT) behavior.",
+    "uncertainties": "While the binary logic is clear, specific C2 IP addresses and hardcoded paths are obfuscated/dynamically built, limiting the scope of static attribution.",
+    "conditions": "Execution is likely triggered by system startup (via registry persistence) or user interaction. It checks for a mutex named 'fcn.004090bc' to prevent multi-instance runs.",
+    "sandbox_recommendations": "Simulate a live internet connection. Monitor Registry activity, specifically under 'CurrentVersion\\Run'. Allow the process to sleep and use Process Monitor (ProcMon) to track file system and registry modifications."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings",
+          "description": "Accessed for proxy/network configuration discovery."
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "0x4090bc",
+          "description": "Mutex name used for process synchronization."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401310",
+      "name": "fcn.00401310",
+      "description": "Dynamically resolves all required system and network APIs."
+    },
+    {
+      "address": "0x004021a0",
+      "name": "fcn.004021a0",
+      "description": "Main routine for socket-based network communication."
+    },
+    {
+      "address": "0x00401a60",
+      "name": "fcn.00401a60",
+      "description": "Performs registry-based persistence operations."
+    },
+    {
+      "address": "0x00401db0",
+      "name": "fcn.00401db0",
+      "description": "Manages file system operations and directory creation."
+    }
+  ]
+}

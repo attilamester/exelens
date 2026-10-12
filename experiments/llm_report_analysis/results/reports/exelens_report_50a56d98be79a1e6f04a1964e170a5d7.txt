@@ -1,0 +1,54 @@
+{
+  "verdict": "malicious",
+  "confidence": "medium",
+  "summary": "The executable reads a registry value from 'SoftwareAdobeCommonFiles' labeled 'IconsStorage0', which appears to contain a path or command, and subsequently attempts to execute it as a process using CreateProcessW.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The section entropy values are low (ranging from 0.00 to 3.73), indicating the file is not packed or obfuscated."
+  },
+  "capabilities": [
+    {
+      "name": "Registry Persistence/Configuration Access",
+      "description": "Uses RegOpenKeyW and RegQueryValueExW to read keys."
+    },
+    {
+      "name": "Process Creation",
+      "description": "Uses CreateProcessW to launch a new process based on retrieved registry data."
+    }
+  ],
+  "details": {
+    "reasoning": "The program exhibits high-intent behavior by reading a value from a non-standard registry location ('SoftwareAdobeCommonFiles') and immediately passing that data as a command to CreateProcessW. This pattern is characteristic of a 'dropper' or 'loader' that uses the registry as a staging area to execute arbitrary payloads. The lack of legitimate application functionality (like UI or standard business logic) combined with this specific registry-to-process flow indicates malicious intent.",
+    "general": "The function fcn.100010e7 explicitly opens 'SoftwareAdobeCommonFiles' via RegOpenKeyW, fetches 'IconsStorage0' via RegQueryValueExW, and passes the resulting data structure directly to CreateProcessW. This orchestration of registry data into process execution is a clear high-intent indicator.",
+    "uncertainties": "The content of the registry key 'IconsStorage0' is not visible, so the exact payload being executed remains unknown. However, the mechanism itself is sufficient for a malicious classification.",
+    "conditions": "The code requires the registry key 'HKEY_LOCAL_MACHINE\\Software\\Adobe\\CommonFiles' (0x80000002) to exist and contain a valid value named 'IconsStorage0' for the CreateProcessW call to proceed with meaningful data.",
+    "sandbox_recommendations": "Pre-configure the Windows Registry to include HKEY_LOCAL_MACHINE\\Software\\Adobe\\CommonFiles with a REG_SZ or REG_BINARY value named 'IconsStorage0' containing a path to a test executable (e.g., 'C:\\Windows\\System32\\calc.exe')."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\Software\\Adobe\\CommonFiles",
+          "description": "Registry path accessed to retrieve execution payload"
+        },
+        {
+          "value": "IconsStorage0",
+          "description": "Registry value name containing the path/command to launch"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100010e7",
+      "name": "fcn.100010e7",
+      "description": "Main logic function that performs the registry query and initiates the process creation."
+    },
+    {
+      "address": "0x1000103d",
+      "name": "entry0",
+      "description": "Entry point that initiates the setup of internal structures and calls the main logic."
+    }
+  ]
+}

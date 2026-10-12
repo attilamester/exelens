@@ -1,0 +1,88 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This sample is a sophisticated dropper that installs a rootkit/kernel driver by decrypting an embedded payload, modifying system registry keys, and bypassing integrity checks. It interacts with system-critical files (ntoskrnl.exe, win32k.sys) and uses direct I/O to manipulate memory structures.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom encryption (XOR 0xCD)",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress",
+      "Embedded resource decryption"
+    ],
+    "details": "The payload is stored in the .rsrc section (resource ID 102). It is decrypted at runtime using a XOR operation with 0xCD before being loaded or executed."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode component installation",
+      "description": "The malware attempts to load and interact with system drivers (win32k.sys, ntoskrnl.exe)."
+    },
+    {
+      "name": "Process/Service hiding",
+      "description": "It manipulates system object structures (NtQueryObject, NtQuerySystemInformation) to potentially hide its presence."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies system registry keys to ensure execution upon reboot."
+    },
+    {
+      "name": "Process Injection/System manipulation",
+      "description": "Uses CreateProcess, CopyFile, and direct registry modification to elevate privileges and persist."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent actions—such as modifying system drivers (win32k.sys), creating hidden service mutexes (prkMtx), and attempting to manipulate Kernel structures (KeServiceDescriptorTable) via direct memory modification—far exceeds the threshold of a legitimate installer or protector. The code explicitly attempts to subvert security mechanisms through direct system calls (Int 2e), confirming malicious intent.",
+    "general": "High-intent evidence found in function fcn.1000ab6f and fcn.1000a2cd, which perform direct modification of the KeServiceDescriptorTable (SSDT hooking). Additionally, fcn.10009bd3 and fcn.1000c932 explicitly load and manipulate ntoskrnl.exe and win32k.sys, typical behavior of kernel-mode rootkits.",
+    "uncertainties": "The exact function of the decrypted .rsrc payload is not fully visible, but the assembly confirms it performs kernel-level hooks.",
+    "conditions": "Execution is gated by environmental checks; specifically, the sample checks for the existence of specific environment variables and attempts to create a unique system-wide mutex ('GlobalRPCMutex' or 'prkMtx') to prevent multiple instances.",
+    "sandbox_recommendations": "Run in a kernel-mode debugger environment. The sample requires administrative privileges to modify system files and registry keys. Ensure the sandbox simulates a full Windows environment to pass environment checks."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for process synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for potential rootkit synchronization."
+        },
+        {
+          "value": "lsass",
+          "description": "Target process for registry modification."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "win32k.sys",
+          "description": "System driver targeted for modification."
+        },
+        {
+          "value": "ntoskrnl.exe",
+          "description": "Kernel image targeted for modification."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Performs SSDT hooking (KeServiceDescriptorTable modification)."
+    },
+    {
+      "address": "0x10009bd3",
+      "name": "fcn.10009bd3",
+      "description": "Loads and prepares system kernel modules."
+    },
+    {
+      "address": "0x10001697",
+      "name": "fcn.10001697",
+      "description": "Main installation routine handling file copying and attribute setting."
+    }
+  ]
+}

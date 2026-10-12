@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple functionalities typical of a sophisticated rootkit or kernel-level malware, including dynamic kernel API resolution, kernel object manipulation (`NtQuerySystemInformation`, `NtQueryObject`), and hooking capabilities. It targets sensitive Windows kernel functions like `KeRaiseIrqlToDpcLevel` to modify system behavior and bypass security mechanisms.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation of data resources",
+      "Dynamic API resolution (kernel and user-mode)",
+      "Runtime code patching of kernel APIs"
+    ],
+    "details": "The sample uses a multi-stage approach. Several resources are XOR-encrypted (0xcd key). It dynamically loads libraries and resolves kernel-mode functions, likely to hide its presence and avoid simple import-based detection."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel API Hooking",
+      "description": "Utilizes `KeServiceDescriptorTable` and `KeAddSystemServiceTable` to locate and hook system service descriptors, enabling redirection of system calls."
+    },
+    {
+      "name": "Process/Thread Injection",
+      "description": "Capable of `CreateProcessA` and `CopyFileA` to likely drop secondary payloads into system directories."
+    },
+    {
+      "name": "Registry Manipulation",
+      "description": "Extensively uses `RegCreateKeyExA`, `RegSetValueExA`, and `RegQueryValueExA` to modify system persistence and configuration."
+    },
+    {
+      "name": "Mutex-based Evasion",
+      "description": "Uses `CreateMutexA` and `OpenMutexA` with strings like 'GlobalRPCMutex' to ensure single-instance execution and avoid sandbox detection."
+    }
+  ],
+  "details": {
+    "reasoning": "The file exhibits clear high-intent malicious behavior. It actively searches for and modifies kernel structures (the SSDT) and uses functions related to low-level kernel stability (`KeRaiseIrqlToDpcLevel`). The combination of registry persistence, file copying to `system32` paths, and the attempt to patch kernel memory via `MmMapLockedPagesSpecifyCache` strongly indicates a malicious rootkit intent rather than benign administrative software.",
+    "general": "Evidence is found in `fcn.1000b46f` and `fcn.1000ab6f` where the code resolves and hooks `KeServiceDescriptorTable`. Function `fcn.10009d28` demonstrates the manual parsing of PE structures to find exported kernel functions, followed by attempts to patch them (evidenced by the opcode check for `0xe8`, `0xff`, etc.).",
+    "uncertainties": "The exact nature of the decrypted payload is not fully visible, as the decryption keys appear to be derived dynamically during execution, though the logic is clearly to prepare a malicious hook.",
+    "conditions": "The payload requires administrative privileges to interact with the kernel-mode drivers and write to protected registry keys. It checks for specific Windows versions via `GetVersionExA` and uses a Mutex ('GlobalRPCMutex') to gate execution.",
+    "sandbox_recommendations": "Run in an environment that supports kernel-level tracing (e.g., KVM with specific debug flags enabled). Ensure the sandbox is configured with administrative rights and supports file system changes in `System32`."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\",
+          "description": "Likely used for kernel-mode persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for execution synchronization."
+        },
+        {
+          "value": "KeServiceDescriptorTable",
+          "description": "Target structure for rootkit hooking."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Handles the modification of the SSDT (System Service Descriptor Table) to install hooks."
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Performs kernel service discovery and mapping for hook injection."
+    },
+    {
+      "address": "0x10009d28",
+      "name": "fcn.10009d28",
+      "description": "Analyzes exported kernel modules to identify targets for API patching."
+    }
+  ]
+}

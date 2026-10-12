@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple high-intent indicators of malicious behavior, specifically the installation of a kernel-mode driver, manual mapping of kernel memory, modification of kernel-level structures (System Service Descriptor Table - SSDT), and anti-analysis checks.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation of internal code/data segments",
+      "Manual dynamic resolution of imports via LoadLibrary and GetProcAddress"
+    ],
+    "details": "The executable exhibits self-modifying behavior where data blocks are XORed with a constant (0xCD) using a simple routine before being executed or processed. Several strings related to system processes and kernel components are constructed dynamically."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel Driver Installation/Interaction",
+      "description": "Utilizes kernel-mode APIs (NtShutdownSystem, KeServiceDescriptorTable) and performs manual memory operations typical of rootkits or kernel-level malware."
+    },
+    {
+      "name": "SSDT Hooking/Modification",
+      "description": "Attempts to locate and modify the KeServiceDescriptorTable, a common technique for rootkit persistence and system stealth."
+    },
+    {
+      "name": "Process Injection/Hollowing",
+      "description": "Uses VirtualAlloc and WriteFile/CopyFile patterns combined with CreateProcessA to inject or launch auxiliary payloads."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies Registry keys and uses mutexes (e.g., prkMtx, GlobalRPCMutex) to manage multiple instances and ensure persistence."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level system modifications (SSDT hooking), the use of undocumented/internal Windows kernel structures, and the presence of strings related to driver-like operations ('ntoskrnl.exe', 'win32k.sys') confirms malicious intent rather than legitimate software protection. The code structure shows a deliberate effort to bypass system protections and perform low-level hooking, which is not a feature of standard software installers.",
+    "general": "High-intent is identified through RVA 0x1000b369 (fcn.1000b369), which attempts to locate 'KeServiceDescriptorTable'. RVA 0x1000b46f (fcn.1000b46f) demonstrates modifications to the system table via direct memory operations. RVA 0x10009d28 contains logic to locate 'KeRaiseIrqlToDpcLevel', clearly indicating kernel-mode interaction.",
+    "uncertainties": "The exact nature of the final payload, which is obfuscated in the .rsrc section (resource 102), could not be fully decrypted in this static environment, but the loader code is unambiguously designed to facilitate kernel-level subversion.",
+    "conditions": "The file requires administrative privileges to successfully modify system structures or install services/drivers. It checks for system environment variables (e.g., 'temp') and specifically queries registry keys before full execution.",
+    "sandbox_recommendations": "Run in an environment that monitors kernel-level API calls and registry changes. Use a debugger to bypass the timing loops (Sleep) and the anti-analysis checks if it refuses to execute. Set the system environment appropriately."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Likely target for persistence persistence"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for synchronization"
+        },
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used to detect existing infections"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Attempts to locate and modify the System Service Descriptor Table (SSDT)."
+    },
+    {
+      "address": "0x10009d28",
+      "name": "fcn.10009d28",
+      "description": "Performs kernel structure analysis to find addresses for hooking."
+    },
+    {
+      "address": "0x100043d2",
+      "name": "fcn.100043d2",
+      "description": "Main logic controller responsible for resource extraction and potential process creation."
+    }
+  ]
+}

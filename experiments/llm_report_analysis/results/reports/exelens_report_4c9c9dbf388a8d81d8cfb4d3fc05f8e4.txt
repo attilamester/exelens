@@ -1,0 +1,97 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The file acts as a downloader/dropper that communicates with hardcoded URLs, persists via registry keys, and uses process hollowing or process creation to execute downloaded content. It attempts to bypass network connectivity tests and uses custom XOR obfuscation for its data.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Custom XOR/obfuscation loop for strings/data",
+      "Dynamic API resolution through function pointers"
+    ],
+    "details": "The file contains routines like fcn.00402668 that implement a custom XOR decryption or decoding loop (using values at 0x405840 and XOR keys at 0x5edeec) to process downloaded data or configuration strings."
+  },
+  "capabilities": [
+    {
+      "name": "Networking",
+      "description": "Uses WININET.dll (HttpOpenRequest, HttpSendRequest, InternetReadFile) to communicate with external web servers."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies the registry key Software\\Microsoft\\Windows\\CurrentVersion\\Run to ensure execution on system startup."
+    },
+    {
+      "name": "Process Execution",
+      "description": "Uses CreateProcessA to launch downloaded or local files."
+    },
+    {
+      "name": "Process Injection/Hollowing",
+      "description": "Functions like CreateThread and CreateProcessA suggest potential process manipulation, further evidenced by string operations related to '_setup.exe' and system DLLs."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Contains routines that attempt to resolve hostnames and simulate network activity to maintain stealth."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistent registry modification, command-and-control (C2) communication via hardcoded URLs, and the execution of downloaded files marks this as a malicious downloader. The file does not exhibit legitimate software installation behavior, but rather mimics the structure of common modular malware loaders.",
+    "general": "High-intent evidence includes the registration of a Mutex 'letusgozrmmv1.1' (RVA 0x40244e) for infection tracking, the use of WININET to fetch content from URLs (0x402f78), and persistence achieved by writing to the 'Run' registry key (0x402842).",
+    "uncertainties": "While the specific structure of the payload decrypted in memory cannot be fully reconstructed without dynamic execution, the downloader/dropper behavior is clearly identified.",
+    "conditions": "The malware checks for existing instances via Mutex 'letusgozrmmv1.1', attempts to resolve specific remote hostnames, and uses the current working directory to save files named 'INETINFO.EXE' or 'setup.exe'.",
+    "sandbox_recommendations": "Simulate a live internet connection, allow access to 'dril_quip.deltae.com.br' and 'inmarsat.crystalmark.co.uk', and monitor registry hive HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run for changes."
+  },
+  "ioc": [
+    {
+      "type": "url",
+      "values": [
+        {
+          "value": "http://dril_quip.deltae.com.br/update.html",
+          "description": "Hardcoded C2 communication URL"
+        },
+        {
+          "value": "http://inmarsat.crystalmark.co.uk/update.html",
+          "description": "Hardcoded C2 communication URL"
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Registry key used for persistence"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "letusgozrmmv1.1",
+          "description": "Mutex name used for multi-instance detection"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00402842",
+      "name": "fcn.00402842",
+      "description": "RegSetValueExW call to implement registry persistence"
+    },
+    {
+      "address": "0x0040244e",
+      "name": "fcn.0040244e",
+      "description": "Initializes WSAStartup, Mutex creation, and network identification"
+    },
+    {
+      "address": "0x00401081",
+      "name": "fcn.00401081",
+      "description": "Primary wrapper for InternetOpen and InternetConnect"
+    },
+    {
+      "address": "0x00402cf4",
+      "name": "fcn.00402cf4",
+      "description": "Main logic controller for network-based file downloading"
+    }
+  ]
+}

@@ -1,0 +1,81 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This executable acts as a rootkit loader/installer. It is designed to copy itself into system directories, establish persistence via registry modification, check for specific hardware/environment conditions to avoid analysis, and interact with the kernel (e.g., modifying KeServiceDescriptorTable).",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Resource-based loading",
+      "Dynamic API resolution",
+      "XOR-based payload decryption",
+      "Kernel object interaction"
+    ],
+    "details": "The executable contains multiple encrypted resources (e.g., 0x65, 0x66) that are loaded into memory and XOR-decrypted (0xCD) using KERNEL32.dll APIs (LoadResource, LockResource). It exhibits classic loader behavior, preparing the environment, potentially to inject a kernel-mode driver."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence / Registry Modification",
+      "description": "Uses RegCreateKeyExA and RegSetValueExA to ensure the malware runs automatically."
+    },
+    {
+      "name": "System File Manipulation",
+      "description": "Uses CopyFileA and SetFileAttributesA to manipulate files in system directories (e.g., _system32)."
+    },
+    {
+      "name": "Kernel-mode interaction",
+      "description": "Attempts to interact with NT internals, specifically referencing KeServiceDescriptorTable, NtQuerySystemInformation, and modifying kernel objects."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Checks for environment variables, mutexes (GlobalRPCMutex), and performs environment-specific checks to determine whether to execute malicious payloads."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent malicious capabilities, such as direct modification of kernel-level structures (KeServiceDescriptorTable), combined with persistent installation to system folders and resource decryption, provides clear evidence of malicious intent that exceeds any possible benign use.",
+    "general": "The code explicitly attempts to modify kernel structures (KeServiceDescriptorTable manipulation in fcn.1000ab6f). It also uses mutexes (GlobalRPCMutex) to manage execution and performs suspicious registry manipulations (RegSetValueExA in fcn.10001000).",
+    "uncertainties": "The exact function of the decrypted kernel-mode payload remains unknown, as the loader only prepares for execution. However, the intent to modify system-level kernel dispatch tables is inherently malicious.",
+    "conditions": "The payload requires specific execution environments. It checks for system-specific files (fanny.bmp, likely a misnamed component or bait) and registry entries. It is likely that the malware requires administrator or SYSTEM-level privileges to successfully complete its kernel-level modifications.",
+    "sandbox_recommendations": "Simulate a fully featured Windows environment, ideally including system-level file access and registry write permissions. If possible, utilize a kernel-aware debugger or monitoring tool to intercept the modifications to the System Descriptor Table."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used to manage single instance or cross-process synchronization."
+        },
+        {
+          "value": "KeServiceDescriptorTable",
+          "description": "Internal Windows kernel structure targeted for modification."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "_system32",
+          "description": "Target directory for file installation."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Appears to be responsible for kernel-level patching/hooking by modifying system descriptor tables."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Handles the file system operations, likely related to dropping the malicious payload."
+    },
+    {
+      "address": "0x10002109",
+      "name": "fcn.10002109",
+      "description": "Entry-level coordination and resource extraction/decryption routine."
+    }
+  ]
+}

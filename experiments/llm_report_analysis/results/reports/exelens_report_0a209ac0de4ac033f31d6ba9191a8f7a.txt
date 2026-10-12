@@ -1,0 +1,88 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains sophisticated kernel-level manipulation capabilities, specifically targeting system tables (KeServiceDescriptorTable) and system drivers (win32k.sys). It exhibits signs of being a kernel-mode driver installer or rootkit, featuring obfuscated string payloads and complex file-system/registry-based persistence mechanisms.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation of resource data",
+      "Dynamic API resolution through GetProcAddress and custom lookup tables"
+    ],
+    "details": "The file uses XOR loops (e.g., in fcn.10001697) to decode data retrieved from resources (type 232, ID 102). It dynamically resolves APIs using a custom table-based approach, which is a common technique to hide functionality from static analysis."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Attempts to locate and hook KeServiceDescriptorTable (SSDT) to intercept system calls."
+    },
+    {
+      "name": "Persistence via Registry",
+      "description": "Manipulates registry keys (e.g., Run keys, system services) for autostart capability."
+    },
+    {
+      "name": "File system obfuscation",
+      "description": "Uses unconventional file naming and location (e.g., _system32 win32k.sys) to evade detection."
+    },
+    {
+      "name": "Anti-analysis",
+      "description": "Contains checks for debugger presence and system environment variables."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of specific high-intent capabilities—specifically the attempts to modify the KeServiceDescriptorTable (SSDT), the use of NtQuerySystemInformation, and the manipulation of system drivers like win32k.sys—clearly demonstrates malicious intent (rootkit behavior) beyond any dual-use protector or installer. These are not common traits of legitimate administrative or protective software.",
+    "general": "The function fcn.1000b369 performs direct manipulation of the SSDT, identifying KeServiceDescriptorTable via string lookup and modifying memory protection to overwrite function pointers. Further, fcn.1000c492 and associated calls use I/O Control (IOCTL) patterns often found in driver-based rootkits. The routine fcn.100096ce specifically looks for system kernel modules (ntoskrnl.exe, ntkrnlpa.exe) to hook.",
+    "uncertainties": "The exact nature of the payload (the binary code decrypted from the resource) remains obscured by the runtime-decryption, but the target of the manipulation is confirmed as the Windows kernel.",
+    "conditions": "The malware requires an environment with administrative privileges to successfully load drivers and modify system structures. It appears to check for the presence of specific system services and environment paths (e.g., _system32) before executing the main payload.",
+    "sandbox_recommendations": "Run in a controlled Windows environment with kernel debugging enabled (WinDbg). Monitor registry changes at HKLM\\SYSTEM\\CurrentControlSet and watch for file system writes to %SystemRoot%\\System32."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\",
+          "description": "Potential service creation for persistence."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "_system32\\win32k.sys",
+          "description": "Suspicious driver path used for loading."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "KeServiceDescriptorTable",
+          "description": "Key target for rootkit hooking."
+        },
+        {
+          "value": "NtShutdownSystem",
+          "description": "Potentially used to force system reboots after installation."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Core SSDT hooking and system table modification routine."
+    },
+    {
+      "address": "0x10001697",
+      "name": "fcn.10001697",
+      "description": "Main installation function for unpacking and placing system files."
+    },
+    {
+      "address": "0x1000c492",
+      "name": "fcn.1000c492",
+      "description": "Kernel-mode memory mapping and manipulation wrapper."
+    }
+  ]
+}

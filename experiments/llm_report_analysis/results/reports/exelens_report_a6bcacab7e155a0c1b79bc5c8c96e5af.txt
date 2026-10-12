@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a modular backdoor/trojan that employs process injection and persistence mechanisms. It uses resource-based decryption of a secondary payload, attempts to disable security features by searching for specific driver or system processes (e.g., 'win32k.sys'), and modifies system configurations via registry keys.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource-based payload hiding",
+      "Dynamic API resolution (GetProcAddress)",
+      "Simple XOR obfuscation of strings and data"
+    ],
+    "details": "The file uses resources (101, 102, 103) as storage for encrypted code. Routine fcn.100015f7 and fcn.10001b34 are used to load, decrypt (XOR 0xCD), and execute payloads. API names are resolved at runtime."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Hollowing",
+      "description": "Utilizes CreateProcessA and related memory manipulation APIs to potentially inject or execute code."
+    },
+    {
+      "name": "Persistence via Registry",
+      "description": "Modifies Run keys or services via RegSetValueExA and RegCreateKeyExA."
+    },
+    {
+      "name": "Environment Evasion",
+      "description": "Checks for debugger presence and system configurations to avoid analysis."
+    },
+    {
+      "name": "System Modification",
+      "description": "Manipulates system drivers (e.g., win32k.sys) and registry keys to maintain access."
+    }
+  ],
+  "details": {
+    "reasoning": "The presence of code specifically targeting 'win32k.sys' (fcn.1000a0fc), the usage of 'NtShutdownSystem' and 'KeServiceDescriptorTable' hooking (fcn.1000ab6f), and the XOR-based decryption of resources indicates high malicious intent. These are not standard features of installers or protectors, which normally use legitimate APIs for patching or installation. The combination of system-level hooks and persistence logic confirms a malicious verdict.",
+    "general": "High-intent indicators include: fcn.1000a0fc (targeting win32k.sys), fcn.1000ab6f (hooking Kernel Service Descriptor Table), and the use of hardcoded strings like 'GlobalRPCMutex' and registry manipulation for persistence (RegSetValueExA).",
+    "uncertainties": "The exact nature of the decrypted resource payload is inferred from functional analysis of the loader code, but the full payload was not observed during this analysis.",
+    "conditions": "The sample uses mutexes ('GlobalRPCMutex') to ensure single execution. It also performs checks on the environment and specific registry keys to trigger its malicious payload injection.",
+    "sandbox_recommendations": "Run in a controlled Windows environment with registry monitoring enabled. Ensure that the system time can be manipulated, and be prepared to block network activity to identify C2 communication patterns."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Targeted for persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used to ensure single instance."
+        },
+        {
+          "value": "win32k.sys",
+          "description": "Targeted driver file for modification/hooking."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Hooks KeServiceDescriptorTable to intercept system calls."
+    },
+    {
+      "address": "0x1000a0fc",
+      "name": "fcn.1000a0fc",
+      "description": "Targeted system modification routine for win32k.sys."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Payload loader and process creation routine."
+    }
+  ]
+}

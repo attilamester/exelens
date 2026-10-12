@@ -1,0 +1,83 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple high-intent indicators of rootkit or kernel-level persistence mechanisms, including direct manipulation of kernel service tables and modifications to system files. It performs process enumeration, Registry manipulation, and attempts to execute code within the context of critical system processes (e.g., lsass).",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based payload obfuscation",
+      "Dynamic API resolution"
+    ],
+    "details": "Resource sections 102 and 103 show high entropy and are subjected to XOR 0xCD decryption loops in fcn.10001697. It also employs dynamic API resolution via GetProcAddress for critical NT functions."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel Service Table Manipulation",
+      "description": "Modifies system service tables (KeServiceDescriptorTable) to hook system calls."
+    },
+    {
+      "name": "Process Injection",
+      "description": "Attempts to inject or interact with critical system processes like lsass."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Renames or replaces system files within system32 using CopyFile and SetFileAttributes."
+    },
+    {
+      "name": "Persistence via Mutex and Registry",
+      "description": "Uses global Mutexes for single-instance execution and modifies registry keys for persistence."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode structures (KeServiceDescriptorTable), low-level memory operations (MmMapLockedPagesSpecifyCache), and the attempt to hook core Windows kernel APIs (NtShutdownSystem, KeGetCurrentIrql) demonstrates malicious intent beyond standard protector software. The specific targeting of system files in system32 combined with self-deletion routines (DeleteFileA) confirms malicious activity.",
+    "general": "High-intent evidence includes calls to fcn.1000b369 (KeServiceDescriptorTable modification), fcn.1000c492 (MmMapLockedPagesSpecifyCache), and fcn.10009bd3 (loading ntoskrnl/ntkrnlpa). The sample also contains references to 'lsass' for registry modification and uses 'prkMtx' for global mutex synchronization, typical of malware attempting to gain system-level control.",
+    "uncertainties": "While the kernel-level code is highly suspicious, some techniques could theoretically be used by advanced security drivers; however, the lack of digital signature/manifest and the presence of self-hiding routines strongly favor a malicious classification.",
+    "conditions": "The malware checks for a 'GlobalRPCMutex' and creates a system-wide 'prkMtx'. It relies on environment variables like 'windir' (system32) and checks Windows versioning via GetVersionExA to tailor its kernel-hooking methods.",
+    "sandbox_recommendations": "Must be run in a kernel-mode debugging environment with monitoring on the Service Descriptor Table (SDT). Simulate a fully updated Windows 7/10 x86 environment as it specifically targets system32 structure."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\",
+          "description": "Modification of system services"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used to prevent multiple instances"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Kernel-level mutex name"
+        },
+        {
+          "value": "lsass",
+          "description": "Targeted process for manipulation"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Manipulates the System Service Descriptor Table (SSDT)"
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Registry and privilege escalation handling"
+    },
+    {
+      "address": "0x1000c492",
+      "name": "fcn.1000c492",
+      "description": "Performs memory mapping and MDL locking for kernel access"
+    }
+  ]
+}

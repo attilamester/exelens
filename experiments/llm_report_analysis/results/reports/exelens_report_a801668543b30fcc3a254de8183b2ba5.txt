@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is an installer-type dropper that performs malicious system modification, specifically targeting Windows kernel mechanisms. It unpacks and drops a payload, creates a global mutex to prevent concurrent execution, and attempts to register itself as a system component by modifying the Windows registry. The file contains advanced anti-analysis techniques, including API unhooking and direct interactions with kernel-mode structures via IOCTLs, strongly indicating its purpose is to gain unauthorized persistence and potentially elevate privileges or bypass security software.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Custom XOR decryption loop",
+      "Resource-based payload storage",
+      "Dynamic API resolution"
+    ],
+    "details": "The file uses a custom XOR decryption loop (e.g., `fcn.100015f7`) on data loaded from the RSRC section (using `LoadResource` and `LockResource`) before execution. It also dynamically resolves system APIs using `GetProcAddress` to evade static detection."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence Mechanism",
+      "description": "Modifies system registry keys (`RegSetValueExA`) to ensure the malicious payload persists across system reboots."
+    },
+    {
+      "name": "Anti-Analysis / Evasion",
+      "description": "Uses `IsDebuggerPresent`, `CheckRemoteDebuggerPresent`, and custom routines to detect and avoid sandbox or debugger environments. It also interacts with internal kernel tables (e.g., KeServiceDescriptorTable)."
+    },
+    {
+      "name": "Kernel-Level Interaction",
+      "description": "Performs low-level operations (NtQuerySystemInformation, IOCTLs via internal syscalls) typically reserved for rootkits or advanced persistence mechanisms."
+    },
+    {
+      "name": "Dropped Payload Execution",
+      "description": "Drops an auxiliary executable or DLL, sets file attributes to hide it, and executes it using `CreateProcessA`."
+    }
+  ],
+  "details": {
+    "reasoning": "While the executable exhibits some dual-use capabilities (packing, registry modification), the inclusion of code specifically designed to manipulate kernel-level structures like `KeServiceDescriptorTable` and the use of undocumented internal APIs (`NtShutdownSystem`, `NtQuerySystemInformation`) alongside process injection techniques provides overwhelming evidence of malicious intent. The binary's structure indicates it is designed to bypass security controls rather than provide legitimate software functionality.",
+    "general": "The function `fcn.1000ab6f` performs high-intent operations by locating the `KeServiceDescriptorTable` (SSDT) and modifying it, a hallmark of rootkit activity. The routine in `fcn.10003c04` and `fcn.100043d2` shows the creation of malicious registry keys and dropped files in system folders, indicating attempts to hijack system startup.",
+    "uncertainties": "The exact nature of the decrypted payload is not fully visible, as it resides in the resource section and is only decoded at runtime. However, the logic controlling its deployment clearly matches known malicious dropper behaviors.",
+    "conditions": "The malware requires standard execution and likely targets systems where it can gain high enough privileges to write to the Windows registry and interact with kernel-level interfaces.",
+    "sandbox_recommendations": "Simulate a standard Windows environment, including common system registry keys. The sample should be monitored for registry write operations to 'Run' keys and suspicious file creation in 'System32' or 'Temp' directories. Ensure kernel-mode monitoring is enabled as the sample attempts to access sensitive internal Windows data structures."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used to detect and prevent multiple instances of the malware."
+        },
+        {
+          "value": "DMWI__",
+          "description": "Identifier or potential prefix used for registry-based persistence."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "system32\\win32k.sys",
+          "description": "File path targeted or simulated by the malware during its persistence phase."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Kernel-mode service table modification (SSDT hooking)."
+    },
+    {
+      "address": "0x10003c04",
+      "name": "fcn.10003c04",
+      "description": "Dropper routine that writes the payload and modifies system configurations."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Resource-based XOR decryption function."
+    }
+  ]
+}

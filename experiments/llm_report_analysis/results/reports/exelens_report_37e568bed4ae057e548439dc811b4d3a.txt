@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a modular backdoor/remote access trojan (RAT) that uses custom XOR encryption for communication, performs process enumeration, and supports file exfiltration, remote command execution, and persistence via registry keys.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based string/data obfuscation",
+      "Dynamic API resolution via GetProcAddress"
+    ],
+    "details": "The sample uses a custom XOR routine (fcn.00401047) to decrypt network configuration strings and operational commands at runtime. The executable imports numerous system APIs manually via GetProcAddress to evade static analysis."
+  },
+  "capabilities": [
+    {
+      "name": "Remote Command Execution",
+      "description": "Uses CreatePipe and CreateProcess to execute shell commands (cmd.exe) and stream output."
+    },
+    {
+      "name": "Process Injection/Enumeration",
+      "description": "Enumerates processes using CreateToolhelp32Snapshot and EnumProcessModules to identify targets or inject logic."
+    },
+    {
+      "name": "Persistence",
+      "description": "Writes registry keys and manipulates file system attributes to ensure execution."
+    },
+    {
+      "name": "Network Communication",
+      "description": "Implements custom C2 communication over Winsock (WS2_32.dll), with support for HTTP/S proxy settings and custom request headers."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of process hollowing/enumeration, registry-based persistence, custom network C2 communication using raw sockets, and the capability to execute shell commands on the system confirms malicious intent. While individual functions like LoadLibrary or RegOpenKey are dual-use, their orchestration to exfiltrate system data and maintain an active backdoor is indicative of a dedicated malware threat.",
+    "general": "High-intent malicious evidence includes the function fcn.0040325d (process enumeration), fcn.0040550f (remote shell creation via cmd.exe), and network interaction routines (fcn.00402c7b) that actively bypass proxy configurations and initiate socket connections to a C2 infrastructure.",
+    "uncertainties": "While the binary is fully analyzed, some specific C2 IP addresses may be hardcoded as encrypted blobs within the data section which were not fully decrypted in the provided static disassembly.",
+    "conditions": "The malware expects a connection to a specific C2 server. It checks for registry keys related to proxy settings and may fail or exhibit altered behavior if it cannot resolve network configurations or if specific environment variables/mutexes (fcn.0040188e) indicate another instance is running.",
+    "sandbox_recommendations": "Run in an isolated environment with network simulation (e.g., INetSim) to capture C2 traffic. Ensure DNS spoofing is enabled as the malware attempts to resolve external domains for communication."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings",
+          "description": "Registry key accessed to read/set proxy configuration."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "cmd.exe",
+          "description": "Executed for remote shell functionality."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401067",
+      "name": "fcn.00401067",
+      "description": "Primary initialization function, resolves APIs and performs initial decryption."
+    },
+    {
+      "address": "0x0040188e",
+      "name": "fcn.0040188e",
+      "description": "Mutex check and persistence management to ensure single instance execution."
+    },
+    {
+      "address": "0x0040550f",
+      "name": "fcn.0040550f",
+      "description": "Implements the remote command shell execution using pipes."
+    },
+    {
+      "address": "0x00402c7b",
+      "name": "fcn.00402c7b",
+      "description": "Network handler and socket initialization for C2 communication."
+    }
+  ]
+}

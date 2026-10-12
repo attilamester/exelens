@@ -1,0 +1,83 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This sample is a remote access trojan (RAT) that communicates over HTTP/HTTPS, performs process listing, manages services, executes remote commands via cmd.exe, and can download additional files. It employs a custom XOR-based string obfuscation technique and base64-like data encoding.",
+  "packed": {
+    "status": "false",
+    "techniques": [
+      "Custom string obfuscation via XOR and substitution",
+      "Dynamic API resolution (partially via MSVCRT imports)"
+    ],
+    "details": "The binary is not packed; however, it uses a custom transformation function (fcn.0040109b) to deobfuscate configuration strings and data at runtime. The logic is clearly visible in the disassembly."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Hollowing",
+      "description": "Utilizes CreateProcessAsUserA and CreateProcessA to launch shell commands."
+    },
+    {
+      "name": "Remote Command Execution",
+      "description": "Executes commands via cmd.exe and manages results through pipes (CreatePipe/ReadFile)."
+    },
+    {
+      "name": "Service Enumeration/Control",
+      "description": "Uses ADVAPI32 functions to enumerate, start, and stop Windows services."
+    },
+    {
+      "name": "Persistence/Environment Check",
+      "description": "Checks environment variables and interacts with Windows system directories."
+    },
+    {
+      "name": "Networking",
+      "description": "Initiates C2 communication using WININET.dll (HttpOpenRequestA, HttpSendRequestA) and downloads files via urlmon.dll."
+    }
+  ],
+  "details": {
+    "reasoning": "The application exhibits high-intent malicious behavior consistent with a RAT. It creates a named mutex to ensure single-instance execution, establishes persistence-like behavior via service interaction, and provides remote control functionality through shell command execution and process/service enumeration. The combination of WININET for C2 and command execution via cmd.exe via pipes strongly indicates malicious intent.",
+    "general": "High-intent evidence includes: fcn.00402350 (uses OpenProcessToken and CreateProcessAsUserA for privilege manipulation), fcn.004025b9 (enumerates processes), and fcn.00402dd4 (controls system services). WININET usage (fcn.00401210) points to C2 connectivity.",
+    "uncertainties": "While the binary is clear in its intent, the exact URL or C2 domain is obfuscated and decrypted only at runtime, so external connectivity points were not fully reconstructed.",
+    "conditions": "The sample requires a network connection to a C2 server to receive commands. It uses a custom string transformation for its configuration and expects specific HTTP response formats (e.g., 'Fetch server error' checks).",
+    "sandbox_recommendations": "Provide an emulated internet connection and monitor for outbound HTTP/HTTPS traffic. Monitor the creation of cmd.exe child processes."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobxxxxxxxxssssseeeeeealADReeeerrttyyyy64",
+          "description": "Mutex name used for single-instance check"
+        },
+        {
+          "value": "_fetch.py",
+          "description": "File path or identifier used in HTTP requests"
+        },
+        {
+          "value": "shell",
+          "description": "Command keyword identified in fcn.004021d5"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401a43",
+      "name": "fcn.00401a43",
+      "description": "Primary network communication handler and C2 logic orchestrator."
+    },
+    {
+      "address": "0x00402350",
+      "name": "fcn.00402350",
+      "description": "Executes shell commands using cmd.exe and handles process creation."
+    },
+    {
+      "address": "0x004025b9",
+      "name": "fcn.004025b9",
+      "description": "Enumerates processes and services for reconnaissance."
+    },
+    {
+      "address": "0x0040109b",
+      "name": "fcn.0040109b",
+      "description": "String deobfuscation routine."
+    }
+  ]
+}

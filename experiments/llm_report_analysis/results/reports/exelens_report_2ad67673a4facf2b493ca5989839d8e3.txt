@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample performs reflective DLL loading and process injection (hollowing) of a payload into 'explorer.exe' or similar processes. It displays sophisticated anti-analysis techniques, including API unhooking, dynamic API resolution via CRC32 hashing, and process hollowing.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom shellcode/packer",
+      "Dynamic API resolution",
+      "Memory obfuscation (XOR)"
+    ],
+    "details": "High entropy (7.95) in the .text section indicates packed/encrypted code. Routines in fcn.10001220 and fcn.10003e80 handle memory allocation (VirtualAlloc) and execution of a payload via process hollowing (ZwAllocateVirtualMemory, ZwWriteVirtualMemory, ZwCreateThread)."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection / Hollowing",
+      "description": "Uses ZwAllocateVirtualMemory, ZwWriteVirtualMemory, and ZwResumeThread to inject code into target processes."
+    },
+    {
+      "name": "Persistence / Evasion",
+      "description": "Attempts to gain elevated privileges (SeDebugPrivilege) and hides its activities by manipulating system files (sysprep.exe/explorer.exe patterns)."
+    },
+    {
+      "name": "Dynamic API Resolution",
+      "description": "Uses CRC32-based hashing to resolve function names dynamically at runtime, evading static import analysis."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent APIs for process injection (VirtualAllocEx, WriteProcessMemory, ZwCreateThread) and the presence of low-level memory manipulation routines confirms malicious intent. The code also specifically targets system binaries like 'sysprep.exe' to masquerade, which is a common indicator of advanced persistent threats.",
+    "general": "fcn.10003e80 acts as a core loader, resolving ntdll functions dynamically. fcn.10003b40 implements a custom GetProcAddress mechanism via hashing. The injection flow is explicitly seen using Zw* functions to manipulate memory and execution flow in a remote process.",
+    "uncertainties": "While the decrypted payload is not fully visible, the execution behavior (process hollowing) is clearly malicious.",
+    "conditions": "The malware performs environmental checks, including verifying if it is running in a system directory (fcn.10002190) and likely requires specific command-line arguments to trigger the full payload.",
+    "sandbox_recommendations": "Run in a controlled environment with 'explorer.exe' and 'sysprep.exe' present. Monitor for process hollowing and child process creation."
+  },
+  "ioc": [
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "C:\\Windows\\System32\\sysprep\\sysprep.exe",
+          "description": "Target binary for masquerading"
+        },
+        {
+          "value": "FontsError.log",
+          "description": "Log file artifact observed in code"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "SeDebugPrivilege",
+          "description": "Privilege escalation attempt"
+        },
+        {
+          "value": "PLUSUNIT",
+          "description": "Internal identifier string"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10003e80",
+      "name": "fcn.10003e80",
+      "description": "Core loader function responsible for process injection (Zw* functions)"
+    },
+    {
+      "address": "0x10001220",
+      "name": "fcn.10001220",
+      "description": "Performs memory allocation and sets up the injected image"
+    },
+    {
+      "address": "0x10003b40",
+      "name": "fcn.10003b40",
+      "description": "Custom API resolver using hashing to find function addresses"
+    }
+  ]
+}

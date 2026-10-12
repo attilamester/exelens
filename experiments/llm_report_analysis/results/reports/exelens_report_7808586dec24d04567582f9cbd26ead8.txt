@@ -1,0 +1,85 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains sophisticated system-level capabilities, including kernel-mode service descriptor table modification (hooking) and direct registry manipulation for persistence. It attempts to bypass security by injecting code or modifying system structures (KeServiceDescriptorTable, KeAddSystemServiceTable). It also uses anti-analysis and anti-debugging tricks, and it dynamically loads and manipulates system modules (ntoskrnl.exe, win32k.sys) to hide its activities. The file is highly suspicious, functioning as a kernel-mode rootkit or sophisticated persistent backdoor.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation/encryption of resources",
+      "Dynamic API resolution through GetProcAddress",
+      "Self-modifying code or decryption loops"
+    ],
+    "details": "Resources are decrypted at runtime (XOR 0xCD). The sample resolves APIs dynamically to hide its functional imports."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode Hooking",
+      "description": "Modifies system service tables (KeServiceDescriptorTable) to intercept system calls."
+    },
+    {
+      "name": "Persistence",
+      "description": "Sets registry keys and copies files to system directories (e.g., system32) for automatic startup."
+    },
+    {
+      "name": "Evasion",
+      "description": "Uses anti-debugging techniques, checks for debugger presence, and attempts to hide process/module existence."
+    },
+    {
+      "name": "Privilege Escalation/Environment Manipulation",
+      "description": "Uses process tokens and registry manipulation to gain elevated access or modify system policies."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level system table hooking, persistent registry modifications, and the clear attempt to load and modify protected system drivers (win32k.sys, ntoskrnl.exe) moves this beyond any legitimate software functionality. The presence of XOR-encrypted resources and the dynamic resolution of sensitive kernel APIs like 'KeServiceDescriptorTable' indicate clear malicious intent to gain and maintain unauthorized high-privilege access.",
+    "general": "High-intent evidence includes calls to 'KeServiceDescriptorTable' (fcn.1000b369), modifications to 'win32k.sys' (fcn.1000a2cd), and persistent registry manipulation (ADVAPI32.dll_RegSetValueExA). The code also includes direct manipulation of kernel structures via function pointers that point to system-critical memory regions, indicating a rootkit-style payload.",
+    "uncertainties": "While the kernel-level code strongly implies a rootkit, without executing the code in a full kernel-mode sandbox, some specific hook targets remain obscured. Truncated input for some functions does not significantly impact the overall high-intent verdict.",
+    "conditions": "Execution is gated by environment checks (GetEnvironmentVariable) and file/registry presence checks. It also performs timing loops and checks for specific mutex names ('prkMtx') to prevent multiple instances and detect sandboxes.",
+    "sandbox_recommendations": "Run in a kernel-capable sandbox (e.g., Cuckoo with KVM/VirtualBox). Simulate an environment with standard Windows system directories. Expect the sample to check for the existence of specific files or registry keys and attempt to copy itself to system32. Ensure monitor handles kernel-level system call interception."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Likely target for persistence persistence"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "system32\\win32k.sys",
+          "description": "Target of modification for hooking/persistence"
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for single-instance execution or anti-sandbox check"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Kernel-mode System Service Descriptor Table (SSDT) manipulation"
+    },
+    {
+      "address": "0x1000a2cd",
+      "name": "fcn.1000a2cd",
+      "description": "Manipulation of kernel driver components (win32k.sys)"
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Registry-based persistence and environment configuration"
+    }
+  ]
+}

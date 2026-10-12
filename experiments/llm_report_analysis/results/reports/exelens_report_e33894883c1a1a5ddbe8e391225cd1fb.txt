@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a modular dropper and installer. It contains embedded resources which are decrypted at runtime (XOR 0xCD) and potentially injected or executed. It performs persistence via Registry keys, attempts to manipulate system drivers/structures ('ntkrnlpa.exe', 'KeServiceDescriptorTable'), and uses anti-analysis/anti-debugging techniques such as mutex checks and environment/file system verification.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR encryption",
+      "Dynamic API resolution",
+      "Resource-based loading"
+    ],
+    "details": "The payload is stored in RCDATA resources (e.g., 102), and individual functions (like fcn.100015f7) handle loading and decryption using a 0xCD XOR loop. Several symbols and strings are dynamically resolved via GetProcAddress."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Driver Manipulation",
+      "description": "Attempts to locate and modify kernel structures (e.g., KeServiceDescriptorTable) and interacts with system files like ntkrnlpa.exe."
+    },
+    {
+      "name": "Persistence",
+      "description": "Uses RegCreateKeyExA and RegSetValueExA to modify Registry keys, typical for startup persistence."
+    },
+    {
+      "name": "Evasion",
+      "description": "Checks for mutexes (e.g., 'prkMtx') and performs environment checks to detect sandboxes or debuggers."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Copies, deletes, and sets attributes on system-like files (e.g., in _system32 directory)."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level structure modification (KeServiceDescriptorTable), registry-based persistence, and the usage of XOR decryption on embedded resources is characteristic of advanced malware. The code explicitly attempts to load and interact with system kernel files, which is not a common behavior for benign installers.",
+    "general": "The function fcn.1000ab6f and fcn.1000a2cd demonstrate clear intent to modify kernel tables (KeServiceDescriptorTable, KeAddSystemServiceTable). fcn.100015f7 performs the decryption routine using XOR 0xCD. The mutex checks (e.g., 'prkMtx') indicate an attempt to prevent multiple infections.",
+    "uncertainties": "The exact nature of the decrypted payload is not fully visible, as it resides in encrypted resources. While the intent is high-malice, the exact secondary payload's functionality depends on these runtime-decrypted buffers.",
+    "conditions": "The malware requires administrative privileges to interact with the Registry and system drivers. It may also check for specific environment variables or file existence (e.g., 'win32k.sys' in system folders).",
+    "sandbox_recommendations": "Run in a kernel-mode-aware sandbox environment, ensure the system clock is set to a standard current date, and simulate user interaction to trigger potential anti-VM delays or path checks."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "DMWH",
+          "description": "Registry key/value used for persistence."
+        },
+        {
+          "value": "DMWI__",
+          "description": "Registry key/value used for persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for process isolation."
+        },
+        {
+          "value": "ntkrnlpa.exe",
+          "description": "Target kernel file name."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Resource decryption and loading function."
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Kernel service descriptor table modification routine."
+    },
+    {
+      "address": "0x10003c04",
+      "name": "fcn.10003c04",
+      "description": "Handles process creation and system file operations."
+    }
+  ]
+}

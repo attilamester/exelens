@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple functionalities typical of a rootkit or kernel-level malicious tool. It resolves critical Windows kernel functions (e.g., NtQuerySystemInformation, NtQueryObject), modifies kernel structures (likely the System Service Descriptor Table - SSDT - via KeAddSystemServiceTable or similar), and attempts to hide itself by manipulating system processes.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR obfuscation",
+      "Resource-based loading",
+      "Dynamic API resolution"
+    ],
+    "details": "The file uses resources (specifically 102) which are XORed with 0xCD and loaded into memory using FindResourceA, LoadResource, and LockResource. It also uses dynamic API resolution and potentially self-modifying code patterns."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Attempts to locate and hook system tables (e.g., KeServiceDescriptorTable) to intercept kernel calls."
+    },
+    {
+      "name": "Process Hiding / Evasion",
+      "description": "Uses low-level APIs to enumerate and potentially manipulate process and object lists."
+    },
+    {
+      "name": "Persistence",
+      "description": "Registers values in the registry to achieve startup or configuration persistence."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Uses anti-debugging and anti-VM techniques to detect if the code is being inspected."
+    }
+  ],
+  "details": {
+    "reasoning": "While many of the capabilities individually (e.g., registry modification) are dual-use, the assembly code provides clear evidence of high-intent malicious behavior. Specifically, the functions fcn.1000b46f, fcn.1000ab6f, and fcn.1000a2cd explicitly reference and interact with kernel structures like the System Service Descriptor Table (SSDT), which is a classic rootkit signature used to hide activity from the OS.",
+    "general": "High-intent evidence is present in fcn.1000b46f and fcn.1000ab6f, which perform deep kernel-level lookups for 'KeServiceDescriptorTable'. Additionally, fcn.100098c4 and its subroutines contain patterns for interacting with `ntdll.dll` and `ntoskrnl.exe` to manipulate internal system operations.",
+    "uncertainties": "The sample contains complex code paths including possible floating-point obfuscation and timing-based checks that may delay execution in a sandbox. The exact target of the SSDT hooking (which function) requires dynamic execution for definitive confirmation.",
+    "conditions": "The sample performs environmental checks including GetComputerNameA, GetUserNameW, and registry key checks (e.g., 'prkMtx'). It likely requires specific administrative or SYSTEM-level privileges to interact with kernel-mode structures successfully.",
+    "sandbox_recommendations": "Use a kernel-aware debugger (e.g., WinDbg) or a sandbox configured for kernel analysis. Monitor for registry access to 'ControlSet' and modifications to the SSDT or driver loading attempts."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\",
+          "description": "Common path for driver installation or service persistence"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for process synchronization or anti-re-execution"
+        },
+        {
+          "value": "KeServiceDescriptorTable",
+          "description": "Target structure for rootkit hooking"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Handles interaction with system tables, likely involved in SSDT hooking."
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Another function interacting with the KeServiceDescriptorTable."
+    },
+    {
+      "address": "0x10009bd3",
+      "name": "fcn.10009bd3",
+      "description": "Loads ntoskrnl.exe and attempts to resolve kernel-level symbols."
+    }
+  ]
+}

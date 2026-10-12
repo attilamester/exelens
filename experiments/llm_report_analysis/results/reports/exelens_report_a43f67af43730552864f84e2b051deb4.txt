@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to load and interact with system drivers, modify system security descriptors, and perform process hollowing or kernel-mode communication. It includes anti-analysis techniques and specific indicators of targeting system processes.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource-based payload hiding",
+      "Dynamic API resolution (GetProcAddress/LoadLibrary)",
+      "Manual loading/patching routines"
+    ],
+    "details": "Resources 101-103 contain data that is decrypted/processed at runtime using a simple XOR loop (RVA 0x1000167b), indicating an obfuscated payload or configuration."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection / System Modification",
+      "description": "Uses ADVAPI32.dll security functions (SetSecurityDescriptorDacl/Owner/Group) and KERNEL32.dll process manipulation APIs."
+    },
+    {
+      "name": "Driver/Kernel Interaction",
+      "description": "Imports and uses functions characteristic of rootkit-like behavior or direct kernel driver manipulation (e.g., NtQuerySystemInformation, NtQueryObject, KeServiceDescriptorTable)."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Checks for debugger presence and registry keys to prevent execution in analyzed environments."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level API imports (KeServiceDescriptorTable, NtQuerySystemInformation) and routines that specifically manipulate ACLs and security descriptors to hide or protect malicious activity provides clear evidence of high-intent malicious behavior, ruling out legitimate installer/protector functionality.",
+    "general": "High-intent evidence found in fcn.1000b46f and fcn.1000ab6f, which perform direct manipulation of kernel structures and use non-standard techniques to bypass security, such as invoking int 0x2e and interacting with win32k.sys.",
+    "uncertainties": "While the kernel-level code is highly suspicious, the full extent of the payload executed via kernel structures is obfuscated and relies on the successful detonation of decrypted resources, which requires the full environment to verify.",
+    "conditions": "Payload requires administrative privileges to interact with system drivers and modify security descriptors; requires specific registry keys to be absent (anti-analysis gates).",
+    "sandbox_recommendations": "Use a kernel-mode debugger (Windbg) and monitor registry changes for keys related to DMWH/DMWI. The sample may check for specific system versions; Windows 7 or 10 environments are recommended."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "DMWH",
+          "description": "Key associated with configuration/persistence"
+        },
+        {
+          "value": "DMWI",
+          "description": "Key associated with communication"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "win32k.sys",
+          "description": "Target system file for manipulation"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Primary dispatcher for kernel-mode operations and driver hooking."
+    },
+    {
+      "address": "0x10009d28",
+      "name": "fcn.10009d28",
+      "description": "Performs identification of kernel symbols (KeRaiseIrql, etc.) required for malicious driver interactions."
+    },
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Executes system-level calls (int 0x2e) to bypass standard user-mode API restrictions."
+    }
+  ]
+}

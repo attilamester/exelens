@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is an NTLM hash extractor that targets the 'lsass.exe' process. It uses Windows debugging APIs (DebugActiveProcess, ReadProcessMemory, WriteProcessMemory) to inject code and bypass memory protections, ultimately aiming to read sensitive credentials (NTLM hashes) from the LSASS memory space.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed; it is a standard compiled C/C++ executable that relies on native Win32 APIs for its functionality."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Hollowing",
+      "description": "Uses DebugActiveProcess, VirtualProtectEx, and WriteProcessMemory to manipulate the memory of the LSASS process."
+    },
+    {
+      "name": "Credential Dumping",
+      "description": "Targets lsass.exe to extract NTLM hashes, evidenced by function names like ReadBreakPointAddr and NTLMHash.exe."
+    },
+    {
+      "name": "Privilege Escalation",
+      "description": "Attempts to acquire 'SeDebugPrivilege' using AdjustTokenPrivileges."
+    },
+    {
+      "name": "Debugging",
+      "description": "Uses WaitForDebugEvent and ContinueDebugEvent to maintain control over the target process."
+    }
+  ],
+  "details": {
+    "reasoning": "The application exhibits explicit high-intent malicious behavior by targeting the Local Security Authority Subsystem Service (LSASS) for credential theft. While it uses standard debugging APIs (which can be dual-use), the combination of process enumeration for 'lsass.exe', privilege escalation to 'SeDebugPrivilege', and memory patching of the LSASS process is characteristic of a credential-dumping tool (Mimikatz-like behavior). There is no legitimate functionality present that would explain these specific operations.",
+    "general": "The malicious intent is confirmed by: 1) fcn.00401c97 (RVA 0x401c97) identifying 'lsass.exe' PID; 2) fcn.00401c08 (RVA 0x401c08) requesting 'SeDebugPrivilege'; 3) fcn.00401d31 and fcn.00401e24 using Read/WriteProcessMemory and VirtualProtectEx to inject breakpoints into LSASS; 4) String references like 'NTLMHash.exe'.",
+    "uncertainties": "No significant uncertainties; the behavior is clearly identified through the static analysis of the call graph and import table.",
+    "conditions": "The tool must be run with sufficient privileges (Administrator) to enable 'SeDebugPrivilege'. It likely requires command-line arguments to function (e.g., usage strings 'NTLMHash.exe <WaitTime> <Password> <NTLMHash>').",
+    "sandbox_recommendations": "Run as Administrator in an environment where 'lsass.exe' is present. Monitor for attempts to open handle to lsass.exe with PROCESS_VM_READ and PROCESS_VM_WRITE access."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "lsass.exe",
+          "description": "Target process for credential extraction."
+        },
+        {
+          "value": "SeDebugPrivilege",
+          "description": "Privilege required for debugging and accessing LSASS."
+        },
+        {
+          "value": "NTLMHash",
+          "description": "Evidence of the tool's core functionality."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401c97",
+      "name": "fcn.00401c97",
+      "description": "Enumerates processes to find the PID of lsass.exe."
+    },
+    {
+      "address": "0x00401c08",
+      "name": "fcn.00401c08",
+      "description": "Enables SeDebugPrivilege for the current process."
+    },
+    {
+      "address": "0x00401d31",
+      "name": "fcn.00401d31",
+      "description": "Reads memory and sets breakpoints in the target process."
+    },
+    {
+      "address": "0x00401e24",
+      "name": "fcn.00401e24",
+      "description": "Writes process memory to facilitate code injection/patching."
+    }
+  ]
+}

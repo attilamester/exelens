@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The file is an installer/dropper that extracts embedded resources and performs system-level modifications, including registry manipulation and persistence. It targets the LSASS process and uses kernel-mode driver interaction techniques (likely for anti-analysis or kernel memory patching).",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource-based embedding",
+      "Dynamic API resolution (GetProcAddress)",
+      "XOR-based obfuscation"
+    ],
+    "details": "The file contains encrypted/obfuscated resources (e.g., in .rsrc) that are decrypted using XOR routines at runtime (fcn.100015f7). It uses dynamic API loading and calls functions from 'sym.dll_installer.dll' and native Windows internals."
+  },
+  "capabilities": [
+    {
+      "name": "Process Persistence/Injection",
+      "description": "Modifies system registry keys, potentially for persistence, and interacts with LSASS."
+    },
+    {
+      "name": "Kernel Mode Interaction",
+      "description": "Uses techniques consistent with kernel-mode communication, including 'KeServiceDescriptorTable' and 'NtQuerySystemInformation' checks."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Drops files to system directories and sets attributes (CreateFile, CopyFile, SetFileAttributes)."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Uses mutexes ('GlobalRPCMutex') and environment checks to avoid detection or multiple executions."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent capabilities—specifically the modification of the LSASS registry path, the attempt to query the System Service Descriptor Table (SSDT), and the use of 'NtShutdownSystem'—confirms malicious intent rather than a legitimate installer behavior. The code clearly attempts to patch system structures or evade security software by targeting core Windows processes.",
+    "general": "High-intent evidence: 1) fcn.100017a0 modifies registry keys associated with 'lsass'. 2) fcn.1000c680 queries NtQuerySystemInformation and accesses the SSDT. 3) fcn.1000b73a accesses 'NtShutdownSystem'. 4) Usage of Mutex 'GlobalRPCMutex' prevents multiple running instances.",
+    "uncertainties": "The exact nature of the encrypted payload in the .rsrc section remains partially opaque; however, the code paths dealing with kernel-level functions are clearly defined.",
+    "conditions": "The file likely requires administrative privileges to modify registry keys and interact with kernel structures. It checks for a specific environment ('system32') and uses a mutex ('GlobalRPCMutex') to ensure only one instance is active.",
+    "sandbox_recommendations": "Run in a Windows environment with administrative privileges. Ensure network simulation is active to observe C2 behavior. Monitor registry changes at 'HKLM\\SYSTEM\\CurrentControlSet\\Services' and look for file activity in system32."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Target registry path for persistence or service modification."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used to ensure single-instance execution."
+        },
+        {
+          "value": "lsass",
+          "description": "Target process name for modification."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Handles registry modification, specifically targeting the LSASS process."
+    },
+    {
+      "address": "0x10003c04",
+      "name": "fcn.10003c04",
+      "description": "Handles process creation and file system operations (CopyFile/SetFileAttributes)."
+    },
+    {
+      "address": "0x1000c680",
+      "name": "fcn.1000c680",
+      "description": "Communicates with ntdll.dll to query system information, likely for anti-debugging or kernel interaction."
+    }
+  ]
+}

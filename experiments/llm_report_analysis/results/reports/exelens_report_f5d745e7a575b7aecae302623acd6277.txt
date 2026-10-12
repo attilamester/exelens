@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a downloader/injector, using process hollowing/detouring techniques to inject malicious code into memory. It features custom decryption/unpacking loops and utilizes networking APIs (WININET) for C2 communication, specifically referencing 'zilla' and 'FB' in request patterns.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Process hollowing/detouring",
+      "Dynamic API resolution",
+      "Instruction-level decryption/decoding"
+    ],
+    "details": "The overlay has high entropy (7.10) and contains encrypted/compressed code. The entrypoint performs runtime memory allocation and VirtualProtect operations to prepare for code execution. It uses custom routines (e.g., fcn.10001feb, fcn.10003f90) for decryption/unpacking."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Detouring",
+      "description": "Uses VirtualProtect, VirtualAlloc, and ResumeThread to manipulate threads and memory of processes."
+    },
+    {
+      "name": "C2 Communication",
+      "description": "Utilizes WININET functions like InternetConnectA, HttpOpenRequestA, and HttpSendRequestA to communicate with remote hosts."
+    },
+    {
+      "name": "Anti-Debugging/Analysis",
+      "description": "Implements checks against debuggers and potentially uses custom debugging APIs like DbgHelp.dll."
+    },
+    {
+      "name": "Environment Recon",
+      "description": "Queries network adapters via iphlpapi.dll and gets username/computer name to profile the infected machine."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent APIs (VirtualAlloc, VirtualProtect, SetThreadContext) and networking capabilities, paired with code that explicitly detours functions (seen in fcn.10002d77), points directly to malware functionality. Legitimate software rarely implements custom thread context manipulation and network-based payload retrieval patterns simultaneously.",
+    "general": "RVA 0x10002d77 performs thread context manipulation (GetThreadContext/SetThreadContext). RVA 0x10001bab implements a POST-based communication loop. The usage of DbgHelp.dll functions (fcn.1000366d) suggests active attempts to manage or subvert the execution environment.",
+    "uncertainties": "The exact C2 URL or domain is not hardcoded as a single string, likely constructed dynamically or retrieved from the high-entropy overlay.",
+    "conditions": "The file expects to run as an independent process or injected module; no specific CLI arguments were observed as mandatory requirements.",
+    "sandbox_recommendations": "Enable network monitoring and intercept WININET traffic. Monitor for thread injection into child or system processes (e.g., svchost, explorer)."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "zilla_FB_Hqmbafiple",
+          "description": "Potential C2/Resource path prefix"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "dbghelp.dll",
+          "description": "Loaded library for potential debugging manipulation"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001bab",
+      "name": "fcn.10001bab",
+      "description": "Primary network communication handler using WININET APIs."
+    },
+    {
+      "address": "0x10002d77",
+      "name": "fcn.10002d77",
+      "description": "Core process hollowing/injection engine utilizing SetThreadContext."
+    },
+    {
+      "address": "0x1000366d",
+      "name": "fcn.1000366d",
+      "description": "Initialization of debugging symbols/environment manipulation."
+    }
+  ]
+}

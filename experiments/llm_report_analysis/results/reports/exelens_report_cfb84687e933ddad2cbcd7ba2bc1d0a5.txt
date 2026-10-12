@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to perform kernel-level modifications, including modifying system service tables (KeServiceDescriptorTable), checking for and potentially terminating specific security or system management processes, and establishing persistence via registry modifications.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation of resource data",
+      "Dynamic API resolution"
+    ],
+    "details": "The file uses XOR loops to decrypt data from resources (e.g., in fcn.100015f7). Several functions demonstrate dynamic resolving of exported functions from loaded libraries, a common anti-analysis technique."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel Service Modification",
+      "description": "The binary includes functions (fcn.1000b369, fcn.1000ab6f) that interact with KeServiceDescriptorTable, indicating attempts to hook or modify kernel system calls."
+    },
+    {
+      "name": "Persistence and Registry Manipulation",
+      "description": "Utilizes RegCreateKeyExA and RegSetValueExA to ensure persistence and configure system behavior."
+    },
+    {
+      "name": "Process Injection/Hollowing",
+      "description": "Uses VirtualAlloc, WriteFile, and CreateProcessA, which are common primitives for process hollowing or injection."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level hooking (KeServiceDescriptorTable), mutex-based process mutual exclusion, and the presence of low-level system call instrumentation (KeAddSystemServiceTable) provides clear evidence of malicious intent to compromise system integrity. While some functions appear as utility functions, the aggregate functionality points to a rootkit-like component designed to persist and manipulate the operating system at the kernel level.",
+    "general": "The function fcn.1000b369 performs direct manipulation of KeServiceDescriptorTable. The function fcn.100017a0 implements registry-based persistence. The call sequences for CreateFileW/WriteFile/CreateProcessA in fcn.10003c04 indicate payload deployment.",
+    "uncertainties": "The exact nature of the decrypted resource payloads remains obscured due to the lack of runtime memory extraction capability.",
+    "conditions": "Execution is likely triggered upon presence of specific system environmental conditions or registry keys, as the binary performs extensive environment variable checks and registry lookups (e.g., in fcn.100021d7, fcn.1000a0fc).",
+    "sandbox_recommendations": "Run in an environment that allows kernel-mode debugging to observe the modification of system service tables. Monitor registry keys in HKLM\\SYSTEM\\CurrentControlSet."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet",
+          "description": "Persistence and system configuration path"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "KeServiceDescriptorTable",
+          "description": "Kernel structure targeted for hooking"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for synchronization"
+        },
+        {
+          "value": "NtShutdownSystem",
+          "description": "Targeted system function"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Performs hook operations on the KeServiceDescriptorTable"
+    },
+    {
+      "address": "0x10003c04",
+      "name": "fcn.10003c04",
+      "description": "Payload deployment routine using process creation"
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Implements persistence via registry modification"
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a malicious dropper/loader designed for persistence and kernel-level manipulation. It drops system-specific drivers (likely rootkits), manipulates the System Service Descriptor Table (SSDT), and modifies system registry keys to ensure execution. It performs anti-analysis checks, uses resource-embedded payloads, and hides its activity by masking as system components.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource encryption",
+      "Dynamic API resolution (GetProcAddress/LoadLibrary)",
+      "System service function patching"
+    ],
+    "details": "The binary stores encrypted payloads in RCDATA resources (ID 102), which are decrypted at runtime (via fcn.10001697 and fcn.10001b34) before being written to disk or executed. It also dynamically resolves critical system APIs for SSDT patching."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel SSDT Manipulation",
+      "description": "Patches the KeServiceDescriptorTable to hook system calls."
+    },
+    {
+      "name": "Persistence",
+      "description": "Registers system services and modifies Run registry keys."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Drops files, sets file attributes (hidden/system), and copies files to system directories (e.g., system32)."
+    },
+    {
+      "name": "Evasion",
+      "description": "Checks for environment variables, mutex existence, and debugger presence to prevent sandbox analysis."
+    }
+  ],
+  "details": {
+    "reasoning": "While the binary employs some techniques common to software protectors (e.g., dynamic loading, resource-based payload storage), the combination of SSDT hooking (KeServiceDescriptorTable), low-level kernel API access, and the active dropping of malicious-looking drivers ('win32k.sys' or 'lsass' related files) confirms malicious intent. This behavior goes beyond standard software protection and is indicative of a rootkit or persistent loader.",
+    "general": "High-intent indicators include the use of 'KeServiceDescriptorTable' and 'KeAddSystemServiceTable' (fcn.1000b369), modifications to system registry paths ('HKLM\\System\\CurrentControlSet'), and the call to 'NtShutdownSystem' (fcn.1000c755). These are explicitly tied to subverting OS security mechanisms.",
+    "uncertainties": "The exact nature of the decrypted payload (the drivers) is not fully reconstructible, though the code logic demonstrates its intended function (hooking and persistence).",
+    "conditions": "Execution is heavily gated by environment checks (fcn.1000103b). It checks for 'system32' strings and specific mutexes (e.g., 'GlobalRPCMutex', 'prkMtx'). It also likely requires elevated privileges (administrator) to modify registry keys and system files.",
+    "sandbox_recommendations": "Simulate a standard Windows environment, ensure administrator privileges, and monitor registry operations on the 'Run' key and kernel module loading. Deny access to external networks to observe local persistence mechanisms."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\System\\CurrentControlSet\\Services",
+          "description": "Used for persistence/service registration"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for single-instance check"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for synchronization"
+        },
+        {
+          "value": "lsass",
+          "description": "Target string for registry key manipulation"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10003c04",
+      "name": "fcn.10003c04",
+      "description": "Dropper routine; creates files and registry keys for persistence."
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Kernel SSDT manipulation routine; hooks system calls."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Loads and executes a dropped driver payload."
+    }
+  ]
+}

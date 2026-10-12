@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample exhibits typical downloader and dropper behavior. It resolves external resources dynamically, initiates network connections using WININET, performs process hollowing/injection techniques, and checks for debugger presence to evade analysis. The overlay entropy of 7.25 indicates a packed or encrypted payload.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom PE loader/packer",
+      "Encrypted overlay payload"
+    ],
+    "details": "The file contains a 6656-byte overlay with high entropy (7.25). The entry point initiates a complex loader routine that decrypts data and transfers execution, likely using techniques like process hollowing visible via calls to CreateThread, WriteFile, and potential shellcode execution."
+  },
+  "capabilities": [
+    {
+      "name": "Network Communication",
+      "description": "Utilizes WININET and WS2_32 APIs (InternetConnectA, HttpSendRequestA, socket, connect) to communicate with remote servers."
+    },
+    {
+      "name": "Process Injection/Execution",
+      "description": "Uses CreateThread and potentially process hollowing to execute injected code in memory."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Calls IsDebuggerPresent, CheckRemoteDebuggerPresent, and sets UnhandledExceptionFilters to detect or disrupt debugging."
+    },
+    {
+      "name": "Dynamic API Resolution",
+      "description": "Uses LoadLibraryW and GetProcAddress to resolve APIs dynamically, likely to hide malicious activity from static import analysis."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-entropy overlay, anti-debugging checks (IsDebuggerPresent), and network capabilities (WININET/WS2_32) used in conjunction with threads and memory allocation (HeapAlloc, CreateThread) clearly indicates a malicious payload downloader. Legitimate software typically does not combine such evasive anti-analysis with network-based payload retrieval.",
+    "general": "High-intent indicators include fcn.00407239 calling IsDebuggerPresent and SetUnhandledExceptionFilter to detect and neutralize debuggers, and fcn.00403570 / fcn.00405430 managing network connections (WININET/WS2_32) to exfiltrate/download data.",
+    "uncertainties": "The exact nature of the encrypted payload remains opaque due to the packed nature of the binary; however, the loader's behavior confirms malicious intent.",
+    "conditions": "The execution flow is triggered upon standard process startup (entry0). The payload requires an active internet connection to contact 'www.1977game.cn' or related C2 servers found in the strings.",
+    "sandbox_recommendations": "Provide an active network interface with internet access. Ensure the sandbox environment does not trigger the anti-debugging checks; consider using stealthy debugger plugins (e.g., ScyllaHide) if analysis is required."
+  },
+  "ioc": [
+    {
+      "type": "url",
+      "values": [
+        {
+          "value": "www.1977game.cn",
+          "description": "Hardcoded C2 domain"
+        },
+        {
+          "value": "download.1977game.cn",
+          "description": "C2 download domain"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "api.787go.conf",
+          "description": "Configuration file requested by the malware"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00405430",
+      "name": "fcn.00405430",
+      "description": "Primary network communication and data transmission loop."
+    },
+    {
+      "address": "0x00407239",
+      "name": "fcn.00407239",
+      "description": "Anti-debugging and anti-analysis routine utilizing exceptions."
+    },
+    {
+      "address": "0x00403b70",
+      "name": "fcn.00403b70",
+      "description": "DNS and initial network connection setup."
+    }
+  ]
+}

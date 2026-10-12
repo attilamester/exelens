@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This sample is a multi-platform credential harvester. It is designed to steal credentials and data from various applications (Skype, Google Talk, WinSCP, Thunderbird, Opera, Mail.ru Agent) by accessing protected registry keys, configuration files, and using Windows DPAPI to decrypt sensitive information. It also monitors for security-related processes (AV, VMWare, file monitors) and exhibits self-defense mechanisms.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Custom XOR loops",
+      "Function pointers/Call-graph obfuscation",
+      "Dynamic API resolution (GetProcAddress)"
+    ],
+    "details": "The sample uses standard Windows API imports but heavily relies on dynamic API resolution and custom data decryption routines for its configuration and exfiltration strings, effectively hindering static analysis."
+  },
+  "capabilities": [
+    {
+      "name": "Credential Theft",
+      "description": "Extracts passwords and account information from applications like Skype, Google Talk, WinSCP, Thunderbird, Opera, and Mail.ru Agent."
+    },
+    {
+      "name": "Persistence/Anti-Analysis",
+      "description": "Checks for security products (VMWare, Kaspersky) and debugger presence (IsDebuggerPresent) to evade detection."
+    },
+    {
+      "name": "Data Exfiltration",
+      "description": "Sends harvested data via HTTP requests to a hard-coded server (64.18.143.66)."
+    },
+    {
+      "name": "System Profiling",
+      "description": "Gathers detailed system information, including machine name, OS version, keyboard layout, and drive metrics."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of specific credential extraction modules targeting known software (e.g., fcn.0040ab24 for Skype, fcn.00402422 for Google Talk) and the use of cryptographic API calls (CryptUnprotectData, CryptDecrypt) to access locally stored secrets provides conclusive evidence of malicious intent. The sample's design, which includes active security software detection and exfiltration routines, is characteristic of an information stealer.",
+    "general": "High-intent malicious activity is observed in fcn.0040ab24 (Skype data extraction using CryptUnprotectData), fcn.00402422 (Google Talk account extraction), and fcn.0040eb1a (exfiltration via URLDownloadToFileA to 64.18.143.66).",
+    "uncertainties": "While the core malicious functionality is identified, some obfuscated configuration data or future payload stages could be present but remain encrypted, though these do not change the classification based on currently visible capabilities.",
+    "conditions": "The file requires standard user privileges to access application data. It specifically checks for security software presence, which may trigger evasive behavior. No specific command-line arguments are required for execution.",
+    "sandbox_recommendations": "Run in a non-domain-joined environment with internet connectivity. Simulate common applications like Thunderbird, Skype, and Chrome to ensure the malicious routines trigger."
+  },
+  "ioc": [
+    {
+      "type": "url",
+      "values": [
+        {
+          "value": "http://64.18.143.66/modules/en/db.class.php",
+          "description": "Exfiltration endpoint for stolen data."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "%TEMP%\\smss.exe",
+          "description": "File created/used for staging or evasion."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x0040ab24",
+      "name": "fcn.0040ab24",
+      "description": "Targeted Skype credential extraction."
+    },
+    {
+      "address": "0x0040eb1a",
+      "name": "fcn.0040eb1a",
+      "description": "Network data exfiltration routine."
+    },
+    {
+      "address": "0x00402422",
+      "name": "fcn.00402422",
+      "description": "Targeted Google Talk credential extraction."
+    }
+  ]
+}

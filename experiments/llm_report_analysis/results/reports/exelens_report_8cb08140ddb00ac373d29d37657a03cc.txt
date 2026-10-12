@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This executable acts as a system service installer and persistence mechanism for a potential rootkit or stealth monitoring tool. It creates persistent registry run keys, installs itself as a Windows service ('USB_Guard'), and performs directory/file manipulations to hide its presence, including filtering for 'System Volume Information'.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Dynamic API resolution via GetProcAddress",
+      "API name obfuscation (string decryption)"
+    ],
+    "details": "The binary uses manual API resolution for some functions (e.g., in fcn.00405d5b for USER32 functions). It also includes a custom exception handling/de-obfuscation routine (fcn.00403af0) commonly associated with protected or packed executables."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Registers itself as a Windows service and writes to the 'Software\\Microsoft\\Windows\\CurrentVersion\\Run' registry key."
+    },
+    {
+      "name": "Service Manipulation",
+      "description": "Creates, configures, and controls services using ADVAPI32 functions like CreateServiceW and StartServiceW."
+    },
+    {
+      "name": "File System Stealth",
+      "description": "Searches for and interacts with 'System Volume Information' directories; uses specific file patterns to hide its activity."
+    },
+    {
+      "name": "Mutex-based Evasion",
+      "description": "Checks for the existence of a 'USB_Flash' mutex to ensure only one instance runs."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of creating a persistent Windows service (USB_Guard), modifying Run-key registry entries, and actively searching for and manipulating system-protected directories (System Volume Information) confirms malicious intent. While individual actions like file creation are dual-use, their aggregation into a stealth-based persistence framework is indicative of malware.",
+    "general": "The main entrypoint invokes fcn.00402980 which performs the service installation logic. Evidence includes ADVAPI32.dll calls such as CreateServiceW (RVA 0x4033e8), StartServiceW (RVA 0x40340b), and RegSetValueExW (RVA 0x402f01) specifically targeting run keys to maintain persistence.",
+    "uncertainties": "The payload that is eventually executed as a service (e.g., 'staskrel.exe') is not fully visible as its code is dynamically handled; however, the installer logic itself is fully identified as malicious.",
+    "conditions": "The execution flow is triggered by command-line arguments. It requires the 'install' argument to initiate the service registration process and 'delete' to remove it. It also uses a mutex 'USB_Flash' to prevent multiple instances.",
+    "sandbox_recommendations": "Run the file with the 'install' command-line argument. Monitor file system changes in the 'System Volume Information' directory and registry edits in HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\USBGuard",
+          "description": "Registry key used for persistence."
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "USB_Flash",
+          "description": "Instance tracking mutex."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "System Volume Information",
+          "description": "Directory targeted for stealth/hiding."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00402980",
+      "name": "fcn.00402980",
+      "description": "Primary installer function that sets up services and file system persistence."
+    },
+    {
+      "address": "0x00403360",
+      "name": "fcn.00403360",
+      "description": "Handles the creation and configuration of the Windows Service."
+    },
+    {
+      "address": "0x004036b0",
+      "name": "fcn.004036b0",
+      "description": "Mutex check and event loop initiation for the service/program."
+    }
+  ]
+}

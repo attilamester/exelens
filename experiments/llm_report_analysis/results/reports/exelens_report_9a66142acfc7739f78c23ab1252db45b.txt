@@ -1,0 +1,79 @@
+{
+  "verdict": "inconclusive",
+  "confidence": "medium",
+  "summary": "The file acts as a Browser Helper Object (BHO) that performs GDI-based screen capture and network exfiltration via HTTP POST. It exhibits capabilities for process interaction, keyboard state monitoring, and persistence via registry keys, but the final intent remains obscured by the lack of clear malicious payload activation triggers in the provided static analysis.",
+  "packed": {
+    "status": "false",
+    "techniques": [
+      "Dynamic API resolution (GetProcAddress/LoadLibrary)",
+      "String obfuscation via XOR/custom routines"
+    ],
+    "details": "The executable structure appears standard for a C++ BHO, though it extensively uses dynamic API resolution and string obfuscation to hide its function imports."
+  },
+  "capabilities": [
+    {
+      "name": "Screen Capture",
+      "description": "Utilizes GDI (BitBlt, CreateCompatibleDC) and GDI+ to capture screen content."
+    },
+    {
+      "name": "Keyboard Monitoring",
+      "description": "Uses GetKeyboardState and MapVirtualKeyExW, suggesting potential keylogging functionality."
+    },
+    {
+      "name": "Network Communication",
+      "description": "Communicates via WinINet (HttpSendRequest, InternetConnect) to send data via HTTP POST."
+    },
+    {
+      "name": "Process Injection/Interaction",
+      "description": "Uses AttachThreadInput, GetWindowThreadProcessId, and potentially CreateProcessW."
+    },
+    {
+      "name": "Persistence",
+      "description": "Implements registry-based persistence through ADVAPI32 RegCreateKeyExW and RegSetValueExW."
+    }
+  ],
+  "details": {
+    "reasoning": "The sample contains a high concentration of dual-use capabilities (BHO DllRegisterServer, screen capture, network communication). While these are consistent with a malicious spyware/infostealer, they are also found in legitimate enterprise telemetry or monitoring software. Without seeing the actual C2 infrastructure or specific malicious commands it receives, the verdict is inconclusive, despite strong indicators of potential spyware.",
+    "general": "High-intent indicators include combined use of screen capture (fcn.10009e60), keyboard monitoring (fcn.1000c350, AttachThreadInput), and network exfiltration (method.kLqXDCsRDQGAgLiRwsUW.virtual_0).",
+    "uncertainties": "The logic governing when the exfiltration triggers is complex and likely dependent on runtime environment variables or registry configuration (e.g., GetEnvironmentVariableW, GetUserNameW), which are not fully resolved here.",
+    "conditions": "Payload activation likely depends on being loaded as a COM object in a browser environment (BHO), and may be gated by system-specific registry entries or the presence of specific environment variables.",
+    "sandbox_recommendations": "Deploy in a monitored sandbox with network interception enabled to observe HTTP POST traffic. Use a browser environment to trigger BHO initialization via DllRegisterServer."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Browser Helper Objects",
+          "description": "Common location for BHO persistence."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": ".tmp",
+          "description": "Observed temporary file usage in fcn.10016670."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000c350",
+      "name": "fcn.1000c350",
+      "description": "Handles thread attachment and potentially keyboard/input monitoring."
+    },
+    {
+      "address": "0x10009e60",
+      "name": "fcn.10009e60",
+      "description": "Initializes GDI+ for image processing/screen capturing."
+    },
+    {
+      "address": "0x10010b90",
+      "name": "method.kLqXDCsRDQGAgLiRwsUW.virtual_0",
+      "description": "Executes HTTP POST requests to exfiltrate captured data."
+    }
+  ]
+}

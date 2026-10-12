@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple high-intent indicators, including kernel-mode service descriptor table (SDT) hooking routines, code injection into system processes, and persistence via registry modifications. It uses custom resource-based payload extraction and decryption to conceal its core malicious functionality.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based payload obfuscation",
+      "Resource-based payload extraction",
+      "Dynamic API resolution (GetProcAddress)"
+    ],
+    "details": "The binary extracts encrypted payloads from resources (102, 103, 101) using 'FindResource', 'LoadResource', and 'LockResource'. Routine fcn.1000167b contains an XOR decryption loop (XOR [esi + eax], 0xcd) used to deobfuscate the payload."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "Utilizes CreateProcessA, WriteFile, and GetFileTime/SetFileTime to manipulate and launch processes."
+    },
+    {
+      "name": "Kernel-mode Hooking",
+      "description": "Contains code that references KeServiceDescriptorTable, KeAddSystemServiceTable, and attempts to modify system service descriptors."
+    },
+    {
+      "name": "Persistence",
+      "description": "Creates registry entries using RegCreateKeyExA and RegSetValueExA, targeting system-level persistence."
+    },
+    {
+      "name": "Privilege Escalation",
+      "description": "Uses ADVAPI32 API calls (OpenProcessToken, DuplicateTokenEx) to manipulate user and thread access tokens."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level hooking functions (KeServiceDescriptorTable), process token manipulation, and the persistent registry modification of system-like objects strongly indicates a rootkit-class malicious intent. The dual-use nature of APIs like VirtualAlloc or CreateFile is negated by the clear intent to intercept system services and escalate privileges.",
+    "general": "High-intent indicators: fcn.1000b369 (SDT modification/hooking), fcn.100017a0 (registry modification for persistence), and fcn.10001b34 (creation of processes). The binary actively checks for 'lsass' processes and targets sensitive system files (win32k.sys).",
+    "uncertainties": "While the core behavior is clearly malicious, the specific final payload executed by the kernel hooks is dynamic and potentially loaded from the extracted resources, which were not fully examined.",
+    "conditions": "The execution flow is gated by various environmental checks (GetSystemDirectoryA, GetComputerNameA, and registry queries). It specifically checks for 'DMWH' or 'DMWI' registry keys/mutexes to ensure single-instance execution or anti-sandbox avoidance.",
+    "sandbox_recommendations": "Simulate a fully patched Windows environment. The file should be executed with administrative privileges, and monitoring must be enabled for registry write operations to HKLM and attempts to hook kernel functions."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\lsass",
+          "description": "Persistence key identified in fcn.100017a0"
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex created/checked to ensure singleton instance"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for synchronization"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Kernel SDT table modification and hooking"
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Registry manipulation and persistence setup"
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Payload extraction and process creation"
+    }
+  ]
+}

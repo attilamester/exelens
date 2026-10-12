@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable performs an automated check for security software and attempts to manipulate registry persistence keys while using a large, high-entropy overlay to hide potentially malicious components.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "High-entropy overlay",
+      "Dynamic API resolution"
+    ],
+    "details": "The file contains a 2952-byte overlay with high entropy (7.21), suggesting a hidden payload, encrypted configuration, or packed data that is not part of the standard PE sections."
+  },
+  "capabilities": [
+    {
+      "name": "Process Enumeration & Security Software Detection",
+      "description": "Uses PSAPI functions (EnumProcesses, EnumProcessModules, GetModuleBaseNameA) to iterate through running processes and search for security-related executables."
+    },
+    {
+      "name": "Registry Persistence Manipulation",
+      "description": "Utilizes RegCreateKeyExA and RegSetValueExA to modify registry hives, likely to achieve persistence or modify system behavior."
+    },
+    {
+      "name": "Process Injection/Execution",
+      "description": "Uses CreateProcessA in function fcn.00401000 to launch external processes, potentially spawning the hidden payload."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistent registry modifications, active searching for security products (e.g., 'Virusbuster'), and the use of a high-entropy overlay constitutes clear malicious intent. The executable structure is consistent with a dropper or modular malware that masks its true functionality in an external overlay.",
+    "general": "The function fcn.004017d0 iterates through processes via EnumProcesses to find security software. Function fcn.004013fa performs extensive registry modifications (RegCreateKeyExA) to set 'IsInstalled', 'Locale', and 'StubPath' values. The use of an overlay (entropy 7.21) signifies non-standard data usage typical of malware loaders.",
+    "uncertainties": "The content of the high-entropy overlay cannot be statically determined, meaning specific strings or command-and-control logic remain hidden from this analysis.",
+    "conditions": "The execution flow requires the system to meet specific version checks (via GetVersionExA). Multiple calls to fcn.004017d0 (process checking) act as gates for the main execution logic.",
+    "sandbox_recommendations": "Run the sample in a sandbox that supports process monitoring and registry logging. Ensure the environment includes common security software strings or paths to trigger the detection evasion logic."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "IsInstalled",
+          "description": "Registry value checked/set for persistence."
+        },
+        {
+          "value": "StubPath",
+          "description": "Registry value used to store malicious path or command."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "Virusbuster",
+          "description": "Targeted security software identifier."
+        },
+        {
+          "value": "adpebafqheje",
+          "description": "Potentially obfuscated string or mutex name."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x004017d0",
+      "name": "fcn.004017d0",
+      "description": "Security software detection routine using process enumeration."
+    },
+    {
+      "address": "0x004013fa",
+      "name": "fcn.004013fa",
+      "description": "Registry manipulation function for setting persistence keys."
+    },
+    {
+      "address": "0x00401000",
+      "name": "fcn.00401000",
+      "description": "Process creation wrapper used to execute the payload."
+    }
+  ]
+}

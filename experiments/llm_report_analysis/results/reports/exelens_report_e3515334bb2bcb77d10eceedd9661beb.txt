@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a dropper and loader for a kernel-mode driver, using resource-based decryption and registry-based persistence to achieve stealth execution and potential kernel-mode modifications.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR decryption of resource payload",
+      "Dynamic API resolution through GetProcAddress and manual loading"
+    ],
+    "details": "The sample uses a custom XOR routine (XOR 0xCD) in fcn.10001697 and fcn.10001723 to decrypt payloads stored as resources. The main entry point calls routines that resolve kernel-related and system-related APIs dynamically."
+  },
+  "capabilities": [
+    {
+      "name": "Payload Decryption",
+      "description": "Decrypts obfuscated data from resources to reveal the secondary payload."
+    },
+    {
+      "name": "Kernel-mode Interaction/Driver Loading",
+      "description": "Attempts to load or communicate with system drivers, likely to subvert security controls."
+    },
+    {
+      "name": "Registry Persistence",
+      "description": "Uses RegCreateKeyExA and RegSetValueExA to ensure the malicious payload or configuration persists across reboots."
+    },
+    {
+      "name": "Mutex Creation",
+      "description": "Creates a named mutex (e.g., GlobalRPCMutex) to prevent multiple instances of the malware running simultaneously."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of hidden/decrypted resources, high-level API usage for kernel-mode interaction (e.g., interacting with KeServiceDescriptorTable), and persistent registry manipulation confirms malicious intent rather than a benign system utility. The code explicitly attempts to load and interact with system drivers ('win32k.sys', 'ntkrnlpa.exe') while employing anti-debugging and anti-analysis checks, which is consistent with advanced persistent threats (APT) or sophisticated malware.",
+    "general": "High-intent indicators include fcn.1000b369 (manipulating KeServiceDescriptorTable), fcn.10009bd3 (probing ntoskrnl.exe/ntkrnlpa.exe), and the use of 'GlobalRPCMutex' to manage infection state. The code frequently references 'cnFormSyncExFBC' and 'cnFormVoidFBC', which are indicative of malicious hooks or communication structures.",
+    "uncertainties": "While the functionality is clear, the final goal of the loaded kernel-mode payload could not be fully determined due to the secondary stage being decrypted only in memory at runtime.",
+    "conditions": "The file requires specific environment conditions: it check for system directory paths ('_system32'), and looks for existing drivers (e.g., 'ntoskrnl.exe', 'win32k.sys') to function properly. It performs environment variable checks via GetEnvironmentVariableW.",
+    "sandbox_recommendations": "Run in a hardened VM with kernel debugging capabilities. Ensure the environment includes typical Windows system drivers. Monitor registry write activity to 'HKEY_LOCAL_MACHINE' and any attempts to load unsigned drivers."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used to ensure single instance persistence"
+        },
+        {
+          "value": "HKLM\\...\\cnFormSyncExFBC",
+          "description": "Registry keys/values used for configuration or persistence"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "_system32\\win32k.sys",
+          "description": "Path identified in the binary for system driver interaction"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Initializes and manages security descriptors, indicating interaction with sensitive kernel objects."
+    },
+    {
+      "address": "0x100043d2",
+      "name": "fcn.100043d2",
+      "description": "Manages registry persistence and potential driver installation orchestration."
+    },
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Directly manipulates the System Service Descriptor Table (SSDT), a classic technique for rootkit-style stealth."
+    }
+  ]
+}

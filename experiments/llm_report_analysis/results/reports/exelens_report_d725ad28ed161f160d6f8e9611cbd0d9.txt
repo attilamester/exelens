@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to manipulate system security descriptors, interact with kernel-level structures (via IoAllocateMdl and related calls), and inject code/modify memory via system service descriptor table (SSDT) hooking or kernel-mode driver interaction. It uses obfuscated string constants and checks for specific system environment variables to decide its execution path.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom string decryption loops",
+      "Dynamic API resolution via LdrGetProcedureAddress and GetProcAddress"
+    ],
+    "details": "The binary makes extensive use of custom XOR-based decryption (e.g., fcn.100075ee, fcn.100075ce) to unpack strings and configuration data. Many system APIs are resolved dynamically at runtime using custom decryption routines, preventing easy static identification of capabilities."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel Mode Interaction",
+      "description": "Utilizes functions like IoAllocateMdl, MmBuildMdlForNonPagedPool, and MmProbeAndLockPages, typical of rootkit functionality."
+    },
+    {
+      "name": "SSDT Hooking/Modification",
+      "description": "Contains routines (fcn.1000b369, fcn.1000ab6f) designed to identify and modify the KeServiceDescriptorTable to redirect system calls."
+    },
+    {
+      "name": "Persistence via Registry",
+      "description": "Uses RegCreateKeyExA and RegSetValueExA to modify system registry keys, likely for persistence or environmental control."
+    },
+    {
+      "name": "Process Injection",
+      "description": "Calls CreateProcessA and potentially manipulates process memory/handles to execute code within different security contexts."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode memory manipulation APIs (Mdl functions), attempts to locate and modify the KeServiceDescriptorTable (SSDT), and the explicit anti-debugging/anti-analysis techniques confirms malicious intent. While individual functions like CreateProcessA are dual-use, their application here in the context of kernel-level hooking (fcn.1000b369) demonstrates high-intent malicious behavior rather than standard software installation.",
+    "general": "High-intent indicators include: SSDT hooking logic at RVA 0x1000ab6f and 0x1000b369 (KeServiceDescriptorTable manipulation), kernel memory mapping routines at 0x1000c492 (IoAllocateMdl, MmMapLockedPages), and active anti-analysis routines that look for debugger artifacts. The file specifically targets 'ntoskrnl.exe' and 'win32k.sys' for modification.",
+    "uncertainties": "The exact nature of the payload delivered to the kernel is hidden behind dynamic decryption, and the full extent of the SSDT modification could not be determined due to the complexity of the obfuscated control flow.",
+    "conditions": "Execution flow is gated by environment variable checks ('system32' path checks) and the existence of specific registry keys. Payload activation requires the environment to be a targetable Windows version, specifically checking for legacy NT/XP or specific kernel builds.",
+    "sandbox_recommendations": "Run in a controlled Windows environment with kernel debugging enabled to monitor SSDT modifications. Use a fake registry hive to allow the malware to 'succeed' in its persistence checks. Simulate a non-debugged environment."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Targeted for modification to load malicious drivers or services."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "KeServiceDescriptorTable",
+          "description": "Symbol targeted for kernel-level hooking."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used to ensure single-instance execution."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Primary routine for SSDT modification and system service hooking."
+    },
+    {
+      "address": "0x1000c492",
+      "name": "fcn.1000c492",
+      "description": "Wrapper for memory descriptor list (MDL) allocation and kernel page mapping."
+    },
+    {
+      "address": "0x100075ee",
+      "name": "fcn.100075ee",
+      "description": "Core string decryption and configuration routine."
+    }
+  ]
+}

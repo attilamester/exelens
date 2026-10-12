@@ -1,0 +1,81 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a sophisticated kernel-mode payload loader. It utilizes custom mutexes (e.g., 'GlobalRPCMutex', 'prkMtx') to synchronize activity and performs advanced system-level operations including direct interaction with kernel structures (`KeServiceDescriptorTable`, `KeAddSystemServiceTable`) and system call redirection to evade security monitoring.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based payload decryption",
+      "Dynamic API resolution via GetProcAddress",
+      "Resource-based payload hiding"
+    ],
+    "details": "The file contains a 106KB resource that is decrypted using a XOR constant (0xcd) before being loaded or executed in memory. It also uses dynamic API resolution and custom routines (`fcn.100096ce`) to patch kernel memory."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel Mode Manipulation",
+      "description": "Modifies system service tables and attempts to hook kernel functions like 'NtShutdownSystem'."
+    },
+    {
+      "name": "Persistence Mechanism",
+      "description": "Modifies system registry keys to ensure execution, specifically targeting 'lsass' related paths."
+    },
+    {
+      "name": "Process Injection/Hooking",
+      "description": "Uses 'CreateProcessA' and interacts with 'lsass' to manipulate system processes."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Includes checks for existing mutexes and environment-specific file paths (e.g., 'system32') to detect sandbox environments."
+    }
+  ],
+  "details": {
+    "reasoning": "The presence of routines to manipulate the KeServiceDescriptorTable (SSDT) and the use of 'NtShutdownSystem' hooking indicates clear malicious intent to gain low-level persistence and evade standard security controls. The combination of resource decryption, registry modification of security processes, and kernel memory patching is characteristic of rootkit/malware loaders.",
+    "general": "High-intent evidence includes 'fcn.1000b369' (KeServiceDescriptorTable hooking), 'fcn.100017a0' (registry modification targeting lsass), and 'fcn.10001723' (resource update/patching). The code repeatedly uses custom XOR routines to decrypt strings like 'prkMtx' and 'lsass'.",
+    "uncertainties": "The exact nature of the encrypted payload remains obscured without a full dynamic trace, but the loader's behavior confirms malicious intent regardless of the specific secondary payload.",
+    "conditions": "The sample uses mutexes ('GlobalRPCMutex', 'prkMtx') to ensure single-instance execution and checks for the existence of specific environment paths before executing the primary payload. It likely expects to be run with high-privileged (Administrator/System) access.",
+    "sandbox_recommendations": "Run in a hardened kernel-mode sandbox. Simulate the presence of system-critical services (lsass, ntoskrnl) and ensure registry virtualization is enabled. Monitor for modifications to the SSDT."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Common persistence target identified in registry operations."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used to prevent multiple instances of the malware."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used to synchronize kernel-level operations."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Kernel-mode service table manipulation (SSDT hooking)."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Registry modification for persistence, targeting lsass."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Primary payload dropper/loader function."
+    }
+  ]
+}
+}

@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a malicious installer/loader that performs kernel-mode operations, including modifying system service dispatch tables (SSDT) and bypassing security mechanisms, likely for rootkit persistence or privilege escalation.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR encoding of resources",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress",
+      "Manual unpacking of resources from .rsrc"
+    ],
+    "details": "The sample uses obfuscated resources (type 102/103) which are decrypted at runtime via XOR 0xCD and other custom routines before being written to disk or injected into processes."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Attempts to locate and hook KeServiceDescriptorTable (SSDT) to intercept system calls."
+    },
+    {
+      "name": "File system persistence",
+      "description": "Copies itself to system directories, modifies file attributes, and creates services/registry keys."
+    },
+    {
+      "name": "Process Injection/Execution",
+      "description": "Uses CreateProcessA to launch hidden instances, likely for payload delivery."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Checks for debugger presence and uses mutexes for single-instance enforcement."
+    }
+  ],
+  "details": {
+    "reasoning": "The code demonstrates clear malicious intent through its manipulation of kernel-mode structures (SSDT hooking via KeServiceDescriptorTable) and its attempt to load system drivers or modify system-level configurations. While it uses legitimate APIs (like VirtualAlloc), the context of these calls—combined with mutex enforcement and registry key manipulation for persistence—confirms it is not a benign installer. The sample identifies specific OS versions and attempts to load 'win32k.sys' or other kernel drivers, which is highly indicative of a rootkit loader.",
+    "general": "The function fcn.1000b369 performs direct manipulation of the KeServiceDescriptorTable. Furthermore, fcn.1000788e and fcn.1000a2cd contain complex logic for registry-based persistence and OS-specific driver loading (e.g., checking for ntoskrnl.exe, HAL.dll, and NtQuerySystemInformation).",
+    "uncertainties": "While the overall intent is clearly malicious, the specific payload decrypted from the .rsrc section requires a full runtime emulation to be fully understood, as the dynamic API resolution hides some of the final payload's communication targets.",
+    "conditions": "The primary payload executes if the system environment matches the hardcoded checks (e.g., Windows version checks in fcn.100082ce) and if a specific mutex (GlobalRPCMutex or similar) is not already present. It also appears to rely on specific registry entries created by prior stages.",
+    "sandbox_recommendations": "Simulate a Windows environment (XP/7). Use process monitoring to capture file creation in System32. Ensure the network stack is active to potentially trigger C2 callbacks hidden in the binary."
+  },
+  "ioc": [
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Used for single-instance enforcement."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Used for locking during kernel-mode access attempts."
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Potential persistence target."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Kernel-mode service descriptor table hooking routine."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Main installation logic and registry-based persistence handler."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Resource extraction and process creation driver."
+    }
+  ]
+}

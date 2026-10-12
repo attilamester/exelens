@@ -1,0 +1,75 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The file acts as a kernel-mode driver installer/injector. It uses hidden resource data (XOR-obfuscated) to drop a driver, interacts with low-level kernel interfaces (NtQuerySystemInformation, NtQueryObject, KeServiceDescriptorTable), and performs process injection/hooking to hide or persist.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation",
+      "Dynamic API resolution"
+    ],
+    "details": "Resource data is XORed with a constant byte (0xCD). Code uses GetProcAddress/LoadLibrary to resolve sensitive APIs (NtQuerySystemInformation, KeServiceDescriptorTable) at runtime to avoid static detection."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence/Injection",
+      "description": "Registers system services and hooks kernel functions (KeServiceDescriptorTable)."
+    },
+    {
+      "name": "Kernel-mode interaction",
+      "description": "Accesses kernel structures and drivers via ntoskrnl.exe/ntkrnlpa.exe."
+    },
+    {
+      "name": "Environment Evasion",
+      "description": "Checks system versions and hardcoded mutex names to prevent multiple instances or sandbox detonation."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level hooking (KeServiceDescriptorTable modification), hidden resource dropping, and explicit intent to inject code into kernel processes (via system service tables) classifies this as malicious. These are not legitimate dual-use features in this context.",
+    "general": "Functions like fcn.1000b369 (KeServiceDescriptorTable modification), fcn.1000b46f (kernel-mode CopyFile/Reg operations), and fcn.10009835 (complex IOCTL/NtShutdown communication) demonstrate high-intent malicious behavior targeting the OS kernel.",
+    "uncertainties": "Specific payload behavior inside the dropped driver is unknown as it resides in the encrypted RCDATA resource. The exact command-line arguments needed to trigger specific code paths are inferred but not fully mapped.",
+    "conditions": "Requires administrative or kernel-level privileges to successfully modify the Service Descriptor Table. Checks for existence of specific registry keys and mutexes (e.g., GlobalRPCMutex, prkMtx) to control execution flow.",
+    "sandbox_recommendations": "Enable driver-loading monitoring, monitor for SSDT hooking/modification, and simulate a Windows NT/2000 environment as the code explicitly checks for specific OS versions."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Persistence path for installed drivers."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used to detect execution."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name associated with kernel interaction."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Modifies the System Service Descriptor Table (SSDT), indicative of rootkit behavior."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Extracts and installs kernel driver files from resources."
+    },
+    {
+      "address": "0x10009835",
+      "name": "fcn.10009835",
+      "description": "Communicates with kernel-mode drivers using IOCTL codes."
+    }
+  ]
+}

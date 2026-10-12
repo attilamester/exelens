@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample is a rootkit-like driver installer or service that performs low-level modifications. It checks for system environment variables, manipulates the registry to ensure persistence (specifically targeting 'lsass'), checks for and handles the 'prkMtx' mutex to prevent multiple instances, and uses direct system calls (int 0x2e) to write to kernel memory/driver objects.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation/encryption of embedded resources",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress",
+      "Control flow obfuscation"
+    ],
+    "details": "The file contains an encrypted resource (size 106496 bytes) that is decrypted using a XOR key (0xcd) at runtime in fcn.100015f7 before being loaded/executed. Additional decryption logic is present in fcn.10001723."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode Memory Manipulation",
+      "description": "The binary directly invokes system calls (int 0x2e) for memory operations, characteristic of kernel-mode drivers or rootkits."
+    },
+    {
+      "name": "Persistence Mechanism",
+      "description": "Modifies registry keys related to system services and processes, specifically targeting 'lsass' related persistence."
+    },
+    {
+      "name": "Evasion and Anti-Analysis",
+      "description": "Uses a global mutex 'prkMtx' and 'GlobalRPCMutex' to detect running instances and avoid analysis environments."
+    },
+    {
+      "name": "System Modification",
+      "description": "Uses 'CopyFileA', 'DeleteFileA', and registry modification to install or manipulate system drivers/files."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode system call usage (int 0x2e), direct manipulation of system files, and persistence mechanisms targeting core system processes like 'lsass' demonstrates clear malicious intent rather than legitimate dual-use functionality.",
+    "general": "The function fcn.1000b46f and others contain inline 'int 0x2e' instructions, which bypass standard Windows API for memory/process control. The use of 'RegSetValueExA' to overwrite 'lsass' registry entries (RVA 0x100017a0) confirms high-intent persistence.",
+    "uncertainties": "While the binary behavior is clearly malicious, the full payload content within the RCDATA resource is only partially visible due to decryption/unpacking performed at runtime, limiting full reconstruction of the injected code.",
+    "conditions": "The malware checks for specific environment variables (e.g., 'system32') and requires specific registry configurations. It also utilizes a mutex ('prkMtx') to prevent execution if another instance is detected.",
+    "sandbox_recommendations": "Ensure the sandbox provides a full Windows environment including the 'system32' directory. Simulate user activity to ensure the installer proceeds. Do not manually rename or block the 'prkMtx' mutex, as the malware will abort if it cannot create it."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "lsass",
+          "description": "Registry key/value targeted for persistence"
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for single-instance enforcement"
+        },
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name observed in code"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Resource decryption and extraction function."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Persistence mechanism modifying system registry keys."
+    },
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Performs low-level operations using direct system calls (int 0x2e)."
+    }
+  ]
+}

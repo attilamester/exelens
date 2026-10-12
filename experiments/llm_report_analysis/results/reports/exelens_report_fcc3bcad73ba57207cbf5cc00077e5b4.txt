@@ -1,0 +1,85 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a kernel-mode rootkit component or installer, capable of modifying system drivers, registering itself as a service/driver, and establishing persistence. It performs environment checks, uses mutexes to prevent multiple instances, and includes code to interact with internal kernel structures like the Service Descriptor Table (SSDT).",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource-based payload storage",
+      "XOR-based obfuscation (0xcd key)",
+      "Dynamic API resolution"
+    ],
+    "details": "The file uses resources (102, 101, etc.) to store encrypted/obfuscated data. Several routines (e.g., fcn.100015f7) perform XOR decryption using a 0xcd key and dynamic loading of functions."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence / Registry Modification",
+      "description": "Uses RegCreateKeyExA and RegSetValueExA to modify Windows registry keys, likely for persistence or driver registration."
+    },
+    {
+      "name": "Process Injection / Execution",
+      "description": "Utilizes CreateProcessA to launch files, likely following file system modification."
+    },
+    {
+      "name": "Kernel-Level Hooking/Modification",
+      "description": "Contains routines that attempt to resolve and interact with internal kernel objects (KeServiceDescriptorTable, NtQuerySystemInformation), suggesting rootkit behavior."
+    },
+    {
+      "name": "Environment Awareness",
+      "description": "Checks system versions and environment variables to tailor its execution path."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level symbol resolution (KeServiceDescriptorTable, NtQuerySystemInformation), modification of system binaries or settings (win32k.sys interaction), and the use of obfuscated resources strongly indicates malicious intent typical of rootkit loaders or advanced persistent threats, moving it beyond dual-use utility.",
+    "general": "High-intent indicators include fcn.1000b369 (interacting with KeServiceDescriptorTable), fcn.10001723 (resource modification), and the use of low-level APIs like SetSecurityDescriptorDacl to modify access permissions to kernel objects.",
+    "uncertainties": "The exact nature of the payload inside the resources is obscured by XOR obfuscation, limiting complete visibility into the final stage of the attack.",
+    "conditions": "The sample performs environment checks (GetVersionExA) and checks for existing mutexes ('GlobalRPCMutex') to manage execution state. It appears to require administrative or SYSTEM-level privileges to interact with kernel-level functions successfully.",
+    "sandbox_recommendations": "Monitor registry activity on 'Run' keys and modifications to drivers in 'System32'. Use a kernel-aware debugger to observe the interaction with the SSDT and ensure the sample is run in a privileged user context (Administrator)."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Likely target for persistence or driver registration"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "system32\\win32k.sys",
+          "description": "File targeted for modification/patching"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for single-instance check"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Hooks/modifies System Service Descriptor Table entries."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Regulates system registry values and copies files for persistence."
+    },
+    {
+      "address": "0x100028d6",
+      "name": "fcn.100028d6",
+      "description": "Manages network/HTTP communication logic."
+    }
+  ]
+}

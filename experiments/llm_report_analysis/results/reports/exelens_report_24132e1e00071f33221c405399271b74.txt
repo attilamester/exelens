@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains a sophisticated set of capabilities designed for persistence, process injection, and potential kernel-mode activity. It creates a global mutex to ensure single-instance execution, copies itself to a system directory (System32), modifies the registry for persistence (pointing to lsass.exe), and contains functions indicating kernel-level monitoring or modification capabilities (e.g., KeServiceDescriptorTable hooks).",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource encryption",
+      "Dynamic API resolution",
+      "XOR-based obfuscation of embedded content"
+    ],
+    "details": "The file utilizes custom XOR-based obfuscation on resources. It loads libraries dynamically and resolves process/kernel APIs like NtQuerySystemInformation and KeServiceDescriptorTable at runtime to evade static analysis."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "Uses VirtualAlloc and WriteProcessMemory patterns to manipulate process memory."
+    },
+    {
+      "name": "Registry Persistence",
+      "description": "Modifies Registry keys to ensure automatic execution, specifically targeting lsass-related paths."
+    },
+    {
+      "name": "Kernel-Level Hooking",
+      "description": "Contains code to locate and manipulate the System Service Descriptor Table (SSDT), typical of advanced rootkits."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Copies binaries to system directories and sets file attributes to hide or protect them."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistence mechanisms (registry modification), high-risk process manipulation (lsass targeting), and explicit intent to interact with kernel structures like the SSDT (KeServiceDescriptorTable) confirms malicious intent. This is not a standard application protector behavior.",
+    "general": "High-intent evidence includes calls to ADVAPI32.dll_RegSetValueExA in fcn.10001000 to set persistence, and the systematic use of Ntdll/Ntoskrnl imports for SSDT hooking found in functions like fcn.1000b369.",
+    "uncertainties": "While the code explicitly references kernel structures, the full detonation of the kernel-mode component might be dependent on the specific OS version and running environment, which is not fully visible.",
+    "conditions": "The execution requires standard user privileges but likely needs elevated (Administrator/System) privileges to successfully modify system registry keys and manipulate kernel memory structures.",
+    "sandbox_recommendations": "Run in an environment that monitors registry changes (specifically in HKLM/Software/Microsoft/Windows/CurrentVersion/Run or similar) and use a tool to monitor kernel service table integrity."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "lsass",
+          "description": "Registry value associated with persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for single-instance checks."
+        },
+        {
+          "value": "KeServiceDescriptorTable",
+          "description": "String used for locating SSDT."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Main routine responsible for registry persistence and key enumeration."
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Performs system table modification/hooking (SSDT)."
+    },
+    {
+      "address": "0x10001000",
+      "name": "fcn.10001000",
+      "description": "Utility for registry persistence setting."
+    }
+  ]
+}

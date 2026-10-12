@@ -1,0 +1,77 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample functions as a downloader, using Base64 decoding and string obfuscation to conceal URLs. It retrieves remote content from a URL via InternetOpenUrlA, creates local directories, and writes the downloaded data to a file on the disk.",
+  "packed": {
+    "status": "false",
+    "techniques": [
+      "String obfuscation"
+    ],
+    "details": "The code uses a basic XOR/addition-based obfuscation in fcn.00401480 to decode strings at runtime. No standard packer signature or high-entropy encrypted sections were identified."
+  },
+  "capabilities": [
+    {
+      "name": "Downloader",
+      "description": "Uses WinINet API to download content from an internet URL."
+    },
+    {
+      "name": "File System Operations",
+      "description": "Creates directories and writes data to files using CreateDirectoryA and WriteFile."
+    },
+    {
+      "name": "Obfuscation/Encoding",
+      "description": "Contains a custom Base64 decoding routine (fcn.00401700) and simple XOR-based string obfuscation (fcn.00401480)."
+    }
+  ],
+  "details": {
+    "reasoning": "The application exhibits clear malicious intent by combining network communication (WININET APIs) with file system persistence (creating directories and writing files). While individual components like Base64 decoding or WinINet usage are dual-use, their orchestration within fcn.00401360 (which orchestrates the download/write flow) reveals a downloader pattern.",
+    "general": "fcn.00401360 explicitly orchestrates: 1) InternetOpenA, 2) InternetOpenUrlA to a remote server, 3) CreateFileA, 4) InternetReadFile, and 5) WriteFile. The function fcn.00401700 implements Base64 decoding, which is used to decode the configuration strings.",
+    "uncertainties": "The exact target URL is not visible as a plain string, as it is processed by the decoding function at runtime. The analysis assumes the standard behavior of the WinINet and Kernel32 APIs referenced.",
+    "conditions": "The downloader logic is executed as part of the MFC application initialization process. It requires active network connectivity to successfully complete the remote resource fetch.",
+    "sandbox_recommendations": "Run in an environment with Fakenet enabled to intercept the outbound requests. Monitor the file system for the creation of new files in the directories specified by the decoded strings."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "Microsoft_Internet_Explorer",
+          "description": "User-agent string used in InternetOpenA"
+        },
+        {
+          "value": "WIjmoji.1",
+          "description": "Obfuscated path component"
+        },
+        {
+          "value": "W_ibdi_",
+          "description": "Obfuscated directory name"
+        },
+        {
+          "value": "W0_____4",
+          "description": "Obfuscated directory name"
+        },
+        {
+          "value": "WNqCno__s_",
+          "description": "Obfuscated directory name"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401360",
+      "name": "fcn.00401360",
+      "description": "Main logic function performing the download and write operations."
+    },
+    {
+      "address": "0x00401700",
+      "name": "fcn.00401700",
+      "description": "Base64 decoding routine used to process configuration strings."
+    },
+    {
+      "address": "0x00401480",
+      "name": "fcn.00401480",
+      "description": "Simple string obfuscation/deobfuscation routine."
+    }
+  ]
+}

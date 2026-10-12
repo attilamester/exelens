@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample is a multi-stage downloader/installer that uses dynamic API resolution and resource decryption. It performs system environment checks, creates a mutex for persistence/single-instance enforcement, and uses process hollowing or resource overwriting techniques to drop and execute a payload.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR encryption",
+      "Dynamic API resolution via GetProcAddress",
+      "Resource decryption/overwriting"
+    ],
+    "details": "The file contains a large resource (106KB) that is decrypted at runtime using XOR with a 0xCD key and loaded into memory. It dynamically resolves several internal and OS functions (like NtQuerySystemInformation, NtQueryObject, and NtShutdownSystem) from ntdll.dll."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/System modification",
+      "description": "Utilizes NtQuerySystemInformation and attempts to manipulate system tables (KeServiceDescriptorTable) to gain persistence or hide processes."
+    },
+    {
+      "name": "Persistence via Registry",
+      "description": "Uses RegSetValueExA to modify Windows registry keys, likely associated with autostart mechanisms."
+    },
+    {
+      "name": "Anti-Analysis/Evasion",
+      "description": "Uses Mutexes to check for other instances and employs timing/environment checks (GetVersionEx, GetComputerName) to evade sandboxes."
+    },
+    {
+      "name": "Dynamic API Loading",
+      "description": "Extensive use of LoadLibrary and GetProcAddress to resolve functions at runtime, hiding its true capabilities from the static import table."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent actions—such as direct kernel structure manipulation (KeServiceDescriptorTable modification), process environment interaction (lsass manipulation), and the persistent use of encrypted resources for secondary payload delivery—clearly marks this as malicious. These are not traits found in standard, benign installers.",
+    "general": "High-intent indicators include the attempt to resolve and hook NtShutdownSystem, attempts to locate and manipulate the KeServiceDescriptorTable (fcn.1000b369), and the use of RegSetValueExA to set registry keys (fcn.10001000) that target system processes (lsass).",
+    "uncertainties": "While the kernel-mode interaction suggests rootkit behavior, the execution environment (User vs Kernel mode) depends on the specific target Windows version detected by the binary.",
+    "conditions": "The file checks for environment variables (temp, system32) and creates specific mutexes (GlobalRPCMutex, prkMtx) as gatekeeping mechanisms. It requires standard administrative privileges to modify registry keys and access protected system files.",
+    "sandbox_recommendations": "Run in a Windows environment where registry access and process creation can be monitored. Monitor API calls to RegSetValueExA and any attempts to write to disk paths like 'system32'. Simulate a typical user environment to bypass timing checks."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\",
+          "description": "Registry path used for persistence and service manipulation."
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used to ensure single-instance execution."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for cross-process synchronization."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Primary dispatcher for registry operations and permission checks."
+    },
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Attempts to locate and modify the KeServiceDescriptorTable."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Handles resource extraction and file system writes."
+    }
+  ]
+}

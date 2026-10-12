@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality consistent with a kernel-mode rootkit or driver-based malware installer. It performs process environment checks, manipulates system registry keys (specifically targeting services like 'lsass'), copies files to 'system32', uses custom resource decryption routines, and implements techniques to bypass security controls by interacting with internal Windows driver structures and system APIs like NtShutdownSystem.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Custom XOR-based decryption of resources",
+      "Dynamic API resolution through GetProcAddress/LoadLibrary",
+      "Obfuscated resource content"
+    ],
+    "details": "The file uses a custom XOR decryption loop (e.g., in fcn.100015f7 and fcn.10001697) applied to resources (RVA 0x1000167b) prior to using them. It also performs dynamic API resolution to access functions like NtQuerySystemInformation and NtQueryObject."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Persistence",
+      "description": "Uses RegCreateKeyExA and RegSetValueExA to modify persistence mechanisms, likely targeting system services or drivers."
+    },
+    {
+      "name": "System Evasion/Anti-Analysis",
+      "description": "Checks for debugger presence, uses timing loops (Sleep), and checks for specific environment variables."
+    },
+    {
+      "name": "Kernel Interaction",
+      "description": "Interacts with internal Windows structures (e.g., KeServiceDescriptorTable, KeGetCurrentIrql, LdrGetProcedureAddress), suggesting driver-level manipulation."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Copies its own components to System32 and manipulates file attributes/time."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent malicious capabilities—specifically the attempts to locate and manipulate the 'KeServiceDescriptorTable', use 'NtShutdownSystem', and perform registry-based persistence on security-critical processes like 'lsass'—points to a clear malicious rootkit intent. The 'dual-use' capabilities like dynamic API loading are merely enablers for this high-intent activity.",
+    "general": "High-intent malicious activity is evidenced by fcn.1000ab6f and fcn.1000b73a which attempt to access/patch kernel structures (KeServiceDescriptorTable). Function fcn.100017a0 modifies registry keys linked to 'lsass', indicating credential-harvesting or persistence intent.",
+    "uncertainties": "While the binary is highly likely to be a kernel-mode rootkit, full confirmation of the final payload (which is stored in an encrypted resource) was constrained by the static input provided.",
+    "conditions": "The code heavily relies on environment checks (GetEnvironmentVariableA/W), registry key existence, and specific OS versions (checked via GetVersionExA). Execution requires the presence of certain registry configuration and potentially administrative privileges to interact with kernel-level components.",
+    "sandbox_recommendations": "Run in an environment that allows kernel-mode debugging (e.g., WinDbg attached). Monitor registry hive modifications in real-time. Use a snapshot-capable sandbox to observe file system changes in system directories."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\lsass",
+          "description": "Targeted service key for potential persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for single-instance checks."
+        },
+        {
+          "value": "lsass",
+          "description": "Target process name."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Kernel structure manipulation and service table modification."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Persistence mechanism modifying system registry keys."
+    },
+    {
+      "address": "0x10001697",
+      "name": "fcn.10001697",
+      "description": "Payload deployment and resource management."
+    }
+  ]
+}

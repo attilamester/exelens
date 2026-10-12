@@ -1,0 +1,87 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable exhibits high-intent malicious behavior by dropping and configuring a secondary component (_snetmgr.exe). It performs a XOR-based decryption routine on data read from an .ini file (_sperf2012.ini), configures persistence/operational settings via WritePrivateProfileStringA, and injects a DLL into a target process (likely iexplore.exe).",
+  "packed": {
+    "status": "false",
+    "techniques": [
+      "Custom XOR-based decryption"
+    ],
+    "details": "The file is not packed with a standard packer. It utilizes a custom XOR routine (fcn.00401c00) with a key (0x3e) to decrypt configuration data read from a file named _sperf2012.ini."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "Utilizes netmgr.dll to inject a DLL into an external process."
+    },
+    {
+      "name": "Persistence/Configuration",
+      "description": "Writes operational settings and configurations to local files using WritePrivateProfileStringA."
+    },
+    {
+      "name": "Data Decryption",
+      "description": "Implements a XOR decryption algorithm to process embedded or external data."
+    },
+    {
+      "name": "System Enumeration",
+      "description": "Uses Process32First/Next to find and track target processes."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of specific capabilities—XOR decryption of configuration files, modifying application settings, and the use of 'netmgr.dll' to perform DLL injection—demonstrates clear malicious intent to gain control or persistence in the system environment, rather than typical legitimate software behavior.",
+    "general": "High-intent evidence: fcn.00401c00 (XOR decryption loop) is used to decrypt _sperf2012.ini. fcn.00401890 uses GetProcAddress/GetSystemInfo to target 'iexplore.exe', and subsequently calls netmgr.dll!_InjectDll__YAHPAUHWND____K_Z to perform process injection.",
+    "uncertainties": "The exact nature of the injected DLL cannot be determined as it is dynamically managed by the 'netmgr.dll' component.",
+    "conditions": "The file must be able to read an .ini file named '_sperf2012.ini' from the local directory for the main operational logic to proceed.",
+    "sandbox_recommendations": "Place a dummy '_sperf2012.ini' file in the directory to trigger the decryption and configuration routines. Ensure the sandbox supports COM objects as the sample utilizes CoCreateInstance."
+  },
+  "ioc": [
+    {
+      "type": "file",
+      "values": [
+        {
+          "value": "_snetmgr.exe",
+          "description": "Primary malicious binary dropped or managed by the sample"
+        },
+        {
+          "value": "_sperf2012.ini",
+          "description": "Configuration file required for operational logic"
+        },
+        {
+          "value": "iexplore.exe",
+          "description": "Likely target process for injection"
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "NT_2012_Is_Running_",
+          "description": "Mutex used for single-instance execution check"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x004011d0",
+      "name": "main",
+      "description": "Application entry point; initiates mutex and operational flow."
+    },
+    {
+      "address": "0x00401890",
+      "name": "fcn.00401890",
+      "description": "Handles process discovery (iexplore.exe) and triggers DLL injection."
+    },
+    {
+      "address": "0x00401c00",
+      "name": "fcn.00401c00",
+      "description": "XOR-based decryption routine used for configuration data."
+    },
+    {
+      "address": "0x00401c30",
+      "name": "fcn.00401c30",
+      "description": "Main logic for reading/writing configuration profiles."
+    }
+  ]
+}

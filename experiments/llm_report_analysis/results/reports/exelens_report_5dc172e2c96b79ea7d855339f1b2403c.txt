@@ -1,0 +1,75 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to perform kernel-mode system modifications, specifically targeting system service tables and device drivers. It uses a custom obfuscation routine, checks for specific environment variables, and creates mutexes for process synchronization. The file appears to be a dropper that installs a malicious kernel-mode component.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation of resource data",
+      "Dynamic API resolution (GetProcAddress/LoadLibrary)"
+    ],
+    "details": "Resource data is XORed with 0xCD. String manipulation and dynamic loading suggest an attempt to hide sensitive imports."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode modification",
+      "description": "Uses NtQuerySystemInformation, NtQueryObject and attempts to modify system service descriptor tables (KeServiceDescriptorTable)."
+    },
+    {
+      "name": "Persistence/Dropper behavior",
+      "description": "Copies files to system directories, modifies registry keys related to boot or system services, and uses CreateProcessA to launch payloads."
+    },
+    {
+      "name": "Evasion",
+      "description": "Checks environment variables and utilizes mutexes (GlobalRPCMutex, prkMtx) to prevent concurrent execution or sandbox detection."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level API calls (NtQuerySystemInformation), attempts to resolve and modify internal kernel tables (KeServiceDescriptorTable, KeAddSystemServiceTable), and persistence via registry modifications (lsass key) indicates high malicious intent beyond any legitimate installer or protector functionality.",
+    "general": "Functions like fcn.1000ab6f and fcn.1000a2cd directly reference and attempt to manipulate KeServiceDescriptorTable. fcn.100017a0 modifies registry keys under HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services to potentially hook or replace the lsass process, a known technique for rootkit persistence.",
+    "uncertainties": "The exact nature of the payload inside the resource sections (101, 102) remains encrypted/obfuscated, preventing full analysis of the final malicious code, but the loader logic is clearly identified.",
+    "conditions": "Execution requires the presence of certain environment variables (e.g., accessed via GetEnvironmentVariableA). Some logic paths are guarded by version checks (GetVersionExA) to target specific Windows releases.",
+    "sandbox_recommendations": "Simulate a fully configured Windows environment (include system32 paths). Monitor registry changes to HKLM\\SYSTEM\\CurrentControlSet\\Services. Allow the process to sleep as it uses timing checks (Sleep) to evade short-duration sandboxes."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\lsass",
+          "description": "Targeted registry key for persistence/hooking"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for process synchronization"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for process synchronization"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Manipulates kernel system service descriptor tables."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Registry manipulation for potential persistence."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Payload dropping and process creation."
+    }
+  ]
+}

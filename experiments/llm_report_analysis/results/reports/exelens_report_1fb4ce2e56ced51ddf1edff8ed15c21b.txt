@@ -1,0 +1,77 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a remote shell backdoor/RAT. It installs itself as a service, establishes a connection to a remote server using WinINet to receive commands, and supports remote command execution via cmd.exe, process termination, and service control.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed; the control flow is clearly visible in the provided assembly."
+  },
+  "capabilities": [
+    {
+      "name": "Remote Shell Backdoor",
+      "description": "Receives commands from a remote server and executes them locally via cmd.exe using pipes."
+    },
+    {
+      "name": "Service Persistence/Installation",
+      "description": "Modifies registry keys in SYSTEM\\CurrentControlSet\\Services to install and manage itself as a system service."
+    },
+    {
+      "name": "Networking",
+      "description": "Uses WinINet (HttpOpenRequest, HttpSendRequest) to communicate with a remote server."
+    },
+    {
+      "name": "Process/Service Management",
+      "description": "Capable of listing and terminating processes, and controlling service states (start/stop) on the victim machine."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of remote command receipt (via HttpSendRequest), interaction with cmd.exe using named pipes, and registry modifications for persistence clearly indicates malicious intent. This functionality is characteristic of a remote access trojan (RAT) rather than legitimate system software.",
+    "general": "High-intent malicious evidence includes the function fcn.10001f20, which uses KERNEL32.dll_CreateProcessA to execute cmd.exe with piped I/O, and fcn.10002d50/fcn.10002ee0, which perform direct registry modification of system services to achieve persistence. Communication is driven by fcn.100010e0 (WinINet) and fcn.10001e00 (Read/PeekNamedPipe).",
+    "uncertainties": "The exact remote C2 server address is not hardcoded as a static string, but is constructed or passed dynamically, which limits the ability to identify the attacker's infrastructure from the static analysis.",
+    "conditions": "The file is designed to operate as a Windows service. It likely requires a valid service configuration in the registry to execute its payload (e.g., proper DllPath and ServiceDll keys). It expects the environment to contain specific triggers or headers (e.g., 'shell', 'exit') to initiate command execution routines.",
+    "sandbox_recommendations": "Ensure network connectivity to an internal sandbox listener if trying to intercept C2 traffic. Monitor registry activity in HKLM\\SYSTEM\\CurrentControlSet\\Services for the specific service name identified during installation. Use a debugger to monitor the string contents passed to HttpOpenRequestA."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SYSTEM\\CurrentControlSet\\Services\\*\\Parameters",
+          "description": "Registry key used for service persistence and configuration."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "cmd.exe",
+          "description": "The command interpreter used for executing remote commands."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001f20",
+      "name": "fcn.10001f20",
+      "description": "Executes remote commands via cmd.exe and piped I/O."
+    },
+    {
+      "address": "0x10002d50",
+      "name": "fcn.10002d50",
+      "description": "Installs/modifies service registry keys for persistence."
+    },
+    {
+      "address": "0x10001e00",
+      "name": "fcn.10001e00",
+      "description": "Reads output from the spawned command shell via named pipes."
+    },
+    {
+      "address": "0x100010e0",
+      "name": "fcn.100010e0",
+      "description": "Initializes WinINet HTTP connection to the C2 server."
+    }
+  ]
+}

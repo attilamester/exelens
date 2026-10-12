@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a malicious kernel-mode driver installer or dropper. It checks for specific system conditions (OS version), manipulates security descriptors, and uses low-level system APIs to gain persistence and potentially disable system protections like shutdown/redraw operations via direct memory manipulation and I/O control calls.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource-based payload decryption",
+      "Dynamic API resolution"
+    ],
+    "details": "The file contains encrypted resources (102, 101, 103) with an XOR loop (0xCD) triggered within fcn.100015f7 and fcn.10001723. It performs dynamic loading of system libraries and modules via GetProcAddress."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Modifies registry Run keys (RegSetValueExA) and creates system services/mutexes to maintain persistence."
+    },
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Attempts to interact with KeServiceDescriptorTable and uses direct system calls (int 0x2e) to manipulate system objects and disable protection mechanisms."
+    },
+    {
+      "name": "Anti-analysis",
+      "description": "Uses mutex checks and environment checks (GetVersionEx) to detect analysis environments."
+    },
+    {
+      "name": "Data Exfiltration / System modification",
+      "description": "Reads and writes files, manipulates security access tokens, and uses custom I/O control routines."
+    }
+  ],
+  "details": {
+    "reasoning": "While the sample uses some techniques common to software protection (e.g., resource decryption), the high concentration of kernel-mode interaction functions (KeServiceDescriptorTable, KeRaiseIrqlToDpcLevel), combined with registry persistence and direct system calls (int 0x2e) to override security access, confirms malicious intent. It is specifically designed to subvert standard OS security controls.",
+    "general": "The function fcn.1000b46f and fcn.1000ab6f demonstrate clear intent to hook the System Service Descriptor Table (SSDT) by resolving KeServiceDescriptorTable and KeAddSystemServiceTable. Functions like fcn.10001000 and fcn.100017a0 perform registry manipulation to ensure persistent execution across system reboots.",
+    "uncertainties": "The full payload remains partially obscured due to the multi-stage decryption process; however, the resolved function names and target system structures provide sufficient evidence for a malicious verdict.",
+    "conditions": "The malware requires an environment compatible with the targeted kernel version (NT 5.x/6.x) and specifically checks for system environment variables and Registry keys like 'DMWI' or specific mutexes ('prkMtx') to proceed with its payload execution.",
+    "sandbox_recommendations": "Run in a kernel-aware debugger (e.g., WinDbg) on a virtual machine running Windows XP or Windows 7. Monitor registry operations specifically related to software auto-start and observe attempts to write to system32 drivers or kernel memory."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\",
+          "description": "Registry path where persistence is likely established."
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for process synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used to synchronize kernel access."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Handles kernel-mode SSDT hooking or manipulation."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Registry persistence management."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Drops and executes a secondary payload via CreateProcess."
+    }
+  ]
+}

@@ -1,0 +1,66 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample is a Windows kernel-mode driver that implements stealthy persistent persistence by modifying system boot configuration settings and utilizing a custom XOR-based obfuscation to hide its kernel API interactions and payload strings. It communicates with its own hidden components via I/O control (IOCTL) codes.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based string/data obfuscation",
+      "Dynamic API resolution via system routine addresses"
+    ],
+    "details": "The sample uses a XOR key (0x51) for string obfuscation across various functions (e.g., fcn.0001acf8, fcn.0001a7fc, fcn.0001ab14). The driver also appears to contain a large encrypted/compressed payload in its overlay (size 11880, entropy 7.68) which it decrypts and interacts with at runtime."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode execution",
+      "description": "Utilizes ntoskrnl.exe imports, indicating operation in Ring 0."
+    },
+    {
+      "name": "Hidden communication",
+      "description": "Uses IoBuildDeviceIoControlRequest and IofCallDriver for direct device communication, bypassing standard user-mode APIs."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies registry keys related to system drivers and configuration to maintain presence."
+    },
+    {
+      "name": "Process manipulation",
+      "description": "Uses PsLookupProcessByProcessId and KeStackAttachProcess to perform operations in the context of other system processes."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode access, direct I/O control requests, and the modification of security tokens (SeQueryAuthenticationIdToken) coupled with the presence of obfuscated strings and encrypted payloads (Overlay) is highly characteristic of rootkit-like behavior. The driver does not exhibit standard application functionality, and the presence of IoDriverObjectType references confirms its intent to control hardware or system-level interactions.",
+    "general": "High-intent evidence includes the usage of SeQueryAuthenticationIdToken and PsReferencePrimaryToken in fcn.00014cdc, which indicates unauthorized token manipulation. The use of KeStackAttachProcess combined with ZwOpenFile and ZwQueryValueKey suggests it is actively traversing and modifying the system registry to achieve persistence or evasion.",
+    "uncertainties": "The exact nature of the payload in the overlay could not be fully reconstructed statically, but its entropy and interaction with the kernel driver indicate a significant secondary component.",
+    "conditions": "The driver requires system-level privileges to load and initialize. It appears to look for specific registry keys under HKLM\\SYSTEM\\CurrentControlSet, suggesting it requires these environment conditions to be met before initializing its main malicious routines.",
+    "sandbox_recommendations": "Deploy the file as a system driver (e.g., via sc create). Monitor for registry access under 'SYSTEM\\CurrentControlSet' and look for hidden file creation. Ensure the sandbox is running an x64 kernel."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Targeted registry hive for persistent service installation."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x0001ba44",
+      "name": "fcn.0001ba44",
+      "description": "Likely entry point or core dispatcher for driver initialization and routine scheduling."
+    },
+    {
+      "address": "0x00014cdc",
+      "name": "fcn.00014cdc",
+      "description": "Token acquisition and security identifier querying routine; used for privilege manipulation."
+    },
+    {
+      "address": "0x00014090",
+      "name": "fcn.00014090",
+      "description": "Device control request routine used to talk to hidden kernel components."
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to manipulate system internals, including kernel memory modification via IOCTL codes (0x25a, 0x25b, 0x256, 0x257). It employs techniques to bypass security by attempting to patch system drivers (ntoskrnl.exe/ntkrnlpa.exe) by locating internal kernel functions like KeGetCurrentIrql and KeRaiseIrqlToDpcLevel to disable protection or elevate privileges.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR encoding",
+      "Dynamic API resolution",
+      "Resource-based payload hiding"
+    ],
+    "details": "The file uses custom resource decryption routines (fcn.100015f7) and obfuscated strings throughout the code. The main logic relies on dynamically resolving kernel function addresses and manipulating kernel-mode structures."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel Memory Modification",
+      "description": "Uses IOCTL codes (0x25a, 0x25b, etc.) combined with NtQuerySystemInformation to interact with kernel drivers."
+    },
+    {
+      "name": "System Driver Patching",
+      "description": "Contains logic to find and modify kernel functions (KeGetCurrentIrql) likely to disable security features or enable unauthorized code execution."
+    },
+    {
+      "name": "Mutex-based Evasion",
+      "description": "Checks for/creates global mutexes (e.g., 'GlobalRPCMutex', 'prkMtx') to ensure only one instance runs and to possibly evade sandboxes."
+    },
+    {
+      "name": "Persistence via Registry",
+      "description": "Modifies system registry keys to persist across reboots, specifically targeting service-related keys (lsass)."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level memory modification (IOCTLs), explicit targeting of kernel functions (KeGetCurrentIrql, KeRaiseIrqlToDpcLevel), and the bypass of system drivers (ntoskrnl.exe) indicates malicious intent far beyond legitimate protection or installation functionality. The code actively seeks to manipulate kernel-mode structures to disable security controls.",
+    "general": "High-intent evidence is found in fcn.100096ce, which uses IOCTLs (0x25a, 0x25b) to perform operations on drivers. fcn.10009d28 performs pattern matching within ntoskrnl.exe/ntkrnlpa.exe to locate critical functions like KeRaiseIrqlToDpcLevel and KeGetCurrentIrql, which is a classic precursor to disabling Kernel Patch Protection or modifying security-critical kernel objects.",
+    "uncertainties": "While the kernel-level modifications are clear, the full extent of the payload extracted via 'fcn.100015f7' requires runtime observation to determine the final target payload behavior, though the visible functions are clearly malicious.",
+    "conditions": "The code checks for specific environment variables and registry configurations before proceeding. It requires execution with administrative privileges to successfully interact with kernel drivers and registry Run keys.",
+    "sandbox_recommendations": "Run in an environment with kernel debugging enabled to monitor driver interaction. Simulate Windows NT/XP/7 environment settings and ensure full administrative rights are provided."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for execution control."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used by the kernel-interacting logic."
+        },
+        {
+          "value": "ntoskrnl.exe",
+          "description": "Target kernel file."
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\lsass",
+          "description": "Persistence registry path modification."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10009d28",
+      "name": "fcn.10009d28",
+      "description": "Locates kernel function addresses for patching/hooking."
+    },
+    {
+      "address": "0x100096ce",
+      "name": "fcn.100096ce",
+      "description": "Handles driver communication via IOCTL codes."
+    },
+    {
+      "address": "0x100028d6",
+      "name": "fcn.100028d6",
+      "description": "Registry and persistence management function."
+    }
+  ]
+}

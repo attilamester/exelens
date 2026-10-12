@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a worm or injector that replicates itself to removable drives, hides its presence by modifying registry settings, creates mutexes for persistence/sync, and executes dropped payloads (likely .exe files or scripts) found on the system.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "No evidence of packing (e.g., UPX headers, high entropy sections) was detected. The code appears to be compiled with standard MSVC settings."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence / Evasion",
+      "description": "Modifies 'Hidden' and 'HideFileExt' registry keys in HKCU and HKLM to conceal files."
+    },
+    {
+      "name": "Worm Behavior / Infection",
+      "description": "Enumerates logical drives, looks for files (e.g., .exe, .txt), and copies/replicates itself or specific files to these locations."
+    },
+    {
+      "name": "Mutex / Synchronization",
+      "description": "Uses CreateMutexA and OpenMutexA to ensure a single instance is running."
+    },
+    {
+      "name": "Code Injection / Execution",
+      "description": "Uses CreateProcessA to launch dropped or modified executable files found on the host."
+    }
+  ],
+  "details": {
+    "reasoning": "The application exhibits clear malicious intent: it systematically hides user files via registry manipulation, replicates itself to external drives (worm-like behavior), and attempts to execute files found in the environment. These actions serve no legitimate software purpose and are classic indicators of self-propagating malware.",
+    "general": "The function fcn.00401490 directly manipulates registry keys ('Hidden', 'HideFileExt') to modify file system visibility. The worm-like replication is observed in fcn.00401940 and fcn.00402820, which traverse drives and use KERNEL32.dll_CopyFileA to proliferate. fcn.004015c0 implements mutex checks, and the use of CreateProcessA indicates payload activation.",
+    "uncertainties": "The exact contents of the dropped payloads are unknown as they are dynamically derived or read from local files, but the behavioral pattern is definitive.",
+    "conditions": "The primary execution triggers are: 1) The process waits for 60 seconds (GetTickCount/Sleep) upon startup. 2) It must detect removable drives (DriveType 2) to trigger replication. 3) It requires appropriate file system permissions to modify registry keys and copy files.",
+    "sandbox_recommendations": "Provide the sandbox with multiple virtual drives (removable media type). Simulate an environment with common file types, as the malware will look for specific extensions and files to infect. Monitor registry hive HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced for changes."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+          "description": "Modified to hide file extensions and system files."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "Hidden",
+          "description": "Registry key modified for evasion."
+        },
+        {
+          "value": "HideFileExt",
+          "description": "Registry key modified for evasion."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401490",
+      "name": "fcn.00401490",
+      "description": "Modifies system registry settings to hide file extensions and system files."
+    },
+    {
+      "address": "0x00401940",
+      "name": "fcn.00401940",
+      "description": "Main logic for finding files and facilitating replication/infection of removable media."
+    },
+    {
+      "address": "0x004015c0",
+      "name": "fcn.004015c0",
+      "description": "Mutex check and instance management."
+    }
+  ]
+}

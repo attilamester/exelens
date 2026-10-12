@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a downloader/dropper that injects a malicious payload into a target process (e.g., svchost.exe or similar system processes) via process hollowing or remote thread injection, and exhibits capabilities to capture screen content and exfiltrate data.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Process hollowing/injection",
+      "Dynamic API resolution",
+      "Custom encryption/obfuscation"
+    ],
+    "details": "The sample uses dynamic API loading and custom decryption routines to reconstruct its payload in memory. Functions like fcn.10002680 and fcn.100026d8 handle dynamic import resolution to evade static analysis. There is evidence of reflective loading behavior."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "Uses CreateRemoteThread to inject malicious code into a suspended target process."
+    },
+    {
+      "name": "Screen Capture",
+      "description": "Uses GDI+ to capture screen content and save it to a stream."
+    },
+    {
+      "name": "Networking",
+      "description": "Utilizes WININET.dll to perform HTTP GET/POST requests for command-and-control communication."
+    },
+    {
+      "name": "Persistence/Drop",
+      "description": "Uses RegSetValueExA to create registry keys for persistence."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of process injection (fcn.10001555), screen capturing (fcn.100040f7), and C2 communication via WININET indicates a classic malware dropper/spyware profile. The code structure involves clear high-intent indicators such as CreateRemoteThread, which is not typical for benign software unless it is a debugger or security tool, which this is not.",
+    "general": "High-intent malicious activity is confirmed by fcn.10001555 which performs CreateRemoteThread, and fcn.100040f7, which integrates GDI+ for screen capturing. The use of RegSetValueExA for persistence further confirms malicious intent.",
+    "uncertainties": "The exact C2 URL was not fully resolved in the provided static listing, as the sample likely decrypts strings at runtime.",
+    "conditions": "The malware requires an active internet connection to download the second-stage payload and likely checks for specific system environment conditions (e.g., process names) before injecting.",
+    "sandbox_recommendations": "Simulate a live internet connection with DNS hijacking or redirection to capture C2 traffic. Monitor for process hollowing using Sysmon or similar tools."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Potential persistence registry key"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "image/jpeg",
+          "description": "MIME type used in HTTP requests for captured data"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001555",
+      "name": "fcn.10001555",
+      "description": "Main process injection logic using CreateRemoteThread."
+    },
+    {
+      "address": "0x100040f7",
+      "name": "fcn.100040f7",
+      "description": "Performs screen capture and encoding using GDI+."
+    },
+    {
+      "address": "0x10003471",
+      "name": "fcn.10003471",
+      "description": "Handles process creation and environmental preparation."
+    }
+  ]
+}

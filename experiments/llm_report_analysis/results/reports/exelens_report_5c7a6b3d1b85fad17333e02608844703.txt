@@ -1,0 +1,71 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable extracts an embedded file (likely a malicious payload) from its resources, drops it into a directory created in the user's profile, and executes it as a child process using CreateProcessA.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code structure is typical of an MFC application. The logic for resource extraction and process creation is visible and not obfuscated."
+  },
+  "capabilities": [
+    {
+      "name": "Resource Extraction",
+      "description": "Uses FindResource, SizeofResource, LoadResource, and LockResource to access embedded binary data."
+    },
+    {
+      "name": "File I/O",
+      "description": "Creates files and directories using CreateDirectoryA and MFC CFile classes."
+    },
+    {
+      "name": "Process Execution",
+      "description": "Spawns new processes using CreateProcessA."
+    },
+    {
+      "name": "Data Decompression/Processing",
+      "description": "Contains routines for reading and processing custom compressed or formatted binary data (e.g., fcn.00401b60)."
+    }
+  ],
+  "details": {
+    "reasoning": "The application exhibits high-intent malicious behavior by extracting an embedded resource (named 'BinRes') and executing it. The file creates specific directories such as 'Norton360' and 'Engine' to mask its presence, then attempts to execute binaries named 'wssfmgr.exe' or 'ccSvcHst.exe', which are common names for legitimate system or security processes used to masquerade malicious activity. The combination of resource dropping, path masking, and process creation confirms malicious intent.",
+    "general": "The function fcn.00401340 drives the core malicious logic: it finds resource 'BinRes' (RVA 0x00401340), saves it using MFC CFile, and ultimately invokes CreateProcessA (RVA 0x0040156d) to execute the dropped file. The directory creation logic (fcn.00402260, fcn.00402340, fcn.00402420) specifically creates paths intended to blend in with legitimate security software.",
+    "uncertainties": "The exact nature of the payload inside 'BinRes' cannot be confirmed without analysis of the resource itself, though its execution via CreateProcessA is definitive evidence of an installer or dropper mechanism.",
+    "conditions": "The code executes its primary logic upon launching. No specific command-line arguments are required as it uses hard-coded paths and resource IDs.",
+    "sandbox_recommendations": "Run in an isolated environment with network monitoring enabled to capture the dropped payload and potential C2 activity. Monitor file system changes in the user profile directory for created folders like 'Norton360'."
+  },
+  "ioc": [
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "Norton360\\Engine\\5.1.0.29\\_readme.lz",
+          "description": "Path used for dropping payload data."
+        },
+        {
+          "value": "Norton360\\Engine\\5.1.0.29\\wssfmgr.exe",
+          "description": "Dropped executable file."
+        },
+        {
+          "value": "Norton360\\Engine\\5.1.0.29\\ccSvcHst.exe",
+          "description": "Dropped executable file."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401340",
+      "name": "fcn.00401340",
+      "description": "Main logic for extracting resource 'BinRes' and managing file drops."
+    },
+    {
+      "address": "0x0040156d",
+      "name": "CreateProcessA",
+      "description": "Used to launch the dropped malicious binaries."
+    },
+    {
+      "address": "0x00402260",
+      "name": "fcn.00402260",
+      "description": "Creates directory structures to facilitate dropping/masking files."
+    }
+  ]
+}

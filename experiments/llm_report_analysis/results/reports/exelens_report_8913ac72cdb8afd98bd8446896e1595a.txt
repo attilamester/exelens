@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This sample acts as a remote administration tool or backdoor. It communicates over HTTP/WinInet to receive commands, implements a command-and-control (C2) loop, executes shell commands via cmd.exe, and provides persistence via registry keys.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The binary does not appear to be packed or obfuscated; the code is fully visible, and sections show low to moderate entropy."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Writes to the Windows Registry 'Explorer\\Run' key to ensure execution on system startup."
+    },
+    {
+      "name": "Command Execution",
+      "description": "Spawns cmd.exe and communicates with it using pipes to perform arbitrary commands."
+    },
+    {
+      "name": "C2 Communication",
+      "description": "Uses WinInet functions (InternetConnectA, HttpOpenRequestA) to perform HTTP-based command and control."
+    },
+    {
+      "name": "Remote Administration",
+      "description": "Implements functions to list processes, list services, and start/stop/kill services or processes."
+    },
+    {
+      "name": "System Enumeration",
+      "description": "Gathers information including volume types, computer name, and username."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistent registry modifications, the use of pipes to interact with cmd.exe, and the implementation of a C2 communication loop via WinInet provides high-intent evidence of a backdoor/RAT. Legitimate tools might perform remote management, but the combination of these specific persistence and stealthy command-execution features in a standalone executable is characteristic of malware.",
+    "general": "Evidence of high-intent is found in: fcn.00402916 (writing to Explorer\\Run registry key), fcn.00401c04 (using pipes for cmd.exe interaction), and fcn.004010c0 (HTTP-based C2 loop).",
+    "uncertainties": "The sample logic suggests it is a classic C2 agent, but no explicit hard-coded C2 domain was found in the provided snippets (it seems to build request headers dynamically).",
+    "conditions": "The file requires network connectivity to function as intended. It also expects specific command strings (e.g., 'install', 'uninstall', 'shell', 'list') to trigger different functionalities.",
+    "sandbox_recommendations": "Use a network simulator to intercept HTTP traffic. Monitor registry access to 'Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\\Run' and observe spawned cmd.exe processes."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\\Run",
+          "description": "Persistence registry key"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "Adobe_Reader_Speed_Launcher",
+          "description": "Value name used in the registry for persistence"
+        },
+        {
+          "value": "GlobalAdobeReaderX",
+          "description": "Mutex name used to ensure single-instance execution"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x004010c0",
+      "name": "fcn.004010c0",
+      "description": "Main C2 communication loop using WinInet"
+    },
+    {
+      "address": "0x00402916",
+      "name": "fcn.00402916",
+      "description": "Handles registry persistence (Install)"
+    },
+    {
+      "address": "0x00401c04",
+      "name": "fcn.00401c04",
+      "description": "Initiates shell execution via cmd.exe"
+    }
+  ]
+}

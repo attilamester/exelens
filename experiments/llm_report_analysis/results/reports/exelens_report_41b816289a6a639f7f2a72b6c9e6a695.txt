@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable performs network-based reconnaissance by gathering adapter information, exfiltrating it via HTTP POST requests, and subsequently downloading and executing additional components. It establishes persistence via RunOnce registry keys and attempts to mask its activities using a mutex and process execution timing checks.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "String obfuscation",
+      "Dynamic API resolution"
+    ],
+    "details": "The binary uses custom XOR-based string obfuscation (fcn.00401280) for network configuration and file paths. No complex packing detected, but clear evidence of de-obfuscation routines during runtime."
+  },
+  "capabilities": [
+    {
+      "name": "Network Communication",
+      "description": "Utilizes WININET.dll (HttpOpenRequestA, HttpSendRequestA) to perform HTTP GET/POST requests."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies Windows Registry 'RunOnce' key to ensure execution on system startup."
+    },
+    {
+      "name": "System Reconnaissance",
+      "description": "Gathers hardware and network adapter information (GetAdaptersInfo) and processor identifiers."
+    },
+    {
+      "name": "Code Execution",
+      "description": "Downloads and executes additional payloads via CreateProcess (implied through dynamic loading) and internal file handling."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistent registry modification, exfiltration of hardware identifiers, and the subsequent retrieval/execution of remote content via WININET APIs demonstrates clear malicious intent rather than dual-use utility.",
+    "general": "The function fcn.00401000 implements HTTP C2 communication. Registry persistence is achieved in fcn.00401400 via RegCreateKeyExA on SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce. Dynamic execution of downloaded content is evident in fcn.00401370, which uses GetProcAddress and likely CreateProcess to execute retrieved data.",
+    "uncertainties": "Specific C2 IP/URL values are obfuscated. The final payload logic is dependent on successful HTTP responses from the C2, which could not be simulated.",
+    "conditions": "The malware requires an active internet connection to contact its C2 server, and it performs a timing check (local system time comparison) before proceeding with payload execution, which may act as a sandbox evasion trigger.",
+    "sandbox_recommendations": "Simulate network traffic by intercepting requests to the C2; ensure the system time is set to a standard current date and allow outbound traffic to see the full exfiltration/download cycle."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce",
+          "description": "Persistence mechanism."
+        },
+        {
+          "value": "HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0",
+          "description": "System reconnaissance target."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "E______E._iqrstf.1rkbf.__3VFvW.uuleflpareje",
+          "description": "De-obfuscated filename used for operational tasks."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401000",
+      "name": "fcn.00401000",
+      "description": "Core HTTP C2 communication routine."
+    },
+    {
+      "address": "0x00401400",
+      "name": "fcn.00401400",
+      "description": "Handles persistence via registry modification."
+    },
+    {
+      "address": "0x00401370",
+      "name": "fcn.00401370",
+      "description": "Executes downloaded components dynamically."
+    }
+  ]
+}

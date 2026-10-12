@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains a rootkit-like driver installer. It checks for specific system environment variables and files, copies itself, persists via Registry keys, and performs low-level operations such as modifying kernel-mode structures or loading drivers to potentially bypass security controls or maintain stealth.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR decryption",
+      "Dynamic API resolution (GetProcAddress/LoadLibrary)"
+    ],
+    "details": "The file uses custom decryption routines (XOR 0xCD) on resources loaded via FindResource/LoadResource, indicating an attempt to hide the main payload and configuration data."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Uses RegCreateKeyExA and RegSetValueExA to establish autostart persistence in Registry keys."
+    },
+    {
+      "name": "Kernel-mode interaction",
+      "description": "Contains code that references NtQuerySystemInformation, KeServiceDescriptorTable, and IoAllocateMdl, characteristic of rootkit/driver behavior."
+    },
+    {
+      "name": "System Evasion",
+      "description": "Performs checks against debugger presence and attempts to disable or modify system protection mechanisms."
+    },
+    {
+      "name": "Process Injection/Creation",
+      "description": "Utilizes CreateProcessA to launch hidden processes or services."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode API references (KeServiceDescriptorTable), mutex-based execution control (GlobalRPCMutex), and explicit registry manipulation for persistence points directly to malicious intent beyond legitimate software protection or installation.",
+    "general": "The function fcn.1000b46f performs low-level registry manipulation and process interaction, while fcn.1000b369 specifically accesses KeServiceDescriptorTable. The usage of 'NtShutdownSystem' and 'KeGetCurrentIrql' in various functions (fcn.1000b73a, fcn.100096ce) is highly unusual for legitimate user-mode application installers and strongly suggests rootkit functionality.",
+    "uncertainties": "The exact nature of the encrypted resource 102 remains unknown as the code only performs a simple XOR decryption which might lead to further decompression or decoding routines not fully mapped in the static trace.",
+    "conditions": "The malware checks for a 'GlobalRPCMutex' and environment variables such as 'system32'. It appears to require administrative privileges for Registry writes and driver-like operations.",
+    "sandbox_recommendations": "Run in a controlled Windows environment with kernel-mode monitoring tools enabled. Specifically, monitor attempts to access the System Service Descriptor Table (SSDT) and ensure that the sample is allowed to write to HKLM registry hives to observe the full persistence mechanism."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\",
+          "description": "Likely path for driver-based persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for single-instance execution check."
+        },
+        {
+          "value": "NtShutdownSystem",
+          "description": "System call used to control machine state."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Performs low-level modifications to the SSDT (KeServiceDescriptorTable)."
+    },
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Primary routine for registry persistence and driver-related setup."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Looks up system services and manages access tokens."
+    }
+  ]
+}

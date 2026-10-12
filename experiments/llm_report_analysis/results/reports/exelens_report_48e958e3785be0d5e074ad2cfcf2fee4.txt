@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to hide and persist itself within the system by modifying registry keys, performing file operations, and executing system-level operations (likely kernel-mode interaction). It utilizes multiple anti-analysis techniques including mutex checks, environment variable checking, and dynamic loading of system APIs to perform privileged operations.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource-based loading",
+      "Dynamic API resolution",
+      "Custom XOR obfuscation of embedded data"
+    ],
+    "details": "The binary embeds encrypted/obfuscated data in resources (102). Functions like fcn.100015f7 and fcn.10001697 perform XOR-based decryption (XOR key 0xcd) of resource data at runtime, suggesting a second-stage payload loader mechanism."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence via Registry",
+      "description": "Uses RegCreateKeyExA and RegSetValueExA to register itself or associated components in the system registry, specifically targeting system-level components."
+    },
+    {
+      "name": "Process Injection/System Modification",
+      "description": "Contains functions interacting with NtQuerySystemInformation, NtQueryObject, and kernel-mode structures (KeServiceDescriptorTable), indicative of rootkit-like or low-level system subversion capabilities."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Utilizes Mutex objects ('GlobalRPCMutex', 'prkMtx') to ensure single-instance execution and avoid sandbox detection, plus environment checks."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Uses CopyFileA, DeleteFileA, and SetFileAttributesA to manipulate sensitive system files, often from the SYSTEM32 directory."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level structure manipulation (KeServiceDescriptorTable hooks, DbgPrintEx hooking) and the persistence mechanism (registry modifications in system keys) strongly points to malicious intent rather than a legitimate software installer. The use of kernel-mode API functions is highly irregular for typical user-mode applications, confirming high-intent malicious behavior.",
+    "general": "High-intent evidence includes the hooking of 'NtShutdownSystem' (fcn.1000c755, fcn.1000be1b), manipulation of 'KeServiceDescriptorTable' (fcn.1000b369), and the use of 'DbgPrint' hooking (fcn.10009b69). These demonstrate an intent to intercept and subvert system calls, characteristic of malware/rootkit activity.",
+    "uncertainties": "While the kernel-level hooking functions are present, their actual execution depends on the specific OS version and user privileges detected at runtime, which might limit the impact on newer Windows versions.",
+    "conditions": "The malware requires administrative privileges to interact with system-critical registry keys and kernel structures. It also checks for environment variables (e.g., 'system32') and specific system paths to determine its execution environment.",
+    "sandbox_recommendations": "Run in an environment that allows persistence and registry monitoring. Monitor for registry changes in HKLM and attempts to access the Windows SYSTEM32 directory. The sample may sleep to evade detection."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for single-instance check."
+        },
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\lsass",
+          "description": "Targeted registry key for modification to achieve persistence."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "system32\\win32k.sys",
+          "description": "Critical system file targeted for modification."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Modifies the System Service Descriptor Table (SSDT), a classic rootkit hook technique."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Performs registry-based enumeration and configuration for persistence."
+    },
+    {
+      "address": "0x10001697",
+      "name": "fcn.10001697",
+      "description": "Loader function that decrypts resources and prepares for payload execution."
+    }
+  ]
+}

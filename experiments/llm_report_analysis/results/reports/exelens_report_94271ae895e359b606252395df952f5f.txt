@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple components, including a resource-unpacker, a kernel-mode driver service installer, and logic to modify the system registry to load a driver (lsass). It uses mutexes to manage synchronization, performs file system operations to set attributes, and includes functionality to interact with kernel structures like the Service Descriptor Table.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "XOR-based obfuscation/packing",
+      "Resource-embedded payload",
+      "Dynamic API resolution (GetProcAddress)"
+    ],
+    "details": "The file uses XOR operations (RVA 0x1000167b, 0x1000173d) on resources identified at 0x10010028, 0x10010038, and 0x10010040. Key functions like fcn.100015f7 handle resource loading and decryption."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Persistence",
+      "description": "Sets file attributes (SetFileAttributesA), modifies registry (RegSetValueExA), and copies files (lsass context)."
+    },
+    {
+      "name": "Kernel Interaction",
+      "description": "Attempts to interact with the kernel by resolving KeServiceDescriptorTable and modifying system structures."
+    },
+    {
+      "name": "Evasion",
+      "description": "Uses mutexes ('GlobalRPCMutex', 'prkMtx') to prevent multiple instances and detect sandboxes/existing infections."
+    }
+  ],
+  "details": {
+    "reasoning": "While some components (dynamic loading, mutexes) are dual-use, the combination of registry persistence ('lsass' value), resource decryption, and active attempts to modify kernel-mode structures via 'KeServiceDescriptorTable' and 'KeAddSystemServiceTable' strongly indicates malicious intent to gain system persistence at a low level.",
+    "general": "High-intent evidence includes code paths for 'KeServiceDescriptorTable' hooking (fcn.1000b369) and registry persistence modification ('lsass', fcn.100017a0).",
+    "uncertainties": "The exact nature of the encrypted resource (102) remains unknown as it is not executed directly by visible logic, likely being a driver file.",
+    "conditions": "Execution likely requires elevated privileges (Administrator/SYSTEM) for registry modification and kernel-mode interactions.",
+    "sandbox_recommendations": "Provide an environment with full administrative access and monitor the 'HKLM\\SYSTEM\\CurrentControlSet\\Services' registry key for new entries after detonation."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\lsass",
+          "description": "Persistence registry key for potential driver loading."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for synchronization."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Kernel-mode hook implementation for system service dispatch tables."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Registry manipulation and persistence function."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Resource decryption routine."
+    }
+  ]
+}

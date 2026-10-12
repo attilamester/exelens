@@ -1,0 +1,88 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample exhibits capabilities of a kernel-mode driver installer or persistent malicious loader. It performs resource extraction, mutex creation for synchronization, registry manipulation, service/driver interaction, and process manipulation.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR decryption",
+      "Resource-based payload hiding"
+    ],
+    "details": "The sample uses FindResourceA/LoadResource to retrieve an encrypted payload from resources, which is then decrypted using a simple XOR loop (seen in fcn.100015f7). The decrypted data likely contains the core logic or driver components."
+  },
+  "capabilities": [
+    {
+      "name": "Resource Extraction and Decryption",
+      "description": "Decrypts hidden payload data from resources."
+    },
+    {
+      "name": "Registry Manipulation",
+      "description": "Writes to registry keys (e.g., Run keys or service configuration) to achieve persistence."
+    },
+    {
+      "name": "Process Injection/Manipulation",
+      "description": "Manipulates system processes or creates new processes with specific attributes."
+    },
+    {
+      "name": "Driver Interaction",
+      "description": "Interacts with low-level kernel APIs and potential system drivers (e.g., ntdll, ntoskrnl, hal, win32k)."
+    },
+    {
+      "name": "System Mutexing",
+      "description": "Creates system-wide mutexes to ensure single instance execution and synchronization."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent capabilities, such as persistent registry writes, deliberate resource decryption of a payload, and extensive interaction with sensitive system APIs (including kernel-mode symbols and registry key modification), demonstrates clear malicious intent. The dual-use features are used here to coordinate a multi-stage infection process rather than standard application functionality.",
+    "general": "The function fcn.100015f7 decrypts resources. The code then uses ADVAPI32 functions like RegCreateKeyExA and RegSetValueExA to modify the system environment. Furthermore, fcn.10001b34 utilizes CreateProcessA and CreateFileA to drop and execute files in system directories, which is typical of malicious droppers.",
+    "uncertainties": "While the functionality is clear, the exact nature of the decrypted payload is not fully visible due to its dynamic decryption. The analysis assumes the payload is the final malicious executable.",
+    "conditions": "The sample likely requires execution with elevated (Administrator/System) privileges to successfully perform registry modifications and driver-related tasks.",
+    "sandbox_recommendations": "Run in an environment with monitoring enabled for registry modifications and file system changes. A simulated network environment is recommended as the sample may attempt to beacon or download further modules."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Another mutex name observed."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "_system32",
+          "description": "Observed in string concatenation for file paths."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Decrypts embedded resource payload."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Handles file creation and process execution."
+    },
+    {
+      "address": "0x10002109",
+      "name": "fcn.10002109",
+      "description": "Mutex initialization and environment check."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Performs persistent registry modifications."
+    }
+  ]
+}

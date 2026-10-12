@@ -1,0 +1,67 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This kernel-mode driver performs low-level hardware interaction and dynamic code modification. It scans for a specific hardware port (0x60), injects code into kernel memory (MmMapIoSpace/MmUnmapIoSpace), and modifies existing kernel functions to intercept or redirect execution, exhibiting characteristics of a kernel-level rootkit or hook.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Dynamic shellcode generation",
+      "Memory patching",
+      "Manual IAT/SSDT manipulation"
+    ],
+    "details": "The file contains routines (`fcn.00014050`) that generate machine code instructions (e.g., 0xE9 jumps, 0xE8 calls) in memory and then copies this code into executable kernel memory mapped via `MmMapIoSpace`."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode Memory Access",
+      "description": "Uses MmMapIoSpace and MmUnmapIoSpace to access physical memory addresses."
+    },
+    {
+      "name": "Hardware I/O Interception",
+      "description": "Monitors I/O ports (READ_PORT_UCHAR) specifically targeting port 0x60 (keyboard controller)."
+    },
+    {
+      "name": "Kernel Function Hooking",
+      "description": "Calculates offsets for IofCallDriver and overwrites the start of the function with hook instructions."
+    },
+    {
+      "name": "Anti-Debugging/Environment Check",
+      "description": "Checks Debug Register state (DR0-DR7) and uses SIDT to inspect the Interrupt Descriptor Table."
+    }
+  ],
+  "details": {
+    "reasoning": "While some capabilities are dual-use (e.g., memory mapping for drivers), the combination of active kernel function redirection (hooking `IofCallDriver`), monitoring hardware ports (0x60), and the use of anti-debugging registers (DRx) is indicative of malicious rootkit behavior rather than standard driver functionality.",
+    "general": "The function `fcn.00014050` explicitly calculates relative jumps to overwrite the `IofCallDriver` routine in memory. The routine `fcn.000139e0` continuously polls port 0x60, suggesting a keylogger or input interception mechanism. These actions are consistent with malware designed to persist and hide within the kernel.",
+    "uncertainties": "The exact target of the hooked IofCallDriver is context-dependent, though it is clearly intended to subvert kernel execution flow.",
+    "conditions": "The driver requires a valid hardware environment where port 0x60 returns 0xD8 (as seen in `fcn.000139e0`). Execution is conditioned on the successful mapping of physical memory and potential success of the I/O port polling sequence.",
+    "sandbox_recommendations": "Deploy in a virtual machine configured with a kernel debugger (KD) attached. Use `!drivers` to identify where this driver maps its sections and monitor for access violations in `ntoskrnl.exe` code sections."
+  },
+  "ioc": [
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "0x60",
+          "description": "I/O port monitored for keyboard controller activity"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00014050",
+      "name": "fcn.00014050",
+      "description": "Performs kernel function hooking by patching executable memory"
+    },
+    {
+      "address": "0x000139e0",
+      "name": "fcn.000139e0",
+      "description": "Polls hardware port 0x60 for specific data pattern"
+    },
+    {
+      "address": "0x00011510",
+      "name": "fcn.00011510",
+      "description": "Initializes memory mapping and triggers kernel function patching"
+    }
+  ]
+}

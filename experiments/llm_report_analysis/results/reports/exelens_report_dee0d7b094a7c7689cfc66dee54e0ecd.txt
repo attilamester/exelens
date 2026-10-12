@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This file is a complex dropper/loader that uses resource-based obfuscation (XOR-0xcd) to hide its payload, performs anti-analysis checks, and attempts to modify system services and persistence mechanisms. It includes extensive functionality to interact with the Windows kernel-level driver interface (System Service Descriptor Table manipulation, `NtShutdownSystem`), suggesting an intent for deep system compromise or rootkit activity.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Resource obfuscation with XOR 0xcd",
+      "Dynamic API resolution",
+      "Function pointers resolution via memory parsing"
+    ],
+    "details": "Resources 101, 102, and 103 are likely encrypted/compressed. Routine fcn.100015f7 performs an XOR 0xcd operation on loaded resources to de-obfuscate them before execution or use."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Registry manipulation targeting Run keys or system services."
+    },
+    {
+      "name": "Process/Driver Interaction",
+      "description": "Attempting to locate and manipulate ntoskrnl.exe and ntdll.dll structures (KeServiceDescriptorTable)."
+    },
+    {
+      "name": "Evasion",
+      "description": "Anti-debugging, anti-VM checks and process hollowing."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Copying files to system directories, setting file attributes, and deleting original files."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode structures manipulation (KeServiceDescriptorTable), hidden resource decoding, and system registry persistence mechanisms (RegSetValueExA, RegCreateKeyExA) strongly points to malicious intent rather than legitimate software behavior. The use of low-level `int 2e` system calls in fcn.1000a2cd further corroborates malicious system-level activity.",
+    "general": "High-intent indicators found include: fcn.1000a2cd (Kernel Service Descriptor Table manipulation), fcn.100017a0 (Registry modification for service persistence), and the use of 'KeServiceDescriptorTable' and 'NtShutdownSystem' strings referencing sensitive system APIs.",
+    "uncertainties": "Because the main payload is obfuscated within resources (101-103), the exact functionality of the secondary stage remains hidden, but the loader's behavior is explicitly malicious.",
+    "conditions": "Requires administrative privileges to modify registry service keys and kernel-mode structures. The file expects specific environment variables (GetEnvironmentVariableA/W) and checks for mutex presence (GlobalRPCMutex) to avoid redundant execution.",
+    "sandbox_recommendations": "Use a sandboxed environment with kernel-mode monitoring. The malware may require administrative rights; ensure the environment is configured to allow service registry changes and kernel-mode API hooking observation."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\",
+          "description": "Likely target for service persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for single-instance execution."
+        },
+        {
+          "value": "KeServiceDescriptorTable",
+          "description": "Symbol referenced for rootkit/kernel manipulation."
+        },
+        {
+          "value": "NtShutdownSystem",
+          "description": "Sensitive system API used for system control."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Loader/Dropper functionality, responsible for loading resources."
+    },
+    {
+      "address": "0x1000a2cd",
+      "name": "fcn.1000a2cd",
+      "description": "Kernel-mode interaction and system manipulation core."
+    },
+    {
+      "address": "0x1000d4f0",
+      "name": "fcn.1000d4f0",
+      "description": "Low-level system API hooking/monitoring core."
+    }
+  ]
+}

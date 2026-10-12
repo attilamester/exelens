@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains sophisticated driver-loading and process-hollowing capabilities, including kernel-mode service descriptor table modification. It uses custom string obfuscation, mutex-based anti-re-execution, and resource-based payload extraction.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom payload decryption",
+      "Resource-based loading",
+      "Process hollowing/injection"
+    ],
+    "details": "The sample uses a XOR-based decryption routine (RVA 0x1000165b, 0x1000173d) and dynamically resolves imports via LoadLibraryA/GetProcAddress. It extracts resources (e.g., RVA 0x10001bc4) to disk, sets attributes, and launches processes to perform malicious actions."
+  },
+  "capabilities": [
+    {
+      "name": "Process Hollowing/Injection",
+      "description": "Uses CreateProcessA, WriteFile, and GetFileTime to replace target processes with decrypted payloads."
+    },
+    {
+      "name": "Kernel-mode Modification",
+      "description": "Attempts to interact with KeServiceDescriptorTable, KeAddSystemServiceTable, and NtQuerySystemInformation, indicating rootkit-like behavior."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies Windows Registry keys (e.g., RegCreateKeyExA, RegSetValueExA) to maintain presence across reboots."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Checks for GlobalRPCMutex and uses GetVersionExA to adapt behavior based on the Windows version."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode service table manipulation, process hollowing, and persistence mechanisms (registry modification and file copying) strongly indicates malicious intent. While individual APIs like VirtualAlloc or CreateFile are dual-use, their usage in orchestrating system-level hooks and payload replacement provides definitive evidence of malicious behavior, consistent with rootkit and trojan activity.",
+    "general": "High-intent evidence found in function fcn.1000b369 (manipulating KeServiceDescriptorTable via GetProcAddress), fcn.1000b46f (writing files using NtShutdownSystem-related logic), and fcn.10009bd3 (registry interactions to hide/persist).",
+    "uncertainties": "While the decryption key and payload structure were analyzed statically, exact environmental triggers (beyond basic mutex checks) might require sandbox observation to fully map out all command-and-control communication.",
+    "conditions": "The file uses CreateMutexA to ensure only one instance runs. It also performs environmental checks (e.g., GetEnvironmentVariableA for '_system32') and requires specific registry keys to be present for full functionality.",
+    "sandbox_recommendations": "Use an environment that supports kernel-mode debugging to observe the SSDT hooking attempt. Monitor all registry write operations for persistence and verify file creation in system directories."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for single-instance enforcement."
+        },
+        {
+          "value": "cnFormSyncExFBC",
+          "description": "String associated with registry/class operations."
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\Software",
+          "description": "Target of registry modifications for persistence."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Function responsible for modifying the kernel System Service Descriptor Table."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Main loader function that extracts resources and executes them via CreateProcessA."
+    },
+    {
+      "address": "0x100028d6",
+      "name": "fcn.100028d6",
+      "description": "Handles complex synchronization and mutex-based coordination of the payload."
+    }
+  ]
+}

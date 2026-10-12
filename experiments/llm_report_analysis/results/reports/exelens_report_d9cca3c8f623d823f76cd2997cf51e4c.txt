@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple sophisticated features including self-extraction, process injection (via CreateProcess), registry modification for persistence (adding/modifying keys related to system services), and potentially kernel-level manipulation (referencing ntkrnlpa.exe/ntdll.dll, IoAllocateMdl, MmBuildMdlForNonPagedPool).",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based payload obfuscation",
+      "Dynamic API resolution (GetProcAddress/LoadLibrary)"
+    ],
+    "details": "The file contains routines that use simple XOR obfuscation (0xcd, 0x66/0x65-based XORs) to hide resource data before execution. The entry point dynamic resolution and various functions like fcn.1000788e and fcn.1000ab6f indicate potential code injection or loading of secondary components."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Modification",
+      "description": "Utilizes CreateProcess and potentially manual mapping techniques to execute code."
+    },
+    {
+      "name": "Registry Persistence",
+      "description": "Modifies system registry keys, suggesting attempts to achieve persistence (e.g., using RegCreateKeyExA and RegSetValueExA)."
+    },
+    {
+      "name": "Kernel-Mode Interaction",
+      "description": "Imports and calls APIs related to MDL management (IoAllocateMdl, MmBuildMdlForNonPagedPool, MmProbeAndLockPages) often used by rootkits or kernel-mode drivers."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Checks for mutexes (GlobalRPCMutex, prkMtx) to prevent multiple instances and likely to detect analysis environments."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistence mechanisms, registry manipulation, and high-privilege kernel-mode API usage is highly indicative of malicious intent. The binary does not show characteristics of a standard benign installer or protector, as the hidden resources and the specific sequence of loading system drivers (ntkrnlpa.exe) and manipulating memory descriptors (MDL) are characteristic of advanced persistent threats.",
+    "general": "High-intent indicators include the use of KERNEL32.dll_CreateProcessA for secondary execution, and the interaction with kernel-mode drivers via fcn.1000ab6f and fcn.1000c492 (which maps kernel memory using IoAllocateMdl and MmProbeAndLockPages).",
+    "uncertainties": "The full extent of the payload is obfuscated by the XOR loops; thus, the exact final functional outcome (e.g., specific data exfiltration or credential theft) remains partly unknown without dynamic detonation.",
+    "conditions": "Execution is gated by the creation and check of named mutexes (GlobalRPCMutex, prkMtx). It may also require administrative privileges to successfully interact with registry keys and system drivers.",
+    "sandbox_recommendations": "Use an environment that supports kernel-mode debugging/monitoring. Ensure the sandbox environment mimics a typical Windows installation with standard system directories present (C:\\Windows\\System32) as the binary performs path concatenation for system files."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\",
+          "description": "Persistence registry key location"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for instance check"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for synchronization"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Handles resource loading and process creation (CreateProcessA)."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Registry-based persistence routine."
+    },
+    {
+      "address": "0x1000c492",
+      "name": "fcn.1000c492",
+      "description": "Kernel-mode memory descriptor (MDL) manipulation routines."
+    }
+  ]
+}

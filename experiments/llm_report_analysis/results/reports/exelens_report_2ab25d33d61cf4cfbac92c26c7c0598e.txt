@@ -1,0 +1,59 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The file is a highly obfuscated stager that uses custom dynamic API resolution to load and execute an encrypted payload from its overlay.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom shellcode-based loader",
+      "Dynamic API resolution (PEB/Export Directory traversal)",
+      "Code obfuscation"
+    ],
+    "details": "The entrypoint executes a custom decryption/unloading routine that iterates through kernel32.dll exports to resolve APIs dynamically. The high entropy in the .rdata section (7.53) and the 256-byte overlay (entropy 7.24) suggest an encrypted payload is extracted into memory and executed."
+  },
+  "capabilities": [
+    {
+      "name": "Dynamic API Resolution",
+      "description": "The code manually resolves function addresses by traversing the Export Directory of loaded modules."
+    },
+    {
+      "name": "Memory Allocation and Execution",
+      "description": "The code uses routines that, in conjunction with API resolution, enable memory allocation (e.g., VirtualAlloc) and execution of decrypted code (payload staging)."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of entrypoint-based decryption, iterative manual API resolution (targeting Kernel32.dll), and the execution of code from high-entropy sections/overlays is characteristic of a malicious loader/stager. There is no legitimate functionality visible, supporting a high-intent malicious verdict.",
+    "general": "The assembly at `unk.0x22d02165` and following functions implements a custom loader pattern that resolves symbols like 'LoadLibrary' and 'GetProcAddress'. The repetitive calls to decryption stubs (`fcn.22d02504` and `unk.0x22d0251c`) confirm the unpacking intent.",
+    "uncertainties": "The exact payload contents remain encrypted in memory, so the final malicious goal (e.g., info-stealing, ransomware) is not explicitly visible in static analysis, though the staging behavior is definitive.",
+    "conditions": "The file is self-contained and likely executes the payload immediately upon successful decryption and API resolution in memory.",
+    "sandbox_recommendations": "Run in a debugger with breakpoints on memory-write and execute-transition points (e.g., VirtualProtect or subsequent call/jmp to heap memory). Use a sandbox that can capture memory dumps post-unpacing."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "kernel32.dll",
+          "description": "Targeted module for dynamic API resolution."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x22d0200c",
+      "name": "entry0",
+      "description": "Initial entrypoint initiating the decryption/loader process."
+    },
+    {
+      "address": "0x22d02165",
+      "name": "unk.0x22d02165",
+      "description": "Central routine for dynamic symbol/API resolution."
+    },
+    {
+      "address": "0x22d02504",
+      "name": "fcn.22d02504",
+      "description": "Decryption stub applied to the payload."
+    }
+  ]
+}

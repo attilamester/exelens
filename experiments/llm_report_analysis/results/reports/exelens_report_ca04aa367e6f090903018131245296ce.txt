@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The file is a kernel-mode rootkit driver. It performs direct kernel object manipulation (DKOM) to hide processes and files, hooks system services via inline patching of kernel memory, and utilizes custom synchronization mechanisms to manage its hidden state.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Inline patching of system functions",
+      "Dynamic kernel API resolution",
+      "Custom anti-analysis/self-checksumming"
+    ],
+    "details": "The driver resolves system routine addresses at runtime via MmGetSystemRoutineAddress. It dynamically patches kernel-mode memory in functions like fcn.00011de2 (using CLI/STI and CR0 register manipulation to disable write protection) to hook system service dispatch tables or modify function prologues."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode hook/patch",
+      "description": "Modifies kernel memory to redirect control flow."
+    },
+    {
+      "name": "DKOM (Direct Kernel Object Manipulation)",
+      "description": "Modifies internal OS data structures (e.g., EPROCESS lists) to hide processes/files."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Disables WP (Write Protect) bit in CR0 to modify read-only kernel code segments."
+    },
+    {
+      "name": "System Information Query",
+      "description": "Uses ZwQuerySystemInformation to enumerate system objects and manipulate them."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of CR0 manipulation, direct patching of system functions (inline hooking), and active modification of linked lists (unlinking EPROCESS structures in fcn.000105d6) is characteristic of a kernel-mode rootkit. There is no legitimate driver functionality visible; it only interacts with system objects for the purpose of hiding artifacts.",
+    "general": "High-intent evidence includes: 1) fcn.000105d6 modifying EPROCESS linked lists to hide processes. 2) fcn.00011de2 disabling WP bit in CR0 (CLI/MOV CR0, STI) to patch kernel memory. 3) Usage of KeBugCheckEx (fcn.000123c5) to crash the system if integrity checks fail.",
+    "uncertainties": "The driver checks specifically for Windows build numbers (e.g., 0xece, 0x1770), implying it is tailored for specific versions of Windows kernel (e.g., Windows 10/11 versions). If the build number in the sandbox does not match these, the rootkit might remain dormant.",
+    "conditions": "The driver requires being loaded as a kernel driver and having specific system routines available. It performs environment checks using ZwQuerySystemInformation and version checks via NtBuildNumber. Execution of the hidden-process functionality is conditional upon finding the EPROCESS objects to manipulate.",
+    "sandbox_recommendations": "Run in a kernel-mode debugger (e.g., WinDbg) attached to the target VM. Monitor changes to the EPROCESS linked lists and system call dispatch tables. Ensure the Windows build matches known targets (e.g., specific Windows 10/11 build strings)."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "\\Registry\\Machine\\System\\CurrentControlSet\\Control\\Class",
+          "description": "Likely target for system enumeration"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "IpsI",
+          "description": "Tag used in ExAllocatePoolWithTag for pool allocations"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x000105d6",
+      "name": "fcn.000105d6",
+      "description": "Modifies EPROCESS linked lists for process hiding."
+    },
+    {
+      "address": "0x00011de2",
+      "name": "fcn.00011de2",
+      "description": "Hooks/patches kernel code by disabling WP bit in CR0."
+    },
+    {
+      "address": "0x0001118a",
+      "name": "fcn.0001118a",
+      "description": "Maps locked pages and handles memory access/patching."
+    }
+  ]
+}

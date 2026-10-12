@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The file is a remote-access trojan (RAT) disguised as a system service. It establishes a backdoor, connects to a hardcoded remote IP, and implements command-and-control functionality, including remote file downloading, directory traversal, and process execution (command shells).",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed. Standard C++ runtime patterns are visible, and core functionality like base64 encoding and network communication is directly exposed."
+  },
+  "capabilities": [
+    {
+      "name": "Backdoor / RAT",
+      "description": "Implements a command loop that accepts remote instructions for system manipulation."
+    },
+    {
+      "name": "Network Communication",
+      "description": "Uses WinINet and Winsock APIs to connect to a hardcoded IP (216.36.80.2), send data, and receive commands."
+    },
+    {
+      "name": "Process Execution",
+      "description": "Creates subprocesses (cmd.exe) via CreateProcessA, utilizing pipes for input/output redirection."
+    },
+    {
+      "name": "Persistence",
+      "description": "Includes logic for registering and managing as a system service (ServiceMain, InstallService, UninstallService)."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of networking capabilities (Winsock/WinINet) used to implement a command-and-control loop that executes arbitrary commands via cmd.exe, coupled with service registration logic, confirms malicious intent. There is no legitimate reason for this combination of features in a typical executable.",
+    "general": "The function fcn.1000152c manages a pipe to cmd.exe and uses WS2_32.dll_select/recv to listen for commands. fcn.10001e7c demonstrates file downloading (InternetReadFile) and saving to disk using hardcoded file naming patterns, clearly indicating C2 control.",
+    "uncertainties": "No significant uncertainties; the operational logic for the RAT is clearly visible in the disassembled functions.",
+    "conditions": "Requires network access to 216.36.80.2. The backdoor becomes active once it establishes a connection and receives commands via the command loop.",
+    "sandbox_recommendations": "Isolate the network; use a fake DNS and HTTP/TCP server to simulate the control server at 216.36.80.2 on port 80. Monitor for spawned cmd.exe processes and filesystem changes in the working directory."
+  },
+  "ioc": [
+    {
+      "type": "ip",
+      "values": [
+        {
+          "value": "216.36.80.2",
+          "description": "Hardcoded C2 server IP address."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "getfile",
+          "description": "Command used to trigger remote file download."
+        },
+        {
+          "value": "cmd.exe /c",
+          "description": "Command line argument used to execute remote commands."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000152c",
+      "name": "fcn.1000152c",
+      "description": "Main C2 loop: handles network communication, pipe management, and command processing for cmd.exe."
+    },
+    {
+      "address": "0x10001e7c",
+      "name": "fcn.10001e7c",
+      "description": "Implements download capability, fetching remote files via HTTP and saving them locally."
+    },
+    {
+      "address": "0x10001139",
+      "name": "fcn.10001139",
+      "description": "Initialization routine connecting to the C2 and setting up the communication environment."
+    }
+  ]
+}

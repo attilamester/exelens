@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple anti-forensic and system-tampering capabilities, including self-replication (copying to System32), registry persistence, Mutex protection for single-instance execution, and the ability to interact with kernel-mode structures via NtQuerySystemInformation and direct memory manipulation (Mdl).",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation of resource data",
+      "Manual API resolution via GetProcAddress"
+    ],
+    "details": "The sample uses a custom XOR loop (0xCD) to decode data retrieved from system resources (e.g., in fcn.100015f7). Several critical APIs are loaded dynamically via GetProcAddress, suggesting an attempt to evade static analysis."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Registers values in HKEY_LOCAL_MACHINE to maintain system presence (ADVAPI32.dll_RegSetValueExA)."
+    },
+    {
+      "name": "Process Injection/Modification",
+      "description": "Uses Mdl (Memory Descriptor Lists) to potentially modify memory across processes or system boundaries."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Checks for debugger presence and uses Mutexes (e.g., 'GlobalRPCMutex') to ensure only one instance runs."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Copies itself to system directories (e.g., System32) and hides files (SetFileAttributesA)."
+    }
+  ],
+  "details": {
+    "reasoning": "While some components like Mutexes or resource decryption are dual-use (common in installers), the combination of kernel-mode interaction APIs (NtQuerySystemInformation, NtQueryObject) and the explicit intent to modify system files and registry keys to ensure persistence makes this highly likely to be malicious. The behavior mimics rootkit or advanced persistent threat (APT) activity.",
+    "general": "Evidence is found in fcn.100010a1 (copying/hiding files in System32), fcn.100017a0 (registry modification using 'lsass' context), and fcn.1000c492 (Mdl-based memory manipulation, often associated with kernel-mode hooking).",
+    "uncertainties": "The exact nature of the payload inside the resources (101, 102) remains partially obscured, as decryption is dynamic.",
+    "conditions": "The sample performs environment checks (GetEnvironmentVariableW, GetVersionExA). It requires administrative privileges to modify HKLM registry keys and system directory files. The execution flow relies on these checks succeeding.",
+    "sandbox_recommendations": "Run with administrative privileges. Monitor registry activity in HKLM and file writes to system folders. Simulate a Windows environment where System32 is accessible."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE",
+          "description": "Used for persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for single-instance check."
+        },
+        {
+          "value": "lsass",
+          "description": "Referenced in registry modification."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100010a1",
+      "name": "fcn.100010a1",
+      "description": "Performs file system replication and hiding."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Modifies system registry keys for persistence."
+    },
+    {
+      "address": "0x1000c492",
+      "name": "fcn.1000c492",
+      "description": "Handles memory manipulation via Mdl (Memory Descriptor Lists), typically used in kernel-mode activities."
+    }
+  ]
+}

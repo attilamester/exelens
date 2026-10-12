@@ -1,0 +1,85 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This sample is a remote access Trojan (RAT) that uses HTTP for command-and-control (C2) communication. It performs environment enumeration, registry key manipulation, file system navigation, and process hollowing/execution. It includes anti-analysis measures such as mutex checking and proxy detection.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code structure and logic are visible and exhibit extensive C++ boilerplate, which is common in older, non-packed RATs."
+  },
+  "capabilities": [
+    {
+      "name": "Network Communication",
+      "description": "Uses WSOCK32.dll (socket, connect, send, recv) to communicate with a remote server over HTTP."
+    },
+    {
+      "name": "Persistence and Registry Manipulation",
+      "description": "Uses ADVAPI32.dll (RegCreateKeyExA, RegSetValueExA) to manipulate registry keys for potentially maintaining persistence or configuration."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Uses KERNEL32.dll (CreateFileA, DeleteFileA, CopyFileA, FindFirstFileW) to manipulate files, likely to deploy or exfiltrate data."
+    },
+    {
+      "name": "Process Execution",
+      "description": "Uses KERNEL32.dll (CreateProcessA) to execute arbitrary commands or payloads."
+    },
+    {
+      "name": "Anti-Analysis / Evasion",
+      "description": "Uses Mutexes (CreateMutexA, OpenMutexA) to ensure only one instance is running and checks for proxy settings to adjust networking."
+    }
+  ],
+  "details": {
+    "reasoning": "The application exhibits high-intent malicious behavior consistent with a RAT. While individual functions like file I/O or networking are dual-use, the combination of proxy-aware C2 communication (fcn.0040172c), remote file management (fcn.00403295), and automated command execution (fcn.0040310a) identifies this clearly as malicious software. The code demonstrates a clear intent to control a victim's machine remotely.",
+    "general": "The file contains high-intent indicators including dynamic C2 communication (fcn.0040172c), registry manipulation for configuration (fcn.0040144c), and automated file deletion/copying commands (fcn.0040382e, fcn.004036ac). The presence of 'ProxyEnable' registry checking and 'send'/'recv' calls targeting HTTP indicates a classic C2 channel.",
+    "uncertainties": "The exact C2 IP or URL is not hardcoded as a single string, as the binary constructs network requests dynamically at runtime using multiple string fragments. The exact nature of the payload downloaded or uploaded remains dependent on the C2 response.",
+    "conditions": "The malware uses a mutex (Nkfvtyvnduf_Z) to ensure only one instance runs. It also checks registry keys ('ProxyEnable') to determine networking capabilities. The main loop relies on successfully establishing a socket connection and receiving commands from the remote server.",
+    "sandbox_recommendations": "Provide an environment with internet connectivity and a simulated C2 server that can handle HTTP GET/POST requests. Use a tool like INetSim to mimic the expected HTTP responses."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings",
+          "description": "Registry key checked for proxy configuration"
+        },
+        {
+          "value": "ProxyEnable",
+          "description": "Value checked for proxy configuration"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "_NtRecDoc_",
+          "description": "Directory created for potentially staging stolen or downloaded files"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x0040172c",
+      "name": "fcn.0040172c",
+      "description": "Network communication handler (wraps socket, connect, send, recv)"
+    },
+    {
+      "address": "0x00403295",
+      "name": "fcn.00403295",
+      "description": "Recursive file system exploration and management"
+    },
+    {
+      "address": "0x0040144c",
+      "name": "fcn.0040144c",
+      "description": "Registry initialization and persistence management"
+    },
+    {
+      "address": "0x0040310a",
+      "name": "fcn.0040310a",
+      "description": "Process execution handler (wraps CreateProcessA)"
+    }
+  ]
+}

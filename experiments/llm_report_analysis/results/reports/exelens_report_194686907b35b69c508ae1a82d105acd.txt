@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality consistent with a kernel-mode rootkit or driver installer, including modifications to system service tables (SSDT hooking), dynamic loading of kernel modules, and direct manipulation of kernel memory structures.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation of resource data",
+      "Dynamic API resolution through GetProcAddress and LoadLibrary"
+    ],
+    "details": "Resource sections are XORed with 0xcd, and functions like fcn.100015f7 perform dynamic decryption to access embedded payloads."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode service modification",
+      "description": "Uses fcn.1000ab6f and fcn.1000b46f to modify the System Service Descriptor Table (SSDT)."
+    },
+    {
+      "name": "Process token manipulation",
+      "description": "Utilizes ADVAPI32 functions to escalate privileges, including DuplicateTokenEx and OpenProcessToken."
+    },
+    {
+      "name": "File system persistence",
+      "description": "Attempts to overwrite or replace system drivers (fcn.100017a0)."
+    },
+    {
+      "name": "System monitoring / Hooking",
+      "description": "Uses fcn.1000c8af to interact with kernel objects and hook kernel-mode functions."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent kernel-mode operations (SSDT hooking via KeServiceDescriptorTable), the usage of direct kernel APIs like IoAllocateMdl and MmProbeAndLockPages, and the presence of strings like 'KeRaiseIrqlToDpcLevel' and 'ntoskrnl.exe' clearly indicates malicious intent rather than a legitimate software installation routine. The file functions as a kernel-mode rootkit installer.",
+    "general": "High-intent malicious behavior is evidenced by fcn.1000ab6f and fcn.1000b46f, which perform direct modification of the SSDT by resolving KeServiceDescriptorTable. Furthermore, fcn.100017a0 modifies system files, specifically targeting components related to 'lsass', suggesting credential theft or process subversion.",
+    "uncertainties": "The exact source and destination of the kernel hooks could be further analyzed if the memory-resident payload were dumped from the sandbox; however, the intent to perform dangerous kernel manipulation is unambiguous.",
+    "conditions": "The execution relies on successfully loading a kernel-mode driver (likely via fcn.100096ce) and requires administrative privileges to manipulate registry keys and system files. It also checks for the existence of a mutex named 'prkMtx' (via CreateMutexW) to ensure single-instance execution.",
+    "sandbox_recommendations": "The sample requires execution with administrative/SYSTEM privileges. It is designed to interact with 'lsass' and modify system files. The sandbox should monitor registry modifications and kernel-mode driver loads."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\",
+          "description": "Persistence mechanism via service modification."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for cross-process synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used to detect concurrent running instances."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Primary function for modifying the SSDT (Service Descriptor Table) to implement hooks."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Handles file-based persistence and manipulation of system processes."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Loader/deobfuscator function responsible for unpacking embedded resources."
+    }
+  ]
+}

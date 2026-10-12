@@ -1,0 +1,88 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The file is a malicious installer that attempts to gain persistent system access and manipulate sensitive system files. It uses resource-based decryption, kernel-level API hooking, and service manipulation to evade detection and maintain persistence. It specifically targets 'lsass' registry keys and system files like 'win32k.sys' for modification.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Custom XOR obfuscation of embedded resources",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress"
+    ],
+    "details": "The payload is stored in RCDATA resources (101, 102, 103). The routine fcn.100015f7 loads these resources and applies a 1-byte XOR (0xCD) key to decrypt/unpack them before use."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Uses RegCreateKeyExA and RegSetValueExA to modify Windows registry keys, specifically targeting LSASS registry configurations."
+    },
+    {
+      "name": "Kernel-Level Manipulation",
+      "description": "Attempts to hook kernel functions like NtQuerySystemInformation, NtQueryObject, and utilizes NtShutdownSystem to manipulate system state."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Uses CopyFileA, DeleteFileA, and SetFileAttributesA to replace or modify sensitive system binaries such as 'win32k.sys' or other system-level drivers."
+    },
+    {
+      "name": "Anti-Analysis / Stealth",
+      "description": "Contains routines to detect mutexes (GlobalRPCMutex, prkMtx) to prevent multiple instances or sandbox detection."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level API manipulation (hooking NtQuerySystemInformation), modification of critical system files (win32k.sys, LSASS registry), and resource decryption clearly demonstrates malicious intent rather than common installer behavior.",
+    "general": "High-intent malicious actions are confirmed by the call graph: fcn.1000b46f and fcn.1000ab6f orchestrate the modification of kernel-level structures. The code in fcn.10009bd3 and fcn.10009d28 explicitly interacts with ntoskrnl.exe and ntkrnlpa.exe, pointing to rootkit-like behavior.",
+    "uncertainties": "While the code contains clear signs of rootkit functionality, the full extent of the payload (e.g., specific command-and-control communication) is likely obscured by the dynamic API resolution in fcn.10002f79.",
+    "conditions": "Execution likely requires elevated privileges (Administrator/SYSTEM) due to the modification of system binaries and registry keys. The malware also performs environment checks (GetVersionExA) to ensure compatibility before deploying hooks.",
+    "sandbox_recommendations": "Run in an isolated environment with kernel-level monitoring enabled. Use a debugger to intercept calls to GetProcAddress to identify the actual targets of the resolved kernel functions."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "LSASS",
+          "description": "Targeted registry key for persistence"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "C:\\Windows\\System32\\win32k.sys",
+          "description": "Targeted system file for replacement"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for instance tracking"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for process locking"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100043d2",
+      "name": "fcn.100043d2",
+      "description": "Primary driver for system-level modifications and file replacements."
+    },
+    {
+      "address": "0x10009d28",
+      "name": "fcn.10009d28",
+      "description": "Performs kernel-level function identification and patching logic."
+    },
+    {
+      "address": "0x10002f79",
+      "name": "fcn.10002f79",
+      "description": "Dynamic resolver for critical system and kernel APIs."
+    }
+  ]
+}

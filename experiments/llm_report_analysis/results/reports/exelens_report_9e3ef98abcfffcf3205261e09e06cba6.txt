@@ -1,0 +1,92 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a persistent backdoor/remote access trojan (RAT) that uses HTTP proxy tunneling, enumerates network resources, and performs local registry-based persistence and file system manipulation.",
+  "packed": {
+    "status": "false",
+    "techniques": [
+      "String obfuscation via XOR/add routine",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress"
+    ],
+    "details": "The binary is not packed; however, it uses a custom XOR+sub obfuscation routine (fcn.00401293) to decrypt configuration strings and API function names at runtime."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Uses RegCreateKeyExA and RegSetValueExA to modify Windows registry keys for auto-start execution."
+    },
+    {
+      "name": "Network Communication",
+      "description": "Implements socket-based networking (WSASocket, connect, send, recv) to interact with remote Command & Control servers."
+    },
+    {
+      "name": "Proxy Tunneling",
+      "description": "Supports HTTP CONNECT tunneling, including specific proxy authorization headers."
+    },
+    {
+      "name": "Process/Service Management",
+      "description": "Uses CreateToolhelp32Snapshot, OpenProcess, and TerminateProcess to manage running tasks."
+    },
+    {
+      "name": "File Manipulation",
+      "description": "Ability to copy, delete, and modify file attributes (CopyFileA, DeleteFileA, SetFileAttributesA)."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of networking capabilities (sockets, HTTP CONNECT, Proxy settings), process termination, and registry-based persistence strongly demonstrates high-intent malicious behavior. While individual APIs like VirtualAlloc or RegCreateKey are dual-use, their usage here is part of a complex, automated loop (backdoor) rather than a legitimate software installation.",
+    "general": "High-intent evidence includes the loop calling fcn.004071dc (socket creation/connection), fcn.00407018 (constructing HTTP POST/GET requests), and persistent registry manipulation in fcn.00401788 (RegCreateKeyExA + RegSetValueExA). The code also contains specific hardcoded strings like 'hFlag', 'Bxey', and 'Psapi.dll' associated with remote management.",
+    "uncertainties": "While the binary is not packed, the dynamic construction of C2 addresses and specific proxy/target information suggests the full payload configuration is resolved at runtime or from a remote source, limiting static visibility of the final C2 target.",
+    "conditions": "The sample requires network connectivity and likely an active C2 server to receive commands. It performs environment checks such as IsWow64Process and checks for specific registry entries (hFlag) to maintain state.",
+    "sandbox_recommendations": "Provide an environment with an internet connection. Monitor Registry activity under 'Software\\Microsoft\\Windows\\CurrentVersion\\' and watch for outbound connections on port 80/443 using HTTP CONNECT syntax."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings",
+          "description": "Registry path where proxy settings are queried."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "CONNECT %s:%d HTTP/1.1",
+          "description": "HTTP CONNECT method string used for proxy tunneling."
+        },
+        {
+          "value": "hFlag",
+          "description": "Custom registry key/value used for internal state tracking."
+        },
+        {
+          "value": "SJZJ",
+          "description": "Identifier visible in User-Agent strings."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401788",
+      "name": "fcn.00401788",
+      "description": "Manages persistence by creating/modifying registry keys."
+    },
+    {
+      "address": "0x004071dc",
+      "name": "fcn.004071dc",
+      "description": "Core socket communication and C2 interaction function."
+    },
+    {
+      "address": "0x00407018",
+      "name": "fcn.00407018",
+      "description": "Constructs HTTP request payloads (GET/POST headers)."
+    },
+    {
+      "address": "0x004012b3",
+      "name": "fcn.004012b3",
+      "description": "Initializes and loads required system DLLs and API addresses."
+    }
+  ]
+}

@@ -1,0 +1,71 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable checks for a global mutex to ensure single-instance execution, queries the registry for a specific path ('IconsStorage0') under 'Software\\Adobe\\CommonFiles', and then launches the specified file as a new process via CreateProcessW.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code structure appears to be a compiled library or small utility. No signs of packing, self-modification, or obfuscation were observed in the provided assembly."
+  },
+  "capabilities": [
+    {
+      "name": "Single Instance Enforcement",
+      "description": "Uses CreateMutexW with a hard-coded name to prevent multiple instances of the process from running simultaneously."
+    },
+    {
+      "name": "Registry Access",
+      "description": "Opens registry keys and queries values, specifically targeting Adobe-related paths."
+    },
+    {
+      "name": "Process Execution",
+      "description": "Launches an external file retrieved from the registry using CreateProcessW."
+    }
+  ],
+  "details": {
+    "reasoning": "While registry access and process creation can be legitimate for installers or configuration loaders, the combination of querying a specific 'IconsStorage0' key for a file path ('unknown.exe') and immediately launching that target indicates a persistence or execution redirection mechanism typical of malware. The lack of context for 'IconsStorage0' within a legitimate Adobe scope supports the malicious classification.",
+    "general": "The function fcn.1000113a performs a check on 'Global\\717E014D-1DFF-414e-AA8B-79C09CCFC442'. If successful, it proceeds to RegOpenKeyW on 'Software\\Adobe\\CommonFiles' and calls RegQueryValueExW for 'IconsStorage0'. The retrieved string is then passed directly to CreateProcessW (RVA 0x10002028), demonstrating clear intent to execute an external, potentially attacker-controlled binary.",
+    "uncertainties": "The content of the registry key 'IconsStorage0' is not visible in the binary, meaning the specific target binary is external and currently unknown.",
+    "conditions": "The code requires the execution flow to bypass the Mutex check or find the Mutex not present, and it requires the registry key 'IconsStorage0' under 'Software\\Adobe\\CommonFiles' to be populated with a valid file path to a target executable.",
+    "sandbox_recommendations": "Use a tool like Regshot to monitor registry activity. Ensure the registry key 'HKLM\\Software\\Adobe\\CommonFiles\\IconsStorage0' is set to a benign dummy executable path before detonation to observe the CreateProcessW trigger."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Adobe\\CommonFiles",
+          "description": "Registry path accessed to retrieve an executable path."
+        },
+        {
+          "value": "IconsStorage0",
+          "description": "Registry value queried for the target executable path."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "Global\\717E014D-1DFF-414e-AA8B-79C09CCFC442",
+          "description": "Mutex string used for process locking."
+        },
+        {
+          "value": "unknown.exe",
+          "description": "Hard-coded default string referenced during registry operations."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000113a",
+      "name": "fcn.1000113a",
+      "description": "Main logic controller: handles Mutex check, registry querying, and process spawning."
+    },
+    {
+      "address": "0x100010e7",
+      "name": "fcn.100010e7",
+      "description": "Performs Mutex creation and validation logic."
+    }
+  ]
+}

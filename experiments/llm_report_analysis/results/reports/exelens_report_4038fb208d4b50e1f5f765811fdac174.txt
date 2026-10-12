@@ -1,0 +1,73 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The file is a malicious downloader that uses complex obfuscation and custom compression (DEFLATE-like) to unpack an encrypted payload. It performs process injection and registry interaction, including an attempt to connect to a C2 server.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom compression algorithm",
+      "Dynamic API resolution",
+      "Memory-based payload unpacking",
+      "Reflective loading"
+    ],
+    "details": "The file contains highly compressed/encrypted data in the .data section (entropy 7.56). It uses multiple custom routines for unpacking, including a custom decompression routine (fcn.100026f0) which resolves symbols and builds an environment for executing the payload in memory using VirtualAlloc and VirtualProtect."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection / Memory Execution",
+      "description": "Uses VirtualAlloc, VirtualProtect, and potential manual mapping to execute code in memory."
+    },
+    {
+      "name": "Persistence / Registry Interaction",
+      "description": "Uses RegOpenKeyA and related functions, likely for configuration or persistence."
+    },
+    {
+      "name": "C2 Communication",
+      "description": "Contains an hardcoded IP address 98.126.36.202 for communication."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-entropy sections, complex manual decompression loops, and the presence of malicious strings (IP addresses, C2-like indicators) confirms this is a malicious loader. The file's logic explicitly decodes strings and performs operations characteristic of malware (e.g., VirtualAlloc for payload, registry keys for configuration). Legitimate installers typically do not contain complex, custom-built DEFLATE decompression routines that resolve API calls via GetProcAddress in this manner.",
+    "general": "The function fcn.10001bc0 orchestrates the allocation of memory using VirtualAlloc and VirtualProtect, followed by copying an unpacked payload into that space. The function fcn.10004b70 implements a complex, custom-built decompression routine used to reveal the encrypted data. A string containing a C2 IP (98.126.36.202) is hardcoded in memory, and the code includes calls to RegOpenKeyA, indicating intent to interact with system configuration.",
+    "uncertainties": "While the full execution flow is obfuscated, the presence of specific C2 strings and complex memory management routines leaves little doubt about the malicious nature of the sample.",
+    "conditions": "The payload activation requires the successful completion of the decompression and symbol resolution routines. It likely requires a standard Windows environment to resolve necessary system DLLs.",
+    "sandbox_recommendations": "Use a debugger to monitor calls to VirtualAlloc and VirtualProtect. Observe the memory region after the decompression function fcn.10004b70 finishes to extract the unpacked payload. Block outbound network traffic to 98.126.36.202 to prevent the malware from reaching out to its C2 server."
+  },
+  "ioc": [
+    {
+      "type": "ip",
+      "values": [
+        {
+          "value": "98.126.36.202",
+          "description": "Hardcoded C2 IP address"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "Test",
+          "description": "Registry key path opened by the malware"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001bc0",
+      "name": "fcn.10001bc0",
+      "description": "Main orchestrator for payload memory allocation and execution."
+    },
+    {
+      "address": "0x10004b70",
+      "name": "fcn.10004b70",
+      "description": "Custom decompression engine used to unpack the payload."
+    },
+    {
+      "address": "0x10001cf0",
+      "name": "fcn.10001cf0",
+      "description": "Registry interaction and environment setup function."
+    }
+  ]
+}

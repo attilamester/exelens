@@ -1,0 +1,63 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This file is a Windows kernel-mode driver that performs unauthorized system modifications. It hooks the System Service Descriptor Table (SSDT) to intercept system calls and installs a process creation notification routine to monitor or interfere with new processes.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code appears to be compiled C/C++ driver code with no evidence of obfuscation or packing routines."
+  },
+  "capabilities": [
+    {
+      "name": "SSDT Hooking",
+      "description": "Modifies the System Service Descriptor Table to redirect execution of system functions (via fcn.00013560 and KeServiceDescriptorTable)."
+    },
+    {
+      "name": "Kernel-mode Persistence/Monitoring",
+      "description": "Uses PsSetCreateProcessNotifyRoutine to execute code whenever a new process is created on the system."
+    },
+    {
+      "name": "Process Injection/Access",
+      "description": "Utilizes NtOpenProcess, NtOpenThread, and NtAllocateVirtualMemory to manipulate remote process memory space."
+    },
+    {
+      "name": "Direct Kernel Object Manipulation",
+      "description": "Uses ZwQuerySystemInformation and direct memory access to traverse system structures."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of SSDT hooking (a high-intent technique to hide or alter kernel behavior) and the installation of process creation notify routines strongly indicates rootkit-like functionality. There is no legitimate functionality in the provided assembly to suggest this is a standard driver (e.g., for hardware or file filtering); it is designed to subvert OS integrity.",
+    "general": "High-intent malicious evidence includes: fcn.00013560 modifies the KeServiceDescriptorTable (SSDT) after changing CR0 register write protection; fcn.00012670 calls PsSetCreateProcessNotifyRoutine; fcn.00011950, fcn.000119c0, and fcn.00011a20 demonstrate capability to open processes/threads and allocate memory in their context, confirming intent to inject or manipulate processes.",
+    "uncertainties": "The logic within the specific SSDT hooks remains partially hidden as the exact jump targets (the code performing the malicious action) are resolved at runtime via the KeServiceDescriptorTable, but the intent to hook is unequivocal.",
+    "conditions": "The driver must be installed and loaded into the kernel space via a service manager. It specifically checks for registry keys and creates a symbolic link, suggesting it may require a companion user-mode application to interact with it.",
+    "sandbox_recommendations": "Deploy in a kernel-debug-enabled environment. Monitor the system for modifications to the SSDT (specifically function pointers) and trigger process creation to see if the notify routine intercepts execution."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Hard-coded registry operations",
+          "description": "The driver uses ZwWriteRegistryValue and ZwEnumerateValueKey, implying persistent configuration storage."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00013560",
+      "name": "fcn.00013560",
+      "description": "Kernel-mode SSDT hook installer; contains logic to disable write protection and overwrite service table entries."
+    },
+    {
+      "address": "0x00012670",
+      "name": "fcn.00012670",
+      "description": "Registers a process creation notify routine to monitor system-wide process spawning."
+    },
+    {
+      "address": "0x00011a20",
+      "name": "fcn.00011a20",
+      "description": "Wrapper for NtAllocateVirtualMemory to perform memory operations in target process contexts."
+    }
+  ]
+}

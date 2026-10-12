@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple sophisticated capabilities including process-specific mutex creation, registry modification, and kernel-level interaction. It is designed to perform stealthy operations, such as driver interaction (e.g., ntkrnlpa.exe) and potential privilege escalation or persistence through registry modification.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR decryption",
+      "Resource-based loading",
+      "Dynamic API resolution"
+    ],
+    "details": "The file uses FindResourceA and LockResource to load a binary resource, which is then decrypted using an XOR operation (0xCD) before execution or mapping. This is indicative of a loader component protecting a payload."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/System Interaction",
+      "description": "Utilizes CreateProcessA and writes to system directories/files."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies the registry using RegCreateKeyExA and RegSetValueExA for system-level configuration."
+    },
+    {
+      "name": "Kernel Interaction",
+      "description": "Attempts to interact with kernel-level components (ntoskrnl.exe, ntkrnlpa.exe) using DbgPrint and potential exploitation of kernel-mode structures."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Checks for mutexes (GlobalRPCMutex, pRkMt) to prevent multiple instances and likely to detect sandboxes."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode symbol resolution (ntoskrnl.exe, PsGetCurrentProcess), registry persistence in system keys (SoftwareMicrosoftMS), and the decryption of a hidden binary resource is a clear indicator of malicious intent. The dual-use nature of APIs like CreateFileA is overridden by the context of registry manipulation and kernel-structure probing.",
+    "general": "High-intent indicators include RVA 0x1000a2cd (Kernel Service Descriptor Table access), RVA 0x10009bd3 (ntoskrnl.exe loading/resolution), and RVA 0x100017a0 (modifying the 'hsass' registry key). The code explicitly references 'PsGetCurrentProcess' and 'DbgPrint', demonstrating an attempt to operate at or influence the kernel.",
+    "uncertainties": "The exact nature of the decrypted resource binary is unknown, as the decryption is performed at runtime. While the malicious intent is clear, the secondary payload's specific functionality remains obscured.",
+    "conditions": "The malware checks for existing mutexes 'GlobalRPCMutex' and 'pRkMt'. If these exist, the execution flow is altered to avoid re-infection or detection. It also likely requires elevated privileges (System/Admin) to successfully modify kernel tables or sensitive registry keys.",
+    "sandbox_recommendations": "Use a sandbox that supports kernel-level hooks and provides a full Windows environment (not a light emulation). Monitor for registry modifications under HKLM\\Software\\Microsoft and attempts to load or interact with drivers in System32."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\MS",
+          "description": "Registry path used for persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name checked for instance control."
+        },
+        {
+          "value": "pRkMt",
+          "description": "Mutex name checked for instance control."
+        },
+        {
+          "value": "hsass",
+          "description": "Registry value name often used to mimic LSASS."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000a2cd",
+      "name": "fcn.1000a2cd",
+      "description": "Handles sensitive registry interactions and potential kernel service table hooking."
+    },
+    {
+      "address": "0x10009bd3",
+      "name": "fcn.10009bd3",
+      "description": "Loads and resolves symbols for kernel-related DLLs (ntoskrnl, ntkrnlpa)."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Performs registry-based persistence operations."
+    }
+  ]
+}

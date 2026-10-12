@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to create services, modify registry keys for persistence, and inject code into processes. It demonstrates clear intent to maintain persistence and perform elevated system operations via environment variable manipulation and process manipulation (e.g., winlogon.exe targeting).",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Dynamic API resolution",
+      "Function pointers decryption",
+      "Staged initialization"
+    ],
+    "details": "The file uses TLS callbacks and encoded pointers (`EncodePointer`/`DecodePointer`) to resolve core APIs dynamically. The high entropy in the .data section (7.70) strongly suggests encrypted configuration or payload data."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Utilizes CreateServiceW and RegSetValueExW to register a service or startup item."
+    },
+    {
+      "name": "Process Injection/Manipulation",
+      "description": "Enumerates processes using CreateToolhelp32Snapshot to identify 'winlogon.exe' for potential process hollowing or injection."
+    },
+    {
+      "name": "Privilege Escalation",
+      "description": "Attempts to enable 'SeSecurityPrivilege' and 'SeTcbPrivilege' using AdjustTokenPrivileges."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Contains IsDebuggerPresent checks to alter execution path if a debugger is detected."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of specific high-intent API calls (CreateServiceW, AdjustTokenPrivileges, CreateProcessAsUserW) and the target selection ('winlogon.exe') is characteristic of malware seeking system-level persistence and privilege escalation. The code path for checking 'winlogon.exe' (RVA 0x100012dc) combined with privilege adjustment strongly refutes a benign intent.",
+    "general": "The function `fcn.100012dc` explicitly scans for 'winlogon.exe'. `fcn.100020d5` uses `ADVAPI32.dll_CreateServiceW` and `ADVAPI32.dll_ChangeServiceConfig2W` to establish persistent services. Privilege escalation logic is found in `fcn.100010a8` calling `AdjustTokenPrivileges` for `SeTcbPrivilege`.",
+    "uncertainties": "While the binary is clearly malicious, the full extent of the payload is hidden behind encrypted data in the .data section, meaning the exact C2 communication or final payload behavior remains obscured.",
+    "conditions": "The malware requires administrative or SYSTEM privileges to successfully enable the requested tokens (SeTcbPrivilege) and install services.",
+    "sandbox_recommendations": "Run in an environment that intercepts service creation requests and file writes to system directories. Provide fake 'winlogon.exe' process if required to trigger the malicious branch."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "winlogon.exe",
+          "description": "Target process for manipulation."
+        },
+        {
+          "value": "SeSecurityPrivilege",
+          "description": "Requested security privilege."
+        },
+        {
+          "value": "SeTcbPrivilege",
+          "description": "Requested TCB privilege."
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Target location for service persistence."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100020d5",
+      "name": "fcn.100020d5",
+      "description": "Primary service creation and registry persistence routine."
+    },
+    {
+      "address": "0x100012dc",
+      "name": "fcn.100012dc",
+      "description": "Process enumeration targeting winlogon.exe for injection."
+    },
+    {
+      "address": "0x100010a8",
+      "name": "fcn.100010a8",
+      "description": "Privilege escalation attempts via token adjustment."
+    }
+  ]
+}

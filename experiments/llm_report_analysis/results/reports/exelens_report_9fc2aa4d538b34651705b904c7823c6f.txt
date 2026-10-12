@@ -1,0 +1,85 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a modular installer-like component designed to drop and install system-level drivers or services. It performs environment checks, uses mutexes for synchronization, manipulates registry keys, and utilizes dynamic API resolution (including direct system calls via 'int 2e') to hide its activity and modify kernel objects.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource obfuscation",
+      "Dynamic API resolution",
+      "XOR-based string/data obfuscation"
+    ],
+    "details": "The file contains a large resource (106KB) that is decrypted at runtime using a simple XOR loop (seen in fcn.100015f7). Various system APIs are resolved dynamically by loading DLLs at runtime."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence Mechanism",
+      "description": "Uses Registry keys to ensure execution, specifically targeting 'lsass' registry entries."
+    },
+    {
+      "name": "Kernel Object Manipulation",
+      "description": "Contains code to locate and manipulate system service descriptor tables (SSDT) and bypass security checks (e.g., AccessCheck)."
+    },
+    {
+      "name": "Process/Driver Injection",
+      "description": "Capable of writing to and potentially injecting code into kernel-level drivers (e.g., win32k.sys, ntkrnlpa.exe)."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Utilizes Mutexes (e.g., 'GlobalRPCMutex', 'prkMtx') to prevent multiple instances and likely to detect sandboxes."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level API calls (e.g., KeServiceDescriptorTable, IoAllocateMdl), the use of 'int 2e' for direct system calls, and explicit attempts to modify system drivers (win32k.sys) demonstrates clear malicious intent beyond that of a standard software installer. The obfuscation and dynamic resolution are intended to evade security monitoring.",
+    "general": "High-intent indicators include fcn.1000b369 (manipulating SSDT), fcn.10009d28 (driver patching), and fcn.100017a0 (registry manipulation of 'lsass' value). The use of 'int 2e' in fcn.1000b46f is a definitive indicator of attempts to perform unauthorized operations at the kernel level.",
+    "uncertainties": "While the binary is clearly malicious, the final payload extracted from the resources and injected into the target drivers might behave differently depending on the specific environment, as suggested by the environment checks.",
+    "conditions": "Execution is triggered by a standard entry point, but the primary logic depends on the availability of target files like 'win32k.sys' or 'ntkrnlpa.exe'. It also uses specific mutexes ('GlobalRPCMutex', 'prkMtx') to gate execution.",
+    "sandbox_recommendations": "Use a kernel-mode debugger, enable monitoring for file and registry modifications specifically in HKLM\\System, and ensure the sandbox emulates a Windows NT-based environment with standard drivers present."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\lsass",
+          "description": "Persistence registry key targeted for modification."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for process synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for synchronization."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Decrypts obfuscated resources using a XOR loop."
+    },
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Attempts to locate and modify the system service descriptor table (SSDT)."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Performs registry persistence manipulation."
+    },
+    {
+      "address": "0x10009d28",
+      "name": "fcn.10009d28",
+      "description": "Performs system driver patching and kernel-level API hooking."
+    }
+  ]
+}

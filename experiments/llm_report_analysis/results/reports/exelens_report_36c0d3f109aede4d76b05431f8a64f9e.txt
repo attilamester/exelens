@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a modular backdoor/RAT that establishes persistence via registry keys, starts a hidden cmd.exe instance, and communicates with a remote C2 server via HTTP to receive commands, including process listing, file management, and service control.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The binary is not packed; it contains clear, readable API calls for process injection, registry modification, and network communication."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Uses RegCreateKeyExA and RegDeleteValueA on the HKCU Run key to maintain persistence."
+    },
+    {
+      "name": "Remote Shell/Backdoor",
+      "description": "Initiates a hidden cmd.exe process via CreateProcessA, pipes I/O, and interacts with it via ReadFile/WriteFile."
+    },
+    {
+      "name": "C2 Communication",
+      "description": "Uses WinINet (InternetOpenA, HttpOpenRequestA) to communicate with a remote server over HTTP."
+    },
+    {
+      "name": "Information Gathering",
+      "description": "Enumerates local services, processes, and drives to report back to the C2 server."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistent registry modifications ('Software\\Microsoft\\Windows\\CurrentVersion\\Run'), hidden shell execution ('cmd.exe'), and C2 communication using WININET APIs confirms malicious intent. The functionality is clearly designed for remote unauthorized control rather than legitimate software management.",
+    "general": "Evidence is found in function fcn.004030d8 (registry manipulation), fcn.00401d84 (process enumeration), and fcn.00401d84/fcn.001bf7 (shell execution and redirection via pipes). Specific strings like 'Adobe_Reader_Speed_Launcher' are used as masquerading names for persistence.",
+    "uncertainties": "No significant uncertainties; the assembly code clearly defines the backdoor logic.",
+    "conditions": "The malware expects HTTP C2 responses containing specific command identifiers (e.g., 'shell', 'list', 'kill', 'start') and expects standard HTTP response formats from the C2 server.",
+    "sandbox_recommendations": "Provide an active Internet connection to a controlled server that responds to HTTP requests to capture the C2 traffic and command-and-control logic. Emulate registry and file system environments to allow the persistence mechanism to fire."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Registry key used for persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "Adobe_Reader_Speed_Launcher",
+          "description": "Masquerading name used for persistence entry."
+        },
+        {
+          "value": "cmd.exe",
+          "description": "Target process for shell backdoor."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401d84",
+      "name": "fcn.00401d84",
+      "description": "Handles process listing and service enumeration commands."
+    },
+    {
+      "address": "0x004030d8",
+      "name": "fcn.004030d8",
+      "description": "Performs registry persistence operations."
+    },
+    {
+      "address": "0x00401bf7",
+      "name": "fcn.00401bf7",
+      "description": "Spawns and manages the hidden shell (cmd.exe)."
+    }
+  ]
+}

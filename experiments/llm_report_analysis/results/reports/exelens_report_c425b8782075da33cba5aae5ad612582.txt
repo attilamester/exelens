@@ -1,0 +1,72 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The file is a remote access trojan (RAT) or backdoor service that establishes a reverse shell. It communicates with a hard-coded C2 server (us.issnbgkit.net), executes arbitrary commands via cmd.exe, and supports file exfiltration/downloading capabilities.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code structure and imports are clearly visible. The entropy levels of the sections are within normal ranges for standard executables."
+  },
+  "capabilities": [
+    {
+      "name": "Network Communication",
+      "description": "Utilizes WININET and WS2_32 APIs for C2 communication, specifically targeting a hard-coded domain."
+    },
+    {
+      "name": "Process Execution",
+      "description": "Uses KERNEL32.dll_CreateProcessA to spawn cmd.exe and capture its output via pipes."
+    },
+    {
+      "name": "Service Persistence",
+      "description": "Uses ADVAPI32.dll_CreateServiceA and related service management APIs to install itself as a Windows service."
+    },
+    {
+      "name": "File Operations",
+      "description": "Capabilities for file manipulation including reading, writing, and downloading remote files via C2 instructions."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of service installation, hard-coded C2 networking (WININET, WS2_32), and the spawning of cmd.exe via pipes with remote control primitives (getfile, exit, chdir) confirms malicious intent as a remote backdoor service.",
+    "general": "Evidence is found in fcn.1000152c (RVA: 0x1000152c), which sets up pipes for cmd.exe, and fcn.10001139, which performs the initial connection to 'us.issnbgkit.net'. fcn.10001e7c implements the 'getfile' command logic using HttpOpenRequestA.",
+    "uncertainties": "No significant uncertainties; the control flow clearly shows a C2 loop interacting with shell commands.",
+    "conditions": "The service is likely designed to be installed and run by the Service Control Manager. It requires network connectivity to 'us.issnbgkit.net' for its primary functionality to trigger.",
+    "sandbox_recommendations": "Use a network simulator to redirect traffic from 'us.issnbgkit.net' to a local host. Monitor for service installation activity and observe the creation of child processes (cmd.exe)."
+  },
+  "ioc": [
+    {
+      "type": "url",
+      "values": [
+        {
+          "value": "us.issnbgkit.net",
+          "description": "Hard-coded C2 server address found in InternetConnectA calls."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "cmd.exe /c",
+          "description": "Command processor string used for executing remote shell commands."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000152c",
+      "name": "fcn.1000152c",
+      "description": "Implements the shell execution loop using pipes and remote control processing."
+    },
+    {
+      "address": "0x10001139",
+      "name": "fcn.10001139",
+      "description": "Performs initial C2 handshake and environment connection."
+    },
+    {
+      "address": "0x10001e7c",
+      "name": "fcn.10001e7c",
+      "description": "Handles remote file operations, specifically download and write functionality."
+    }
+  ]
+}

@@ -1,0 +1,90 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a downloader/dropper and spyware, collecting system information, registry keys, and hardware IDs, which it then exfiltrates via HTTP POST requests.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The binary is not packed; the logic is clearly visible in the disassembly."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Uses RegCreateKeyExA and RegSetValueExA to register itself in the Windows Run key (SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run)."
+    },
+    {
+      "name": "Spyware/Data Exfiltration",
+      "description": "Collects computer name, username, OS version, processor identifier, and network adapter info using various WinAPI and IPHLPAPI functions, then exfiltrates it via POST requests."
+    },
+    {
+      "name": "Network Communication",
+      "description": "Uses WININET functions (HttpOpenRequestA, HttpSendRequestA) to perform network communications."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Uses Mutexes (CreateMutexA) and Sleep cycles to prevent multiple instances or timing-based analysis."
+    },
+    {
+      "name": "Process Hollowing/Injection",
+      "description": "Attempts to spawn 'explorer.exe' using CreateProcessA and appears to manipulate process modules."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistent registry modifications, data collection (system info, hardware IDs, username), and active network exfiltration (HTTP POST) via WININET APIs confirms malicious intent. The binary's deliberate efforts to camouflage as system processes (e.g., trying to target 'explorer.exe') further underscore this intent.",
+    "general": "High-intent indicators include: RegSetValueExA to the 'Run' key (RVA 0x4020bd), network exfiltration routines (RVA 0x402e43 using POST), and process creation targeting 'explorer.exe' (RVA 0x401dc2).",
+    "uncertainties": "The exact C2 domain or IP is obfuscated in the binary (visible as strings in the code segments), which would require dynamic network traffic analysis to fully identify.",
+    "conditions": "The sample checks for a mutex 'apKCCBBCtWJadSCGGReFWRBGeqqFVFVV' to avoid multiple instances. It also uses timing delays (Sleep) and checks for environment strings/files before activation.",
+    "sandbox_recommendations": "Provide internet access simulation (C2 server emulation), monitor registry changes on the 'Run' keys, and ensure the sandbox has a standard Windows environment with common system variables set."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Persistence registry key"
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "apKCCBBCtWJadSCGGReFWRBGeqqFVFVV",
+          "description": "Mutex for instance checking"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "explorer.exe",
+          "description": "Process target for potential injection"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00402e43",
+      "name": "fcn.00402e43",
+      "description": "Core HTTP exfiltration logic using WININET"
+    },
+    {
+      "address": "0x004020bd",
+      "name": "fcn.004020bd",
+      "description": "Persistence routine (Registry Run key modification)"
+    },
+    {
+      "address": "0x00402dc2",
+      "name": "fcn.00402dc2",
+      "description": "Process spawning (explorer.exe)"
+    },
+    {
+      "address": "0x00402cdc",
+      "name": "fcn.00402cdc",
+      "description": "System hardware and adapter enumeration"
+    }
+  ]
+}

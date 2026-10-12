@@ -1,0 +1,74 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a modular rootkit/kernel-mode driver installer. It unpacks encrypted resources in memory, checks for specific environment variables, and performs kernel-mode system modifications including modifying the System Service Descriptor Table (SSDT) to potentially hook system calls.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR decryption loop",
+      "Resource-based payload hiding"
+    ],
+    "details": "The file uses FindResourceA/LoadResource to retrieve encrypted payload from resources, which is then XORed with 0xCD in a loop within fcn.100015f7 and fcn.10001723."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode hook / SSDT modification",
+      "description": "Uses KeServiceDescriptorTable to identify and potentially modify kernel dispatch tables."
+    },
+    {
+      "name": "Process/Driver injection",
+      "description": "Contains routines to find, copy, and load driver-related files (e.g., system32/win32k.sys)."
+    },
+    {
+      "name": "Persistence / Registry manipulation",
+      "description": "Extensive registry interaction, including setting values in Run keys and system configuration keys."
+    },
+    {
+      "name": "Evasion / Anti-analysis",
+      "description": "Checks for debugger presence and system environment variables; uses mutexes to ensure single instance."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent malicious actions—specifically targeting kernel-level structures like the SSDT (KeServiceDescriptorTable), interacting with ntkrnlpa.exe/ntoskrnl.exe, and using low-level API calls to inject code into system components—indicates malicious intent rather than a legitimate installer utility. The presence of XOR obfuscation on resources further confirms an attempt to conceal the malicious payload from signature-based detection.",
+    "general": "High-intent indicators include fcn.1000b369 (SSDT modification), fcn.100096ce (kernel-mode setup/driver loading), and fcn.100017a0 (registry manipulation of system-critical keys like LSASS).",
+    "uncertainties": "While the kernel-level behavior is clearly intended for unauthorized modification of OS kernel structures, the exact nature of the final payload depends on the contents of the obfuscated resource section, which is partially obscured.",
+    "conditions": "The malware expects to be run in an environment where it can locate or create specific system files (system32), typically requiring administrative or SYSTEM privileges. It checks for a global RPC mutex (GlobalRPCMutex) and environment variables for activation.",
+    "sandbox_recommendations": "Run with administrative privileges. Ensure network simulation is active to handle potential HTTP-based C2 communication. Monitor registry keys specifically under HKLM\\SYSTEM\\CurrentControlSet. Do not use an automated sandboxing tool that triggers on standard behavior without full system call interception."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for synchronization/anti-re-entry"
+        },
+        {
+          "value": "lsass",
+          "description": "Registry key target"
+        },
+        {
+          "value": "ntoskrnl.exe",
+          "description": "System file target"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Kernel-mode SSDT hooking routine"
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Decrypts and extracts embedded resources"
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Installs persistence via registry and file modification"
+    }
+  ]
+}

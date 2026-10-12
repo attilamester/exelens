@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains a driver-loading routine and multiple functions targeting system internals, including kernel service descriptor table (SDT) manipulation and system-wide hooks. It checks for specific environment variables and attempts to modify system security descriptors to bypass access controls.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation",
+      "Dynamic API resolution"
+    ],
+    "details": "The file uses XOR loops (e.g., in fcn.10001697) to obfuscate data and dynamically resolves imports via GetProcAddress and LoadLibrary to hide its reliance on sensitive Windows APIs."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel Hooking/Modification",
+      "description": "Uses NtQuerySystemInformation and attempts to manipulate the System Service Descriptor Table (SSDT) in fcn.1000b369."
+    },
+    {
+      "name": "Process/Driver Injection",
+      "description": "Contains routines for creating and writing files to system directories and loading drivers via custom install routines."
+    },
+    {
+      "name": "Persistence and Evasion",
+      "description": "Creates system mutexes (e.g., GlobalRPCMutex, prkMtx) and modifies registry keys associated with system services (lsass)."
+    },
+    {
+      "name": "System Security Manipulation",
+      "description": "Uses ADVAPI32 functions to create custom ACLs and Security Descriptors to grant itself unauthorized access."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level modification attempts (SSDT hooking), explicit attempts to manipulate access control lists (ACLs) of system resources, and the use of obfuscated string routines to load sensitive DLLs confirm malicious intent. These are not common in benign software, and the presence of mutexes named 'prkMtx' and 'GlobalRPCMutex' alongside these functions is indicative of rootkit-like persistence mechanisms.",
+    "general": "High-intent evidence includes the use of NtQuerySystemInformation/NtQueryObject (fcn.1000c7e7, fcn.1000d4f0) for system inspection, and fcn.1000b369 which calculates offsets for the KeServiceDescriptorTable to perform unauthorized kernel modifications.",
+    "uncertainties": "The exact nature of the payload encrypted in the RSRC section (Resource 102) cannot be fully determined, though it is clearly used by the loader functions.",
+    "conditions": "The sample performs environmental checks via GetEnvironmentVariableA (system32) and checks the OS version (fcn.100082ce) before detonation. It requires administrative privileges to successfully execute its primary malicious functions (Registry modifications/Driver loading).",
+    "sandbox_recommendations": "Run in an isolated Windows environment (VM) with logging enabled for Registry and File system activity. Ensure the environment simulates a Windows system directory (e.g., C:\\Windows\\System32) and potentially use a kernel debugger to catch the SSDT modification attempt."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\System\\CurrentControlSet\\Services",
+          "description": "Registry path targeted for persistent service modification."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for cross-process synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex identified in fcn.1000753a."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Attempts to locate and hook the KeServiceDescriptorTable."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Handles file writing and potential driver creation in the system directory."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Primary installation/loader routine handling ACL and registry modification."
+    }
+  ]
+}

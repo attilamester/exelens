@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a loader that extracts and executes a hidden malicious driver or system-level component. It uses mutex-based synchronization to prevent multiple infections, persists by modifying registry keys, and performs direct kernel-mode interaction by locating and patching system tables (like KeServiceDescriptorTable).",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR decryption",
+      "Resource-based loading",
+      "Direct memory modification"
+    ],
+    "details": "The file contains encrypted/obfuscated binary data in the .rsrc section (ID 102). The loader (fcn.10001697) decrypts this data using a XOR 0xCD loop and then proceeds to perform file system operations and process creation."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Modifies system registry keys to ensure execution, specifically targeting keys related to lsass."
+    },
+    {
+      "name": "Kernel-mode interaction",
+      "description": "Uses low-level functions (like KeServiceDescriptorTable discovery) to bypass kernel protection mechanisms."
+    },
+    {
+      "name": "Process Injection/Driver Loading",
+      "description": "Uses CreateProcessA and direct file system modification to drop and execute hidden files."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Uses mutexes (GlobalRPCMutex, prkMtx) to prevent concurrent execution and registry-based environment checks."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent actions—specifically the discovery and patching of the KeServiceDescriptorTable (fcn.1000b369, fcn.1000ab6f)—is characteristic of sophisticated kernel-mode malware. The file also exhibits clear persistence and evasion techniques, such as registry modification and mutex checking, confirming that its dual-use capabilities (like file writing or resource loading) are utilized for malicious intent rather than legitimate software installation.",
+    "general": "High-intent evidence found in: fcn.1000ab6f (RVA: 0x1000ab6f) which directly interacts with the KeServiceDescriptorTable; fcn.100017a0 (RVA: 0x100017a0) which modifies the 'lsass' registry value; and the use of 'prkMtx' mutex to coordinate malicious activity.",
+    "uncertainties": "The exact function of the decrypted resource blob is not fully reconstructed, as the malicious code likely resides within the decrypted resource that is later loaded via the identified kernel patching routines.",
+    "conditions": "Execution is gated by the creation of global mutexes ('GlobalRPCMutex', 'prkMtx'). The primary malicious routines are triggered only if these mutexes can be successfully initialized or if the environment allows for the specific registry/file access patterns hardcoded in the file.",
+    "sandbox_recommendations": "Run in a kernel-aware sandbox. Ensure network simulation is active, as the file references HTTP headers and attempts to load external modules. Monitor registry keys in HKLM and the integrity of the system's SSDT."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "lsass",
+          "description": "Registry key modified for persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for process synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for kernel-mode synchronization."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Kernel-mode service table manipulation routine."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Persistence routine modifying registry values."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Resource decryption and loading function."
+    }
+  ]
+}

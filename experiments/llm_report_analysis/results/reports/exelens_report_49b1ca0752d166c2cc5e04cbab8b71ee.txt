@@ -1,0 +1,97 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a dropper or loader. It extracts embedded binary resources (identified as ICO files, but treated as data) to the filesystem and performs registry manipulation to hijack file associations (specifically looking for shell open commands in HKEY_CLASSES_ROOT) to launch a child process.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The file is not packed. Visible code and logical structure indicate standard compilation, likely using MSVC. The entropy of .rsrc (6.91) is consistent with storing resource data, which the code then decrypts/processes."
+  },
+  "capabilities": [
+    {
+      "name": "Dropper/Resource Extraction",
+      "description": "Uses FindResource/LoadResource to access embedded data and writes it to disk using CreateFile/WriteFile."
+    },
+    {
+      "name": "Process Injection/Execution",
+      "description": "Uses CreateProcessA to spawn applications, specifically targeting shell file associations."
+    },
+    {
+      "name": "Registry Manipulation",
+      "description": "Reads HKEY_CLASSES_ROOT using RegOpenKeyExA and RegQueryValueExA to identify application paths for hijacking."
+    },
+    {
+      "name": "Anti-Mutex/Single-Instance",
+      "description": "Uses CreateMutexA with a named object 'mark01' to ensure only one instance runs."
+    },
+    {
+      "name": "Custom Decryption",
+      "description": "Function fcn.00401580 performs a XOR-based decryption routine on resource data."
+    }
+  ],
+  "details": {
+    "reasoning": "While registry access and file creation are dual-use, the combination of extracting data from resources, decrypting them via a XOR routine (fcn.00401580), and specifically querying HKEY_CLASSES_ROOT for shell open commands before calling CreateProcessA is characteristic of malware attempting to hijack legitimate application execution flows (a form of file association hijacking). This behavior goes beyond typical installer logic.",
+    "general": "The function fcn.004012b0 uses RegOpenKeyExA/RegQueryValueExA on HKEY_CLASSES_ROOT, builds command strings via vsnprintf, and subsequently calls CreateProcessA. The fcn.00401600 retrieves resources labeled 'IDR_ICOFILE2' and 'IDR_ICOFILE1' and passes them to the decryption routine fcn.00401580 before writing to disk.",
+    "uncertainties": "The exact nature of the payload dropped from the resources cannot be determined without runtime analysis, as it is only processed as an opaque blob.",
+    "conditions": "The execution relies on the ability to access specific registry keys in HKEY_CLASSES_ROOT and sufficient privileges to create files in temp directories (c:\\tmp, c:\\temp, c:\\intel).",
+    "sandbox_recommendations": "Ensure the sandbox environment contains standard file associations in the registry. Monitor file system activity in temporary directories and track child process creation spawned by the process."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_CLASSES_ROOT",
+          "description": "Target registry hive for file association hijacking"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "mark01",
+          "description": "Mutex name used for single-instance check"
+        },
+        {
+          "value": "DaumCleans.exe",
+          "description": "Potential target or related executable name"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "c:\\tmp",
+          "description": "Temporary directory checked/used"
+        },
+        {
+          "value": "c:\\temp",
+          "description": "Temporary directory checked/used"
+        },
+        {
+          "value": "c:\\intel",
+          "description": "Temporary directory checked/used"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x004012b0",
+      "name": "fcn.004012b0",
+      "description": "Primary logic for registry manipulation and process launching."
+    },
+    {
+      "address": "0x00401580",
+      "name": "fcn.00401580",
+      "description": "XOR-based decryption routine for resource data."
+    },
+    {
+      "address": "0x00401600",
+      "name": "fcn.00401600",
+      "description": "Resource extraction and dropper logic."
+    }
+  ]
+}

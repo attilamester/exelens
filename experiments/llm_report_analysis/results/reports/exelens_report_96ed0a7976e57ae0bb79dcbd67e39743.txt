@@ -1,0 +1,81 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality for remote keylogging, process manipulation (creating pipes, handles to external processes), and network interaction using WinHttp. It also includes anti-analysis techniques such as TLS callback manipulation and potential string obfuscation, indicating an intent to exfiltrate information and maintain stealth.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Custom string obfuscation",
+      "Dynamic API resolution",
+      "TLS callbacks",
+      "Pointer encoding"
+    ],
+    "details": "The file utilizes dynamic API loading via GetProcAddress and uses EncodePointer/DecodePointer to obfuscate function pointers. Strings are handled through custom deobfuscation routines (e.g., fcn.10010870) and likely stored in an encrypted/encoded form in the data sections."
+  },
+  "capabilities": [
+    {
+      "name": "Remote Keylogging",
+      "description": "Evidence of keylogger module logic (method.ModuleRemoteKeyLogger.virtual_20)."
+    },
+    {
+      "name": "Network Communication",
+      "description": "Utilizes WININET.dll and WINHTTP for network requests."
+    },
+    {
+      "name": "Process Injection/Manipulation",
+      "description": "Capability to open external processes and create pipes (KERNEL32.dll_OpenProcess, CreatePipe, WriteFile)."
+    },
+    {
+      "name": "Persistence",
+      "description": "Registry operations and service manager usage (RegCreateKeyExW, OpenSCManagerW)."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of remote keylogging capabilities, network communication via WinHttp, and process manipulation (pipes, OpenProcess) strongly suggests malicious intent to steal user data. While some components appear to be legitimate system or utility code (GDI+, std library), their integration with the identified modules (ModuleRemoteKeyLogger, ModuleFileSystem) confirms the intent is to perform unauthorized monitoring.",
+    "general": "High-intent evidence includes the existence of 'ModuleRemoteKeyLogger.virtual_20' performing file operations alongside pipe creation (fcn.100105a0) and process handling (fcn.1000e2c0). The use of these features, particularly the keylogger, rules out accidental dual-use.",
+    "uncertainties": "The exact C2 domain or IP is not visible as it is likely obfuscated or dynamically resolved at runtime, preventing identification of the final target.",
+    "conditions": "The malware uses standard entry point execution; however, specific modules (like the keylogger) are initialized via virtual methods which may require the application to enter a specific state or be triggered by environment/registry conditions.",
+    "sandbox_recommendations": "Use a fully instrumented sandbox that captures memory strings to reveal deobfuscated URLs. Monitor registry keys associated with Run entries, as the sample imports Advapi32 service management functions."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software",
+          "description": "Potential persistence target"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "KERNEL32.DLL",
+          "description": "Hardcoded DLL reference"
+        },
+        {
+          "value": "string_too_long",
+          "description": "Error string found in code"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000d910",
+      "name": "method.ModuleRemoteKeyLogger.virtual_20",
+      "description": "Primary keylogging routine"
+    },
+    {
+      "address": "0x1000e2c0",
+      "name": "fcn.1000e2c0",
+      "description": "External process interaction/writing"
+    },
+    {
+      "address": "0x10011ba0",
+      "name": "method.WinHttp.virtual_0",
+      "description": "Network request initiation"
+    }
+  ]
+}

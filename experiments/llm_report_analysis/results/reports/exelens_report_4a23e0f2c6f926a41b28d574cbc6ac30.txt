@@ -1,0 +1,66 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This is a kernel-mode driver that registers process and logon session notification routines to perform process termination and monitoring, likely associated with a rootkit or security-bypass tool.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Overlay entropy",
+      "Dynamic API resolution (manual lookup)"
+    ],
+    "details": "The overlay section exhibits high entropy (7.30), suggesting encrypted data or a packed payload appended to the driver file. The driver utilizes custom structures and indirect calls to imported functions, indicating potential anti-analysis techniques."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode process monitoring",
+      "description": "Uses PsSetCreateProcessNotifyRoutine to monitor process creation."
+    },
+    {
+      "name": "Logon session termination",
+      "description": "Registers callbacks to intercept and terminate specific logon sessions."
+    },
+    {
+      "name": "Process Injection/Access",
+      "description": "Calls ZwOpenProcess with high privileges (0x400), suggesting intent to manipulate other processes."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode API usage (PsSetCreateProcessNotifyRoutine, SeRegisterLogonSessionTerminatedRoutine) and the explicit code logic for marking sessions for termination (SeMarkLogonSessionForTerminationNotification) indicates malicious intent to manipulate system processes and user sessions at a deep level. The presence of a high-entropy overlay and manual API resolution further points to evasion techniques common in rootkits or persistent malware.",
+    "general": "High-intent indicators include the use of SeMarkLogonSessionForTerminationNotification (fcn.00014ad8, 0x00014ad8) to forcefully terminate user sessions, and PsSetCreateProcessNotifyRoutine (fcn.00014640, 0x00014640) to hook into process creation. The driver maps and manipulates process IDs in a manner consistent with stealthy process termination.",
+    "uncertainties": "The exact nature of the high-entropy overlay is unknown due to the lack of dynamic execution; it is possible that configuration data or additional malicious code is stored there.",
+    "conditions": "The driver appears to be a kernel module (SYS) that initializes via entry0. It registers routines for process and logon termination. Activation likely occurs upon driver load and subsequent process/logon events triggered by the OS.",
+    "sandbox_recommendations": "Run in a kernel-mode debugging environment (WinDbg) with guest OS monitoring. Set breakpoints on PsSetCreateProcessNotifyRoutine and SeRegisterLogonSessionTerminatedRoutine to observe the callback registration."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "4c50434e",
+          "description": "Pool tag used in ExAllocatePoolWithTag"
+        },
+        {
+          "value": "Ox_aB",
+          "description": "Literal referenced in function 0x00015500"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00014640",
+      "name": "fcn.00014640",
+      "description": "Registers process notify routine."
+    },
+    {
+      "address": "0x00014ad8",
+      "name": "fcn.00014ad8",
+      "description": "Performs session termination marking."
+    },
+    {
+      "address": "0x00015e7c",
+      "name": "fcn.00015e7c",
+      "description": "Queries process info, likely for filtering/targeting."
+    }
+  ]
+}

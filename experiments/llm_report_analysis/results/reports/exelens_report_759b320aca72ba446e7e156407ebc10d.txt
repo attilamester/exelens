@@ -1,0 +1,67 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a remote shell agent. It collects system information (computer name), connects to a command-and-control server via HTTP, and interprets commands to list processes, list services, enumerate drives, and spawn shells (cmd.exe).",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code does not show signs of packing. The imports and logic are fully visible and standard."
+  },
+  "capabilities": [
+    {
+      "name": "Remote Shell / Backdoor",
+      "description": "Uses CreatePipe and CreateProcessAsUserA/CreateProcessA to execute remote shell commands and capture output."
+    },
+    {
+      "name": "Command and Control",
+      "description": "Utilizes WININET to perform HTTP communication, including sending system info and receiving commands."
+    },
+    {
+      "name": "Process and Service Management",
+      "description": "Can list, terminate processes, and control Windows services via ADVAPI32 functions."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of WININET for C2 communication, persistent command-shell spawning (cmd.exe) via pipes, and service/process manipulation functions unequivocally points to a remote access trojan (RAT) intent. This is not dual-use; the orchestration of these specific APIs is characteristic of malicious command-and-control agents.",
+    "general": "The function fcn.00401ba9 clearly implements command execution using CreateProcessA/CreateProcessAsUserA and pipes. The C2 loop is managed in fcn.004010c0, which sets up InternetConnectA and HttpOpenRequestA.",
+    "uncertainties": "No significant uncertainties; the control flow clearly links the network input to shell execution.",
+    "conditions": "The file expects to receive commands from an HTTP server. It also performs a self-check on the computer name (GetComputerNameA) and initializes communication via WININET.",
+    "sandbox_recommendations": "Provide an active network environment with a simulated HTTP server. The malware will attempt to connect; the analyst should monitor HTTP headers and attempt to send valid-looking commands if the server protocol can be identified."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "cmd.exe",
+          "description": "Shell binary targeted for remote control"
+        },
+        {
+          "value": "Mozilla/4.0",
+          "description": "User-Agent string used for HTTP requests"
+        },
+        {
+          "value": "Computer:",
+          "description": "Label for exfiltrated host information"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401ba9",
+      "name": "fcn.00401ba9",
+      "description": "Spawns cmd.exe via CreateProcess and connects it to a pipe for remote control."
+    },
+    {
+      "address": "0x004010c0",
+      "name": "fcn.004010c0",
+      "description": "Establishes HTTP connection using WININET to communicate with the C2 server."
+    },
+    {
+      "address": "0x00402634",
+      "name": "fcn.00402634",
+      "description": "Manages starting of services and processes based on received remote commands."
+    }
+  ]
+}

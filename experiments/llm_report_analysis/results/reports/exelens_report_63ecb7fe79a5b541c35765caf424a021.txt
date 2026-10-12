@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to perform rootkit-like operations, including driver manipulation, registry modification, service control, and code injection/hooking. It targets system files and security components (e.g., lsass, win32k.sys) and contains routines for manual mapping or direct kernel-mode interaction.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource-based payload extraction",
+      "XOR obfuscation",
+      "Dynamic API resolution"
+    ],
+    "details": "The sample uses a custom XOR routine (fcn.10001697) to de-obfuscate embedded resources (e.g., RCDATA) at runtime, which are then used as payloads for processes, drivers, or injection."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "Uses CreateProcessA and potentially manual mapping techniques to inject code into other processes."
+    },
+    {
+      "name": "Rootkit/Driver Manipulation",
+      "description": "Contains code to modify system kernel structures, hook APIs, and interface with drivers like win32k.sys."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies Windows Registry keys to maintain execution across reboots."
+    },
+    {
+      "name": "Privilege Escalation",
+      "description": "Attempts to interact with high-privilege tokens and system resources (lsass, etc.)."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent indicators—specifically kernel-mode API names (PsGetCurrentProcess, NtQuerySystemInformation, KeRaiseIrqlToDpcLevel) used in conjunction with process hollowing, registry-based persistence, and the manual modification of kernel service tables—proves malicious intent, consistent with advanced persistent threat (APT) rootkit behavior.",
+    "general": "High-intent evidence includes calls to fcn.1000b46f (which performs direct system memory modifications via int 2e) and calls to fcn.1000ab6f, which interacts with KeServiceDescriptorTable. The sample specifically names kernel files (ntoskrnl.exe, win32k.sys) for patching/injection.",
+    "uncertainties": "The exact nature of the payload inside the resource section 102 could not be fully statically analyzed, but its usage in the provided call graph confirms it is a component for system-level exploitation.",
+    "conditions": "The file requires administrative or SYSTEM privileges to perform its primary malicious operations (kernel modification). It may require specific registry keys to be present or a specific environment (e.g., target OS version) as checked in fcn.100082ce.",
+    "sandbox_recommendations": "Run in a virtualized Windows XP/7 environment with kernel debugging disabled. Monitor registry access and file system changes in C:\\Windows\\System32. Use a tool like Process Hacker to observe injection attempts into lsass.exe or win32k.sys processes."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Common target for persistence modification."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "lsass",
+          "description": "Target process for credential dumping or injection."
+        },
+        {
+          "value": "win32k.sys",
+          "description": "Target kernel driver for hooking."
+        },
+        {
+          "value": "KeServiceDescriptorTable",
+          "description": "Target for system call hooking."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001697",
+      "name": "fcn.10001697",
+      "description": "Performs XOR-based decryption of embedded resources."
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Primary routine for modifying the kernel's system service table."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Extracts and executes a payload file via CreateProcessA."
+    }
+  ]
+}

@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains a driver-loading and kernel-mode payload installation mechanism. It identifies and modifies system structures (System Service Descriptor Table) and interacts with low-level kernel routines, likely for rootkit functionality or system-level interception.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based payload obfuscation",
+      "Dynamic API resolution"
+    ],
+    "details": "The file contains encrypted resources (unpacked in memory) and uses dynamic resolution for kernel-related APIs (e.g., NtQuerySystemInformation, NtQueryObject). The main logic involves decrypting sections of code using a simple XOR loop and transferring execution to them."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Attempts to interact with KeServiceDescriptorTable and system kernel routines."
+    },
+    {
+      "name": "System modification",
+      "description": "Modifies system registry keys and creates files in system directories."
+    },
+    {
+      "name": "Persistence",
+      "description": "Sets up registry entries and potential file-system hooks to maintain execution."
+    },
+    {
+      "name": "Evasion",
+      "description": "Uses mutexes and environment checks to avoid re-execution or sandbox analysis."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level API calls (KeServiceDescriptorTable, NtQuerySystemInformation), self-modifying code, and explicit registry manipulation for persistence clearly demonstrates malicious intent rather than legitimate protector functionality. The presence of functions interacting with 'lsass' and system-level drivers confirms an attempt to subvert operating system security.",
+    "general": "High-intent evidence includes calls to fcn.1000b369 (manipulating KeServiceDescriptorTable), fcn.1000c492 (mapping kernel memory), and fcn.10009d28 (patching kernel-level functions like KeGetCurrentIrql). The use of these APIs in this context is indicative of rootkit behavior.",
+    "uncertainties": "The exact nature of the encrypted payload in the resources cannot be fully determined without runtime decryption, but the behavioral patterns of the loader are sufficient for a malicious classification.",
+    "conditions": "The file includes checks for 'GlobalRPCMutex' and environment variable checks (e.g., 'temp'). It requires administrative privileges to perform registry modifications and access kernel-mode APIs.",
+    "sandbox_recommendations": "Run with administrative privileges. Monitor registry keys in 'HKLM\\SYSTEM\\CurrentControlSet' and file system changes in '\\System32'. Simulate environment variables found in strings."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\",
+          "description": "Common location for driver-based persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for kernel-mode synchronization."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Performs SSDT manipulation and hook installation."
+    },
+    {
+      "address": "0x1000c492",
+      "name": "fcn.1000c492",
+      "description": "Handles MDL mapping and kernel memory manipulation."
+    },
+    {
+      "address": "0x10009d28",
+      "name": "fcn.10009d28",
+      "description": "Patches kernel function pointers for system interception."
+    }
+  ]
+}

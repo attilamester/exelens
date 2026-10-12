@@ -1,0 +1,88 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample is a downloader/dropper that communicates via HTTP to fetch commands. It performs environment checks, maintains persistence via the registry, and uses XOR-based obfuscation to hide its activity.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR obfuscation",
+      "API dynamic resolution"
+    ],
+    "details": "The file contains a large high-entropy overlay and uses multiple routines (e.g., fcn.00401280) to decode configuration data and strings at runtime using simple XOR/bitwise operations."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Registers itself to run at startup using the Windows RunOnce registry key via RegCreateKeyExA and RegSetValueExA."
+    },
+    {
+      "name": "Command and Control (C2)",
+      "description": "Performs HTTP GET/POST requests using WinInet APIs (InternetConnectA, HttpOpenRequestA) to interact with a remote server."
+    },
+    {
+      "name": "Process/System Interaction",
+      "description": "Uses GetAdaptersInfo to fingerprint the system, checks for file existence, and executes file deletion."
+    },
+    {
+      "name": "Environment Awareness",
+      "description": "Queries hardware registry keys (CentralProcessor) and checks system time/adapter information to determine if it is running in a sandbox."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistence, C2 communication, and advanced environmental fingerprinting (checking processor/adapter info) is characteristic of a malicious loader. The file is specifically designed to bypass analysis by waiting for specific conditions and utilizing XOR obfuscation for its C2 data.",
+    "general": "High-intent evidence includes the use of InternetOpenA/HttpSendRequestA (C2), RegSetValueExA on 'SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce' (Persistence), and fcn.004015e0, which performs hardware checks (CPU strings) and registry queries against 'HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0'.",
+    "uncertainties": "The exact content of the C2 server response and the full scope of the payload delivered at runtime cannot be definitively determined due to the dynamic nature of the communication, but the structural intent is clear.",
+    "conditions": "The malware requires an active internet connection and will terminate if specific environment checks (CPU/Adapter fingerprinting) fail or if it detects common sandbox signatures. It likely expects a specific response format from the remote host to proceed with execution.",
+    "sandbox_recommendations": "Provide an active internet gateway, ensure the system environment contains realistic hardware identifiers (CPU/Adapters), and monitor registry modifications specifically in the RunOnce keys."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce",
+          "description": "Persistence mechanism"
+        },
+        {
+          "value": "HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0",
+          "description": "System fingerprinting"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "_mir_imaues_view_bhb",
+          "description": "Likely C2 URL path or configuration parameter"
+        },
+        {
+          "value": "agfriqiurelisfqm",
+          "description": "Obfuscated C2 configuration string"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401000",
+      "name": "fcn.00401000",
+      "description": "Core HTTP network communication routine."
+    },
+    {
+      "address": "0x00401400",
+      "name": "fcn.00401400",
+      "description": "Persistence logic using registry operations."
+    },
+    {
+      "address": "0x004015e0",
+      "name": "fcn.004015e0",
+      "description": "System fingerprinting and environment verification."
+    },
+    {
+      "address": "0x00401280",
+      "name": "fcn.00401280",
+      "description": "XOR-based string/data decoding function."
+    }
+  ]
+}

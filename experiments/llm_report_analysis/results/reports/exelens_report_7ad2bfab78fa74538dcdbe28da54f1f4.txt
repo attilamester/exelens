@@ -1,0 +1,88 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a kernel-mode driver dropper/loader that performs process hollowing, system file manipulation, and attempts to modify system kernel structures. It includes multiple anti-debugging and anti-analysis routines, including checking for specific driver names and using mutex-based execution gates to prevent multiple instances or sandbox detection.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR decryption loop",
+      "Resource-based payload hiding"
+    ],
+    "details": "The file uses `FindResourceA`, `LoadResource`, and `LockResource` to load a hidden payload from the .rsrc section. A XOR-based decryption loop (`xor [esi + eax], 0xcd`) is used to unpack the payload in memory at runtime."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Modifies Windows Registry keys to ensure execution on system startup."
+    },
+    {
+      "name": "Process Hollowing/Injection",
+      "description": "Uses CreateProcessA followed by WriteProcessMemory/SetThreadContext-like patterns to inject malicious code into system processes (e.g., lsass.exe)."
+    },
+    {
+      "name": "Kernel-mode Driver Loading",
+      "description": "Attempts to interact with ntoskrnl.exe and ntkrnlpa.exe, suggesting attempts to patch or load malicious drivers (KeServiceDescriptorTable modification)."
+    },
+    {
+      "name": "Anti-Analysis/Evasion",
+      "description": "Uses mutexes and timing checks (`Sleep`, `GetTickCount` equivalents) to evade automated analysis."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode API imports (KeServiceDescriptorTable, KeGetCurrentIrql, MmProbeAndLockPages), direct manipulation of system processes (lsass.exe), and the presence of decryptors on embedded binary data strongly indicates malicious intent. The dual-use nature of these APIs is outweighed by the specific, unauthorized access patterns targeting kernel structures and process integrity.",
+    "general": "High-intent indicators include: modification of the SSDT in `fcn.1000b369`, process hollowing logic in `fcn.10001b34`, and the use of `SetPropA` and `UnregisterClassA` combined with `int 2e` system calls, characteristic of low-level system subversion.",
+    "uncertainties": "The exact nature of the decrypted driver binary is not visible as it is only unpacked in memory during execution.",
+    "conditions": "The sample requires execution with administrative privileges to successfully perform its intended kernel-mode modifications. It also checks for the presence of certain environment variables (e.g., specific temp paths) and mutexes to regulate execution.",
+    "sandbox_recommendations": "Run as Administrator in a kernel-aware debugging environment. Monitor registry operations specifically on `HKLM\\System\\CurrentControlSet\\Services` and file system writes to `system32`."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\System\\CurrentControlSet\\Services",
+          "description": "Targeted for persistence or service manipulation."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "system32\\win32k.sys",
+          "description": "System file targeted for manipulation."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for single-instance execution."
+        },
+        {
+          "value": "DMWI__",
+          "description": "Potentially related to the malware's internal tracking or mutex naming."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Responsible for payload creation/process hollowing (CreateProcessA + WriteFile)."
+    },
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Performs SSDT (System Service Descriptor Table) hooking, a critical kernel-mode rootkit technique."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Implements service enumeration and registry key manipulation."
+    }
+  ]
+}

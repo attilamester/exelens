@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This executable acts as a dropper and kernel-mode driver loader. It extracts an embedded payload from resources, creates a persistence mechanism by modifying system registry keys, and utilizes techniques to interact with or manipulate kernel-mode structures (ntoskrnl.exe/ntkrnlpa.exe). It checks for virtualization or specific debugging environments and uses obfuscated communication strings.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource obfuscation",
+      "Dynamic API resolution (GetProcAddress)",
+      "Custom XOR-based decryption of resources"
+    ],
+    "details": "The file contains encrypted resources (UNKNOWN 102/101) decrypted at runtime using XOR operations in routines like fcn.100015f7. It also dynamically resolves numerous APIs via GetProcAddress and LoadLibrary."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Modifies system registry keys to ensure execution upon system boot or user login."
+    },
+    {
+      "name": "Process Injection/Driver Loading",
+      "description": "Attempts to interact with kernel modules (ntoskrnl.exe) and likely loads or interacts with kernel drivers via system calls (int 2e)."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Contains environment checks (GetVersionExA, GetVolumeInformationA) to detect sandbox or VM environments."
+    },
+    {
+      "name": "Mutex Creation",
+      "description": "Uses mutexes like 'prkMtx' and 'GlobalRPCMutex' to ensure single-instance execution."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode interaction (ntoskrnl, KeServiceDescriptorTable), registry modification for persistence, and environment-aware execution triggers (checks for system paths and specific file names) strongly indicates malicious intent rather than a legitimate installer or protector. The sample contains specific routines for interacting with kernel-level tables (KeServiceDescriptorTable), which is highly suspicious for standard user-mode applications.",
+    "general": "High-intent indicators include the modification of the registry key related to lsass (fcn.100017a0), the use of 'int 2e' for system calls (fcn.1000b46f), and the attempt to patch or interact with the System Service Descriptor Table (SSDT) in fcn.1000ab6f.",
+    "uncertainties": "The exact function of the encrypted/obfuscated code blocks in the resources remains opaque without full decryption, though the loader routines are clearly identified.",
+    "conditions": "Execution is gated by the creation and verification of global mutexes ('prkMtx') and specific registry environment variable checks.",
+    "sandbox_recommendations": "Simulate a Windows environment with system-wide administrative privileges. Do not use a debugger to avoid the sample's anti-analysis routines. Monitor for registry changes in HKLM\\SYSTEM\\CurrentControlSet."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa",
+          "description": "Persistence target identified in fcn.100017a0"
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for process synchronization"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for process synchronization"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Resource decryption and extraction routine."
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Kernel-mode structure manipulation/SSDT hooking attempt."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Registry modification for persistence (lsass injection)."
+    }
+  ]
+}

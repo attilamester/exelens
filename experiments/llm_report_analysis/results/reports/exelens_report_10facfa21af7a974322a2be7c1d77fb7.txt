@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The file is a modular downloader and keylogger that gathers system information, captures screen contents, and communicates with a remote command-and-control server. It uses anti-analysis techniques, dynamic loading of APIs, and registry manipulation for persistence.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Dynamic API resolution",
+      "String obfuscation/XOR",
+      "Code obfuscation (likely custom)"
+    ],
+    "details": "The sample uses a custom XOR-based obfuscation (seen in fcn.0040b60e and similar routines) to hide strings and potential command structures. It dynamically resolves many Windows and networking APIs using GetProcAddress to avoid easy static analysis of its primary capabilities."
+  },
+  "capabilities": [
+    {
+      "name": "Keylogging",
+      "description": "Utilizes GetAsyncKeyState, GetKeyboardState, and MapVirtualKey to intercept keystrokes and store them."
+    },
+    {
+      "name": "Screen Capture",
+      "description": "Uses GDI functions (GetDC, BitBlt, GetDIBits) to capture the desktop image."
+    },
+    {
+      "name": "Network Communication",
+      "description": "Implements socket-based communication via WS2_32.dll for data exfiltration and C2 interaction."
+    },
+    {
+      "name": "Persistence",
+      "description": "Manipulates registry keys (RegSetValueExA, RegCreateKeyExA) likely to ensure automatic execution."
+    },
+    {
+      "name": "Process/System Enumeration",
+      "description": "Uses Toolhelp32 snapshots (CreateToolhelp32Snapshot, Process32First/Next) to enumerate and monitor running processes."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of keylogging (GetKeyState), screen capture (BitBlt/GetDIBits), and persistent C2 communication (WSAStartup/socket/connect) confirms malicious intent. While individual functions like LoadLibrary or RegSetValueExA are dual-use, their aggregation here—specifically the context of monitoring user input and exfiltrating data—is characteristic of spyware/trojans.",
+    "general": "High-intent indicators include fcn.0040db3b (keylogging loop), fcn.00418d68 (screen capture logic), and multiple network functions (fcn.0040d2de, fcn.004085a0) initiating socket connections. The use of Mutexes (CreateMutexA in fcn.0040caf6) to prevent multiple instances is a standard technique for malware persistence management.",
+    "uncertainties": "While the core logic is clearly malicious, the full extent of the C2 protocol and potential payloads remains partially obscured by the dynamic API resolution and custom obfuscation loops.",
+    "conditions": "The malware requires an active internet connection to reach its C2 infrastructure. It likely checks for the existence of specific mutexes (e.g., in fcn.0040caf6) to trigger its primary execution path.",
+    "sandbox_recommendations": "Run in an environment with simulated internet access. Monitor registry modifications and file system access in the APPDATA and LOCALAPPDATA directories. Monitor for network traffic directed at non-standard ports or known malicious IP ranges."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\NT\\CurrentVersion\\Windows\\Messaging Subsystem\\Profiles",
+          "description": "Key used for persistent storage/configuration."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "Mozilla/Firefox",
+          "description": "User-agent string or browser identification used for communication."
+        },
+        {
+          "value": "winhttp.dll",
+          "description": "Library loaded for network communication."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x0040db3b",
+      "name": "fcn.0040db3b",
+      "description": "Primary keylogging loop using GetKeyState and keyboard state monitoring."
+    },
+    {
+      "address": "0x00418d68",
+      "name": "fcn.00418d68",
+      "description": "Screen capture functionality using GDI32 API."
+    },
+    {
+      "address": "0x0040d2de",
+      "name": "fcn.0040d2de",
+      "description": "Network communication routine using Winsock sockets."
+    }
+  ]
+}

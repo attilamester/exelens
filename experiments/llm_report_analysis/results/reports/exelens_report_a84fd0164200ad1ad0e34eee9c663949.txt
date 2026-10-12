@@ -1,0 +1,89 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains a sophisticated persistence and payload delivery mechanism that targets system drivers (win32k.sys) and performs kernel-mode service descriptor table hooking. It uses a custom obfuscation routine (XOR with 0xCD) to unpack resource-based payloads and establishes system-level persistence via Mutex creation and registry manipulation.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR routine for resource decryption",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress",
+      "Memory-based payload execution"
+    ],
+    "details": "The sample uses a multi-stage approach. It finds resources (102/103/101), reads their content, and applies an XOR 0xCD decryption routine (visible in fcn.100015f7). The entrypoint performs initialization, followed by calls to complex routines that resolve kernel-mode APIs like KeServiceDescriptorTable."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel Hooking/Modification",
+      "description": "Attempts to locate and modify the KeServiceDescriptorTable to intercept system calls."
+    },
+    {
+      "name": "Process Injection/Driver Modification",
+      "description": "Manipulates system files like win32k.sys using CreateFileW and NtQueryObject/NtQuerySystemInformation."
+    },
+    {
+      "name": "Persistence",
+      "description": "Uses registry keys (RegCreateKeyExA/RegSetValueExA) and Mutexes (CreateMutexA) to ensure execution and prevent multi-instance infection."
+    },
+    {
+      "name": "File System Operations",
+      "description": "Copies files (CopyFileA), deletes files (DeleteFileA), and sets file attributes to hide artifacts."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level API usage (KeServiceDescriptorTable, NtShutdownSystem), the presence of XOR-encrypted resources, and the targeting of critical system components like 'win32k.sys' definitively moves this file out of the 'dual-use' category. The code demonstrates clear intent to perform unauthorized modifications to the operating system's internal structures, which is characteristic of rootkit/malware behavior.",
+    "general": "Evidence of malicious intent is found in fcn.1000b46f (hooking logic), fcn.1000c492 (memory manipulation via IoAllocateMdl/MmMapLockedPagesSpecifyCache), and fcn.10001697 (payload deployment). The use of 'win32k.sys' in string literals and the direct call to 'KeServiceDescriptorTable' are high-intent indicators.",
+    "uncertainties": "The exact nature of the decrypted resource payload is unknown as it is dynamically executed; however, its interaction with the kernel confirms a malicious goal.",
+    "conditions": "The file executes its main payload after checking the environment via GetSystemDirectoryA and GetComputerNameA. It likely requires administrative privileges to perform kernel modifications and may fail or perform benign operations if run in a non-privileged context.",
+    "sandbox_recommendations": "Run in an isolated kernel-mode debugging environment (like WinDbg) to monitor calls to the SSDT. Ensure system time is consistent and administrative privileges are granted."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Common persistence registry key targeted by this sample."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "win32k.sys",
+          "description": "System driver targeted for modification."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for kernel-mode synchronization."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Primary driver for kernel-mode hooking and system structure modification."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Decryption routine for encrypted resource payload."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Persistence and process creation module."
+    }
+  ]
+}

@@ -1,0 +1,83 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to perform low-level kernel service descriptor table (SDT) hooking and anti-analysis techniques, targeting system drivers like win32k.sys and ntoskrnl.exe.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based payload decryption",
+      "Dynamic API resolution"
+    ],
+    "details": "The sample uses XOR routines (e.g., fcn.100075ce) to decrypt resources and internal strings. It dynamically resolves kernel functions via GetProcAddress."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-level Hooking",
+      "description": "Uses KeServiceDescriptorTable, KeAddSystemServiceTable, and NtQuerySystemInformation to hook system services."
+    },
+    {
+      "name": "Driver Manipulation",
+      "description": "Contains routines to locate and patch kernel modules like win32k.sys and ntoskrnl.exe."
+    },
+    {
+      "name": "Persistence/Registry Manipulation",
+      "description": "Extensive registry interaction, including setting values for system services and creating persistence through Run keys or service configuration."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Checks for debugger presence and system environment variables; uses mutexes (prkMtx) to prevent multiple instances."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode structures (SDT/system service hooks), direct manipulation of system drivers (win32k.sys, ntoskrnl.exe), and the use of undocumented functions like KeServiceDescriptorTable clearly indicates malicious intent rather than a legitimate installation utility or protector.",
+    "general": "High-intent evidence includes calls to KeServiceDescriptorTable (fcn.1000b369), modifications to system drivers (fcn.1000b46f, fcn.1000a2cd), and the patching of kernel memory via MDL (fcn.1000c492).",
+    "uncertainties": "The exact nature of the decrypted binary payload is hidden; however, the kernel-level modifications it performs are unambiguously malicious.",
+    "conditions": "Execution is gated by the successful creation of a global mutex ('prkMtx' in fcn.1000753a) and successful access to specific kernel-level system objects.",
+    "sandbox_recommendations": "Run in a hardened kernel-mode analysis environment (e.g., an isolated Windows kernel debugger) with virtualization detection disabled."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used to detect multiple running instances."
+        },
+        {
+          "value": "win32k.sys",
+          "description": "System driver targeted for hooking."
+        },
+        {
+          "value": "ntkrnlpa.exe",
+          "description": "Kernel image targeted for patching."
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Targeted for persistence."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Performs SSDT hooking by locating KeServiceDescriptorTable."
+    },
+    {
+      "address": "0x1000c492",
+      "name": "fcn.1000c492",
+      "description": "Uses MDL to lock/map kernel memory for patching."
+    },
+    {
+      "address": "0x10009bd3",
+      "name": "fcn.10009bd3",
+      "description": "Routine for loading and identifying kernel image addresses."
+    }
+  ]
+}

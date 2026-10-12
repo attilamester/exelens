@@ -1,0 +1,88 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a downloader/installer for malicious components, exhibiting capabilities to bypass security, achieve persistence, and execute kernel-level code. It uses mutexes for synchronization, modifies registry keys for persistence, and includes routines for process injection and potential rootkit-like kernel activity.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR encoding",
+      "Dynamic API resolution"
+    ],
+    "details": "The sample uses a simple XOR-based routine to decode resources (RVA 0x1000167b) and potentially decrypts payloads or configuration strings. It also uses dynamic API loading (GetProcAddress/LoadLibrary) to hide its functionality."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Uses RegCreateKeyExA and RegSetValueExA to modify Windows registry keys, specifically mimicking service or system components (lsass.exe, Win32k.sys)."
+    },
+    {
+      "name": "Process Injection/System Modification",
+      "description": "Functions like fcn.10001b34 and fcn.1000b46f suggest capabilities for process creation and code injection."
+    },
+    {
+      "name": "Kernel-Level Activity",
+      "description": "References to ntoskrnl.exe, ntkrnlpa.exe, and functions like KeServiceDescriptorTable indicate attempts to manipulate the kernel or perform rootkit activity."
+    },
+    {
+      "name": "Mutex usage",
+      "description": "Checks for a global mutex ('GlobalRPCMutex') to ensure only one instance of the malware runs at a time."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistence via registry modification, explicit kernel-level data structure manipulation (SSDT hooking/patching references), and the use of obfuscated strings/resources indicates high malicious intent. The binary does not perform any observable legitimate installer functions, and its efforts to disguise itself as system components (lsass, system32) confirm it is malicious.",
+    "general": "The function fcn.10003b69 and fcn.100034de contain references to 'KeServiceDescriptorTable' and 'KeAddSystemServiceTable', which are classic indicators of rootkit behavior. Fcn.100017a0 modifies registry keys under 'lsass', a clear persistence indicator.",
+    "uncertainties": "The exact nature of the payload dropped or downloaded remains hidden due to XOR obfuscation of the resources, but the infrastructure code is clearly malicious.",
+    "conditions": "The file requires specific execution conditions (e.g., specific registry environments and possibly system privileges) to activate its full malicious behavior.",
+    "sandbox_recommendations": "Run in a sandbox environment that supports monitoring kernel-mode drivers and registry write operations. Do not block access to system paths if the emulator allows it, as the malware expects specific system files to exist."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\lsass",
+          "description": "Persistence registry key"
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for single instance execution"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "win32k.sys",
+          "description": "Referenced system driver for manipulation"
+        },
+        {
+          "value": "lsass",
+          "description": "Target of persistence"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Handles registry persistence and file manipulation."
+    },
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Handles process creation and likely injection into system processes."
+    },
+    {
+      "address": "0x10003b69",
+      "name": "fcn.10003b69",
+      "description": "Manipulates system structures, potentially hooking SSDT."
+    }
+  ]
+}

@@ -1,0 +1,93 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains sophisticated mechanisms to modify system structures, including potentially hooking or patching kernel-related objects. It performs registry operations, manages mutexes for persistence/instance control, and uses dynamic library loading and procedure address resolution. It also includes code that appears to target specific system drivers (win32k.sys, ntoskrnl.exe).",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource-based payload decryption",
+      "Dynamic API resolution (GetProcAddress/LoadLibrary)",
+      "String obfuscation"
+    ],
+    "details": "The sample uses FindResourceA/LoadResource to access hidden data (RVA 0x100015f7), which is then XORed (0xcd) and processed. It uses dynamic API resolution extensively to resolve function addresses at runtime."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Uses RegCreateKeyExA and RegSetValueExA to modify Windows Registry keys."
+    },
+    {
+      "name": "Kernel-Level Manipulation",
+      "description": "Attempts to interact with kernel-mode structures (NtQuerySystemInformation, NtQueryObject, KeServiceDescriptorTable)."
+    },
+    {
+      "name": "Process Injection/Hooking",
+      "description": "Contains functions suggesting memory patching and hooking of system functions."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Mutex checks and environment checks suggest anti-sandbox behavior."
+    }
+  ],
+  "details": {
+    "reasoning": "While many capabilities are dual-use, the presence of specific functions such as 'KeServiceDescriptorTable', 'NtQuerySystemInformation', and code manipulating memory with 'VirtualAlloc' and 'WriteProcessMemory' equivalents, combined with the target of 'win32k.sys', strongly indicates malicious intent to perform rootkit-like or system-level compromise, not standard installer behavior.",
+    "general": "High-intent indicators include fcn.1000b369 (KeServiceDescriptorTable access), fcn.1000d592 (NtQuerySystemInformation), and fcn.1000b46f (patching memory structures). The use of these functions to modify system execution flow is characteristic of advanced malware.",
+    "uncertainties": "The exact nature of the payload decrypted from resources is not fully visible, relying on the function labels and imported symbols to infer intent.",
+    "conditions": "Execution likely requires specific privileges (Administrator) to successfully interface with the kernel-mode structures and registry keys identified in the analysis.",
+    "sandbox_recommendations": "Run in an environment that monitors registry changes (RegMon), process activity, and system call hooking. Ensure the environment is not a clean VM that would fail environment checks (e.g., check for common registry keys or file paths)."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "DMWH",
+          "description": "Registry key used for potential persistence."
+        },
+        {
+          "value": "DMWI",
+          "description": "Mutex or registry identifier for instance control."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "system32\\win32k.sys",
+          "description": "Target system file for manipulation."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Known mutex name used for synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for process synchronization."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Accesses KeServiceDescriptorTable."
+    },
+    {
+      "address": "0x1000d592",
+      "name": "fcn.1000d592",
+      "description": "Invokes NtQuerySystemInformation."
+    },
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Performs memory manipulation on system files."
+    }
+  ]
+}

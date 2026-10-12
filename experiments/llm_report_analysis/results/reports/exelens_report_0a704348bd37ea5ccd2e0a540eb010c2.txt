@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a modular rootkit installer or system tool designed to modify low-level Windows kernel structures. It employs resource-embedded payloads, process injection, registry persistence, and attempts to modify the System Service Descriptor Table (SSDT) to hide its presence and operations.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource encryption",
+      "Dynamic API resolution"
+    ],
+    "details": "Payloads are stored in resources (e.g., RVA 0x100015f7, RVA 0x10001b34) and are subjected to custom XOR operations (0xcd key). Dynamic API resolution is used extensively to hide imports."
+  },
+  "capabilities": [
+    {
+      "name": "SSDT Hooking",
+      "description": "Modifies the System Service Descriptor Table to intercept system calls (e.g., fcn.1000b369)."
+    },
+    {
+      "name": "Kernel-mode Driver Loading",
+      "description": "Loads drivers via registry manipulation and potential low-level API calls (e.g., fcn.10009bd3)."
+    },
+    {
+      "name": "Process Injection",
+      "description": "Injects code into processes, targeting system processes like lsass.exe (e.g., fcn.100017a0)."
+    },
+    {
+      "name": "Persistence",
+      "description": "Creates services and modifies Run registry keys."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of SSDT modification (fcn.1000b369), targeting of system processes (lsass.exe), and the use of low-level kernel routines (KeServiceDescriptorTable, KeAddSystemServiceTable) provides clear evidence of malicious intent consistent with a rootkit. This functionality exceeds legitimate software requirements.",
+    "general": "High-intent indicators include: RVA 0x1000b369 (SSDT modification), RVA 0x100017a0 (lsass.exe injection), RVA 0x1000b46f (registry manipulation for persistence), and RVA 0x10009d28 (KeRaiseIrqlToDpcLevel use).",
+    "uncertainties": "The exact nature of the final injected payload remains subject to dynamic analysis, but the infrastructure for rootkit behavior is confirmed by static analysis.",
+    "conditions": "Execution flow is triggered by specific system environment checks (GetSystemDirectoryA, GetComputerNameA, GetUserNameW) and requires administrative privileges to interact with kernel tables.",
+    "sandbox_recommendations": "Must be run in an isolated environment with administrative privileges. Monitor for registry modification, process hollowing of lsass.exe, and unauthorized driver loading."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Service persistence path"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for synchronization"
+        },
+        {
+          "value": "lsass",
+          "description": "Target process for injection"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Performs SSDT hooking by locating and modifying system service descriptors."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Handles process injection into the lsass.exe process."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Extracts and drops encrypted resources to disk as executable files."
+    }
+  ]
+}

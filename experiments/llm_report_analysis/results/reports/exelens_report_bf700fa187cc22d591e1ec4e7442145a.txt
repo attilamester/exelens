@@ -1,0 +1,77 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The file is a remote access trojan (RAT) that establishes persistence by writing to the RunOnce registry key, creates a mutex for infection control, and communicates via HTTP to fetch commands or payloads, which it then decrypts (XOR 0x55) and executes using CreateProcessA.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed. It uses standard library functions and direct API calls, with logic clearly visible in the entry point and main function."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Writes to the registry key SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce to ensure execution after reboot."
+    },
+    {
+      "name": "Networking",
+      "description": "Uses WININET and WS2_32 libraries to perform HTTP POST requests, query server status, and download data from a remote host."
+    },
+    {
+      "name": "Process Injection/Execution",
+      "description": "Uses CreateProcessA to launch downloaded or decrypted payloads."
+    },
+    {
+      "name": "Evasion/Anti-Analysis",
+      "description": "Uses Mutex checks to ensure only one instance is running and performs environment-based checks."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistence (RegSetValueExA on RunOnce), command-and-control communication (InternetConnectA/HttpSendRequestA), and arbitrary payload execution (CreateProcessA) demonstrates clear malicious intent rather than legitimate dual-use functionality.",
+    "general": "Main execution in main (0x00401e16) calls fcn.0040177b for C2 networking. Persistence logic is in section..text (0x00401000) using RegCreateKeyExA. Execution of payloads is performed in fcn.00401704 via CreateProcessA.",
+    "uncertainties": "Specific command-and-control URLs are not fully visible as plain strings but constructed dynamically, making the exact C2 target unknown without live network capture.",
+    "conditions": "Execution flow is gated by a Mutex check (CreateMutexA) and potentially environmental checks including checking the existence of specific files or registry keys before proceeding to network communication.",
+    "sandbox_recommendations": "Use a network simulator to intercept HTTP traffic. Monitor registry access for changes to 'RunOnce'. Ensure the sandbox is configured with an internet gateway or simulate HTTP 200 OK responses to trigger the payload download/execution logic."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce",
+          "description": "Registry key used for persistence."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "c:\\windows\\inf",
+          "description": "File path referenced during environment subst."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401000",
+      "name": "section..text",
+      "description": "Handles registry persistence (RunOnce)."
+    },
+    {
+      "address": "0x0040177b",
+      "name": "fcn.0040177b",
+      "description": "Handles network communication via WININET (C2)."
+    },
+    {
+      "address": "0x00401704",
+      "name": "fcn.00401704",
+      "description": "Executes downloaded payloads using CreateProcessA."
+    },
+    {
+      "address": "0x00401c92",
+      "name": "fcn.00401c92",
+      "description": "Performs decryption of payloads (XOR 0x55)."
+    }
+  ]
+}

@@ -1,0 +1,83 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a dropper/installer. It drops multiple files into the system directory, modifies registry keys for persistence, installs system services (e.g., modifying 'win32k.sys' or related kernel interfaces), and uses mutexes to ensure single-instance execution. It exhibits clear signs of stealth and persistent malware behavior.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR obfuscation (0xcd key)",
+      "Dynamic API resolution (GetProcAddress/LoadLibrary)"
+    ],
+    "details": "The file uses a custom XOR routine (XOR [esi+eax], 0xcd) to decrypt resource data. Dynamic API resolution is heavily used, hiding imports for sensitive functionality like Registry manipulation and file system operations."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Modifies Registry keys to run at startup."
+    },
+    {
+      "name": "System Modification",
+      "description": "Copies files into system directories (CopyFileA, SetFileAttributesA)."
+    },
+    {
+      "name": "Process Injection/Hooking",
+      "description": "Uses low-level kernel APIs (NtQuerySystemInformation) to potentially manipulate or hook system processes."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Uses Mutexes (prkMtx, GlobalRPCMutex) for single-instance control and potentially environment checking."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent indicators (registry modification for persistence, dropping files into sensitive paths like system32, and the use of kernel-level hooking functions like NtQuerySystemInformation) alongside obfuscation techniques proves malicious intent. The dual-use nature of these APIs is outweighed by the specific patterns of hiding and persistence found in the analysis.",
+    "general": "High-intent evidence is present in fcn.100017a0 (Registry modification), fcn.1000114c (System directory file manipulation), and fcn.10001b34 (Process creation). The use of fcn.1000d330 for runtime resource decryption and the explicit references to 'win32k.sys' and 'ntkrnlpa.exe' in fcn.10009bd3 are highly characteristic of kernel-level malware.",
+    "uncertainties": "The exact nature of the payload dropped or injected is obfuscated/encrypted in the resources, requiring dynamic memory analysis for a full understanding of the payload's specific function.",
+    "conditions": "The file executes automatically if placed in a system path, but is gated by environment checks and the availability of system resources (e.g., GetEnvironmentVariable checks).",
+    "sandbox_recommendations": "Run in an isolated Windows environment (x86 architecture preferred). Monitor Registry keys (Run) and file creation in System32. Enable kernel call logging."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for single-instance execution."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for synchronization in system-level operations."
+        },
+        {
+          "value": "DMWI",
+          "description": "Registry/System key prefix related to persistence."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "_system32",
+          "description": "Target directory for file drops."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Handles resource loading, file creation, and launching the dropped process."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Handles registry-based persistence via RegCreateKeyExA and RegSetValueExA."
+    },
+    {
+      "address": "0x1000114c",
+      "name": "fcn.100010a1",
+      "description": "Core loader routine that decrypts and installs components to system directories."
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable decrypts and executes a hidden payload, establishes persistence via registry keys, and performs file-less operations using LZ32-based decompression or custom decryption, followed by process hollowing or injection to run the unpacked payload.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Resource-based payload hiding",
+      "Custom encryption (CryptDecrypt)",
+      "Runtime decryption and execution"
+    ],
+    "details": "The file contains a large resource (UNKNOWN 102, 274KB) with high entropy (7.3). Functions like fcn.00401060 and fcn.00401230 utilize CryptDecrypt and file I/O to process this resource. The logic decrypts data into memory/disk and uses CreateProcessA to launch it, indicating a multi-stage loader."
+  },
+  "capabilities": [
+    {
+      "name": "Process Execution/Hollowing",
+      "description": "Uses CreateProcessA to spawn processes, likely with a decrypted/unpacked payload."
+    },
+    {
+      "name": "Persistence",
+      "description": "Interacts with 'Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders' and 'Startup' registry keys to maintain system presence."
+    },
+    {
+      "name": "Payload Decryption",
+      "description": "Utilizes Windows CryptoAPI (CryptDecrypt, CryptDeriveKey) to unpack embedded data."
+    },
+    {
+      "name": "File Deletion",
+      "description": "Uses DeleteFileA to clean up artifacts, likely after self-extraction or deployment."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-entropy embedded resources, use of CryptoAPI for decryption, registry interaction to achieve startup persistence, and the creation of processes from suspicious temporary files demonstrates clear malicious intent. Legitimate software does not typically decrypt arbitrary high-entropy resources into executable processes or modify Windows startup registry keys.",
+    "general": "fcn.004028c0 performs registry operations for 'Startup' persistence. fcn.00401060 and fcn.00401230 show explicit CryptDecrypt/CryptDeriveKey usage. fcn.004018c0 and fcn.00402220 contain logic for CreateProcessA calls used to trigger the extracted payloads.",
+    "uncertainties": "The exact nature of the final payload is hidden within the encrypted resource, but the loader behavior is confirmable through the control flow.",
+    "conditions": "The malware checks for an existing debugger (IsDebuggerPresent) and potentially requires specific file names (e.g., 'AdobeRe.exe' mentioned in registry operations) to be present or established to proceed with the primary payload execution.",
+    "sandbox_recommendations": "Use a monitor to track file creation in the %TEMP% directory. Monitor registry activity for HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders. Block internet access to prevent payload updates, but allow local loopback traffic if the sample performs C2 checks."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders",
+          "description": "Registry path used for persistence discovery."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "AdobeRe.exe",
+          "description": "Suspected name of the target/deployed process."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x004028c0",
+      "name": "fcn.004028c0",
+      "description": "Primary persistence logic involving registry interaction."
+    },
+    {
+      "address": "0x00401060",
+      "name": "fcn.00401060",
+      "description": "Decryption and file handling routine for encrypted resources."
+    },
+    {
+      "address": "0x00402220",
+      "name": "fcn.00402220",
+      "description": "Process creation logic using decrypted assets."
+    }
+  ]
+}

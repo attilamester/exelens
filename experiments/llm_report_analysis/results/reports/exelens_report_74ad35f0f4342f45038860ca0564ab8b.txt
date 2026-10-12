@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple high-intent malicious indicators, including process injection/hollowing (CreateProcessA), persistent registry modifications, and kernel-level interaction. It uses obfuscated resource sections to load a payload and executes code in memory using VirtualAlloc and potentially kernel service table manipulation (KeServiceDescriptorTable).",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR decryption loop",
+      "Resource-based loading",
+      "Dynamic API resolution (GetProcAddress)"
+    ],
+    "details": "The file uses FindResourceA/LoadResource to access obfuscated resources (101, 102, 103), which are subsequently XORed with 0xcd in functions like fcn.100015f7 to reveal shellcode or executable code."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Execution",
+      "description": "Utilizes CreateProcessA and potentially manual mapping techniques for execution."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies Windows Registry keys (RegSetValueExA, RegCreateKeyExA) to ensure execution persistence."
+    },
+    {
+      "name": "Kernel-Level Manipulation",
+      "description": "Functions like KeServiceDescriptorTable (fcn.1000b369) suggest an attempt to hook or bypass kernel-level system calls."
+    },
+    {
+      "name": "File Manipulation",
+      "description": "Uses CopyFileA, DeleteFileA, and SetFileAttributesA to manipulate sensitive system files, including 'system32'."
+    }
+  ],
+  "details": {
+    "reasoning": "While some components like RegSetValueExA or VirtualAlloc are dual-use, their aggregation here—targeting system directories, modifying boot-critical or security-critical paths, attempting to hook syscalls, and decrypting unknown resource data—strongly indicates malicious intent. The file performs deep system inspection (fcn.1000b369) and interacts with low-level kernel APIs (NtShutdownSystem, KeServiceDescriptorTable), which is characteristic of rootkit or sophisticated malware behavior.",
+    "general": "High-intent evidence includes: 1) fcn.1000b369 accessing KeServiceDescriptorTable to potentially patch system calls. 2) fcn.100017a0 using CreateFileA/WriteFile and RegCreateKeyExA to set up persistence. 3) fcn.1000b46f and others performing shellcode decryption (0xcd XOR) and execution.",
+    "uncertainties": "The exact content of the decrypted shellcode remains unknown, but its high-privileged interaction and self-re-writing capabilities confirm malicious intent.",
+    "conditions": "The file requires specific privileges (likely administrative) to interact with kernel-level tables. It appears to check for environment variables (like system32 directory) and may need to be run as an installer (the sample imports from sym.dll_installer.dll).",
+    "sandbox_recommendations": "Run in a high-privilege sandbox with kernel monitoring enabled. Use system time simulation and ensure the environment matches a standard Windows installation (presence of system32) to satisfy environmental checks."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\...",
+          "description": "The malware attempts to write to registry keys, specifically those involving persistence or system configuration."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "system32",
+          "description": "Targeted directory for system file manipulation."
+        },
+        {
+          "value": "KeServiceDescriptorTable",
+          "description": "Identifier for kernel-level hooking."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Resource decryption and loading function (uses 0xcd XOR)."
+    },
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Attempts to locate or manipulate the KeServiceDescriptorTable."
+    },
+    {
+      "address": "0x100043d2",
+      "name": "fcn.100043d2",
+      "description": "Core logic function likely responsible for orchestration of injection."
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This sample is a sophisticated dropper that uses process hollowing, kernel-mode driver interaction (via NtQuerySystemInformation, NtQueryObject, and NtShutdownSystem), and registry manipulation to achieve persistence and system-level control. It appears to be designed to drop or interact with driver components.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource-based payload decryption",
+      "Dynamic API resolution (GetProcAddress/LoadLibrary)",
+      "Custom XOR decryption loops"
+    ],
+    "details": "The executable contains encrypted/packed data in resources (102). It uses a custom XOR routine (RVA: 0x100075ce, 0x1000167b) to decrypt components. It also employs dynamic loading of kernel-related functions to perform low-level system operations."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Hollowing",
+      "description": "Utilizes CreateProcessA, WriteFile, and potential thread hijacking techniques to execute hidden code."
+    },
+    {
+      "name": "Kernel-Mode Interaction",
+      "description": "Imports and dynamically resolves functions like NtQuerySystemInformation, NtQueryObject, and NtShutdownSystem, indicating intent to interact with the OS kernel."
+    },
+    {
+      "name": "Persistence",
+      "description": "Extensive use of RegCreateKeyExA and RegSetValueExA to modify Windows registry keys for startup persistence."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Contains code to check for debugger-related environment variables and utilizes custom decryption loops to hinder static analysis."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level API usage (NtQuerySystemInformation, NtShutdownSystem), direct registry manipulation, and a clear pattern of file dropping and execution (CreateProcessA, WriteFile) confirms malicious intent. This is not standard administrative or protective software behavior.",
+    "general": "High-intent evidence includes the use of 'KeRaiseIrqlToDpcLevel' (fcn.10009d28) and 'NtShutdownSystem' (fcn.1000c755). The code actively searches for and modifies kernel structures (fcn.1000a9e7, fcn.1000c492).",
+    "uncertainties": "The truncated nature of the assembly code makes it difficult to definitively identify the exact nature of the final payload, but its capability to interact with 'win32k.sys' and other kernel components is highly suspicious.",
+    "conditions": "The execution flow involves resource decryption and registry environment variable checks (e.g., GetEnvironmentVariableA). It specifically targets system directories and requires administrative privileges to perform the kernel-level modifications it attempts.",
+    "sandbox_recommendations": "Run in an isolated environment with a monitor for registry changes (ProcMon) and kernel callback monitoring. Set system date to current to avoid anti-analysis timing triggers."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\",
+          "description": "Targeted for driver/service persistence."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "%system32%\\win32k.sys",
+          "description": "Targeted system file for interaction."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Driver/Kernel-mode initialization and configuration routine."
+    },
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Core kernel-mode interaction logic for system shutdown/querying."
+    },
+    {
+      "address": "0x100043d2",
+      "name": "fcn.100043d2",
+      "description": "Main installation/persistence routine involving registry modification."
+    }
+  ]
+}

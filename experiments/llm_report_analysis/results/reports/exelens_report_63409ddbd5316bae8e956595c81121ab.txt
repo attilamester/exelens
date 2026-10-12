@@ -1,0 +1,74 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample demonstrates persistence and self-replication capabilities. It attempts to modify the Windows Registry to achieve persistence by adding a startup entry, copies itself into the user's startup folder, and then executes its own copy using CreateProcessA.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Overlay storage"
+    ],
+    "details": "The file contains a large overlay (2952 bytes) with high entropy (7.21), suggesting either an encrypted payload or a appended data resource. The main code exhibits typical C runtime startup logic, but the logic within fcn.004011e5 and fcn.004016ab indicates dynamic construction of file paths and interaction with the Windows shell/startup environment."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Modifies Registry Run keys (RegCreateKeyExA, RegSetValueExA) to execute on startup."
+    },
+    {
+      "name": "Self-Replication",
+      "description": "Copies its executable to the Startup folder and attempts to maintain local copies using CreateDirectoryA, CopyFileA, and MoveFileExA."
+    },
+    {
+      "name": "Process Execution",
+      "description": "Uses CreateProcessA to launch newly created files or copies of itself."
+    },
+    {
+      "name": "Environment Manipulation",
+      "description": "Resolves environment variables like _USERPROFILE_ or _programfiles_ using DoEnvironmentSubstA to determine file system paths."
+    }
+  ],
+  "details": {
+    "reasoning": "While parts of the code use standard C library functions (dual-use), the combination of writing to the 'Startup' registry key and copying files into the user's 'Start Menu/Programs/Startup' folder is highly characteristic of malicious persistence mechanisms. The function fcn.004011e5 performs these operations sequentially, revealing clear malicious intent to gain and maintain unauthorized execution persistence.",
+    "general": "Evidence is found in fcn.004011e5, where ADVAPI32.dll_RegCreateKeyExA is called with a subkey containing 'Startup', followed by ADVAPI32.dll_RegSetValueExA. Subsequently, CopyFileA is used to move a file (the malware payload) into a Startup-related path derived via environment substitution.",
+    "uncertainties": "The content of the high-entropy overlay is not fully analyzed as it is not explicitly referenced in the disassembled logic shown; it likely contains configuration data or the primary malicious stage.",
+    "conditions": "The malware primarily checks for the existence of paths like the Startup directory and specific file names. Execution of the persistence logic occurs automatically upon main entry.",
+    "sandbox_recommendations": "Run in a controlled Windows environment with monitoring enabled for registry modifications (HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run) and file system monitoring in %APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Targeted for persistence."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup",
+          "description": "Target directory for persistence/self-replication."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x004011e5",
+      "name": "fcn.004011e5",
+      "description": "Main malicious orchestrator: handles registry persistence and file replication."
+    },
+    {
+      "address": "0x004016ab",
+      "name": "fcn.004016ab",
+      "description": "Helper that resolves paths using environment variable substitution."
+    },
+    {
+      "address": "0x0040147c",
+      "name": "fcn.0040147c",
+      "description": "Wrapper around CreateProcessA used to launch payloads."
+    }
+  ]
+}

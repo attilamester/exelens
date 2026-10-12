@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample performs sophisticated system-level modifications, including registry manipulation and kernel-mode-style operations (e.g., KeServiceDescriptorTable, KeGetCurrentIrql, NtQuerySystemInformation). It decrypts a resource and uses it to perform process/driver-related operations, likely for persistence or kernel-level stealth.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR decryption",
+      "Resource-based loading",
+      "Dynamic API resolution (GetProcAddress)"
+    ],
+    "details": "The sample contains encrypted/encoded resources which are decrypted at runtime via XOR loops (e.g., in fcn.100015f7). It dynamically resolves APIs using LoadLibrary/GetProcAddress."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-level interaction",
+      "description": "Attempts to interact with low-level kernel structures (KeServiceDescriptorTable, KeGetCurrentIrql)."
+    },
+    {
+      "name": "Registry Persistence",
+      "description": "Modifies system registry keys (e.g., Run keys, lsass settings) to achieve persistence."
+    },
+    {
+      "name": "Resource Decryption",
+      "description": "Unpacks embedded malicious code from the .rsrc section."
+    },
+    {
+      "name": "Process/Driver injection",
+      "description": "Uses CreateProcess, CopyFile, and SetFileAttributes to install malicious components."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level API usage (KeServiceDescriptorTable, KeGetCurrentIrql), persistence mechanisms through registry keys, and the dynamic loading of system-level DLLs confirms malicious intent rather than a legitimate installer behavior. The code specifically targets Windows system internals to hide or maintain its presence.",
+    "general": "High-intent evidence includes calls to fcn.10009bd3 (targeting ntoskrnl.exe) and the manipulation of the ServiceDescriptorTable via fcn.1000b46f. Registry modifications using RegSetValueExA to keys associated with LSASS indicate an attempt to hook sensitive processes.",
+    "uncertainties": "While the kernel-level routines are highly suspicious, their precise effect without a sandbox runtime might slightly vary depending on the target OS version, but the intent remains clearly malicious.",
+    "conditions": "Execution is gated by environment checks (e.g., GetEnvironmentVariableA for '_system32') and specific file presence checks. It appears to require administrative privileges for the registry modifications to succeed.",
+    "sandbox_recommendations": "Run in an isolated Windows environment (VM) with monitoring for Registry and FileSystem changes. Ensure the guest OS is patched to reflect a standard desktop environment to trigger environmental checks."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "lsass",
+          "description": "Registry key/value associated with the LSASS process."
+        },
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for process synchronization/single-instance check."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "DMWI",
+          "description": "Strings used in obfuscated registry names."
+        },
+        {
+          "value": "_system32",
+          "description": "Potential path component used in environment checks."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Kernel service table manipulation function."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Registry and security token manipulation."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Main decryption routine for embedded resources."
+    }
+  ]
+}

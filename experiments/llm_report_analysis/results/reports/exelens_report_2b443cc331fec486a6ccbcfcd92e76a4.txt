@@ -1,0 +1,77 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a downloader/dropper that communicates with a remote server via HTTP, decrypts received payloads using a simple XOR routine, executes them via CreateProcessA, and manages persistence via the Windows Registry.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed. It uses standard Win32 APIs and runtime library functions."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Writes to the Windows Registry 'Run' key to ensure execution at system startup."
+    },
+    {
+      "name": "Networking",
+      "description": "Uses WinINet to perform HTTP POST/GET requests to remote hosts."
+    },
+    {
+      "name": "Remote Code Execution",
+      "description": "Downloads and executes arbitrary files (payloads) on the local machine."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Uses mutex checks to ensure only one instance runs and performs environment checks."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistence, C2 communication, and remote execution capability (via CreateProcessA) following a custom XOR decryption routine is indicative of a modular downloader/dropper malware. The file actively modifies the registry to establish persistence, which is high-intent malicious behavior not consistent with legitimate software functionality.",
+    "general": "The function fcn.0040187e implements a full HTTP request flow (InternetOpenA, InternetConnectA, HttpOpenRequestA). Function fcn.00401da9 (at RVA 0x401da9) deletes files, and fcn.00401da9/fcn.00401d95 performs a XOR 0x55 decryption on downloaded data. Registry persistence is established in main (0x401000) using RegSetValueExA on SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run.",
+    "uncertainties": "The exact URL or C2 domain is not explicitly stored as a cleartext string but is dynamically constructed. The function calling pattern relies on environment-specific variables.",
+    "conditions": "Requires internet access to reach the C2. It checks for a mutex '__JW' and performs timing checks via system time verification (0x40129f). Execution may be gated by specific environment settings.",
+    "sandbox_recommendations": "Provide internet access to the sample, monitor registry modifications in the HKEY_CURRENT_USER hive, and monitor for newly dropped files in temporary or system directories. Use a debugger to bypass the sleep timers."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Persistence mechanism for autostarting the malware"
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "__JW",
+          "description": "Used to ensure single instance execution"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401000",
+      "name": "main",
+      "description": "Entrypoint: Performs initialization, registry persistence, and orchestrates the C2 polling loop."
+    },
+    {
+      "address": "0x0040187e",
+      "name": "fcn.0040187e",
+      "description": "Performs C2 communication (HTTP requests) and manages memory buffers for received data."
+    },
+    {
+      "address": "0x00401da9",
+      "name": "fcn.00401da9",
+      "description": "File handling: Checks file existence, writes data, and deletes files after execution."
+    },
+    {
+      "address": "0x00401d95",
+      "name": "fcn.00401d95",
+      "description": "Payload decryption: Performs XOR 0x55 operation on downloaded data buffers."
+    }
+  ]
+}

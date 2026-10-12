@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a sophisticated piece of malware (likely a kernel-mode rootkit component) that performs extensive system modification, including hooking system calls (via KeServiceDescriptorTable), deleting files (likely security software or competing malware), and modifying the Windows Registry for persistence.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR obfuscation of resource data",
+      "Dynamic API resolution via GetProcAddress and GetModuleHandle"
+    ],
+    "details": "The file uses FindResourceA/LoadResource/LockResource to retrieve embedded data, which is then XORed with 0xCD. The entry point handles initialization, and the malware dynamically resolves functions like NtQuerySystemInformation, NtQueryObject, and kernel-specific functions like KeGetCurrentIrql."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode Rootkit behavior",
+      "description": "Attempts to locate and modify KeServiceDescriptorTable to hook system calls."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies Registry keys (e.g., Run keys or similar) to ensure execution."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Uses DeleteFileA and CopyFileA to potentially remove security tools or install components."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Uses Mutexes (e.g., 'GlobalRPCMutex', 'prkMtx') to prevent multiple instances and likely performs environment checks (GetVersionExA)."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode structures (KeServiceDescriptorTable, KeGetCurrentIrql) being referenced, along with the modification of system files and registry keys, demonstrates clear malicious intent. Legitimate software does not need to probe or hook the system service descriptor table. The presence of XOR decryption loops and dynamic API loading indicates an effort to conceal this functionality.",
+    "general": "High-intent evidence includes calls to fcn.1000ab6f and fcn.1000a2cd which involve hooking system service tables, and fcn.100010a1 which performs file deletion and modification. The use of 'prkMtx' as a mutex name is a common IOC for this family of rootkit.",
+    "uncertainties": "The exact nature of the embedded resource (102) remains partially obscured due to the custom XOR routine, though the context of the functions using it confirms it is a driver or system configuration payload.",
+    "conditions": "The malware requires administrative privileges and likely runs during the boot or login process to effectively hook system calls. It checks for specific environment variables and registry entries to tailor its installation.",
+    "sandbox_recommendations": "Run in a kernel-aware sandbox. Monitor registry changes and file deletions in system folders. Use a tool to capture and analyze kernel hooks."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\",
+          "description": "Path commonly targeted by the malware for persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used to synchronize or signal the malware instance."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name associated with the kernel-mode component."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Primary function for modifying the System Service Descriptor Table (SSDT)."
+    },
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Handles system file attributes and potentially malicious file replacement."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Unpacks and executes an embedded malicious binary via CreateProcessA."
+    }
+  ]
+}

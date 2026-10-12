@@ -1,0 +1,81 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This sample is a remote access trojan (RAT) that uses HTTP for command-and-control, allows command execution via 'cmd.exe' through pipe redirection, and provides persistence via registry modifications to the 'Explorer\\Run' key. It is designed to act as a backdoor for an attacker.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed, and the logic is directly accessible in the disassembled sections."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Hollowing",
+      "description": "Uses CreateProcessAsUserA or CreateProcessA combined with pipe redirection (CreatePipe, PeekNamedPipe) to execute and control cmd.exe remotely."
+    },
+    {
+      "name": "Persistence",
+      "description": "Utilizes ShellExecuteA to invoke 'reg.exe' for adding entries to the 'HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\\Run' registry key."
+    },
+    {
+      "name": "Command and Control",
+      "description": "Implements a custom HTTP protocol using WININET.dll to connect to an external server (via InternetConnectA, HttpOpenRequestA), download files, and send system info."
+    },
+    {
+      "name": "Process/Service Management",
+      "description": "Capable of listing processes, terminating processes, and controlling Windows services via the Service Control Manager (OpenSCManagerA, ControlService)."
+    }
+  ],
+  "details": {
+    "reasoning": "The application exhibits clear malicious intent. While it contains some dual-use capabilities (process creation, service management), these are integrated into a command-and-control framework that receives instructions (e.g., 'shell', 'kill', 'start') from a remote source. The use of 'reg.exe' to achieve persistence and the redirection of standard input/output of a shell into an HTTP-based pipe are characteristic of a RAT.",
+    "general": "High-intent evidence includes the logic in 'fcn.00401c04' (shell execution via pipes), 'fcn.00401406' (C2 beaconing), and 'fcn.00402916' (persistence via registry). The 'main' function explicitly parses commands like '_install' and '_uninstall' to modify registry keys using ShellExecute.",
+    "uncertainties": "No significant uncertainties; the functional logic is fully exposed in the provided code.",
+    "conditions": "The malware expects specific HTTP-based control commands from the C2 server to execute its primary modules. It essentially waits for a network response before acting.",
+    "sandbox_recommendations": "Provide an internet-simulated environment to allow the WININET calls to complete. Monitor registry modifications in the specified Run keys and observe the creation of anonymous pipes."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\\Run",
+          "description": "Registry key used for persistence (Adobe_Reader_Speed_Launcher)."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "Adobe_Reader_Speed_Launcher",
+          "description": "Value name used for persistence entry."
+        },
+        {
+          "value": "GlobalAdobeReaderX",
+          "description": "Mutex name used to ensure single instance."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x0040299d",
+      "name": "main",
+      "description": "Entry point for command parsing and initial registry persistence operations."
+    },
+    {
+      "address": "0x00401c04",
+      "name": "fcn.00401c04",
+      "description": "Executes shell commands (cmd.exe) via pipe redirection."
+    },
+    {
+      "address": "0x00401406",
+      "name": "fcn.00401406",
+      "description": "Implements C2 communication loop via WININET."
+    },
+    {
+      "address": "0x00402916",
+      "name": "fcn.00402916",
+      "description": "Adds registry key to persist the payload."
+    }
+  ]
+}

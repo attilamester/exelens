@@ -1,0 +1,72 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This sample acts as a remote administration tool or backdoor. It communicates via HTTP/WinINet to a remote server, maintains persistence by modifying Windows Service registry keys, and enables command execution (cmd.exe) with redirected input/output pipes.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code structure is straightforward C/C++ compiled code without evidence of packing or advanced obfuscation."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Modifies registry keys related to system services, specifically 'SYSTEM\\CurrentControlSet\\Services\\...\\Parameters' to set DllPath and ServiceDll."
+    },
+    {
+      "name": "Command Execution",
+      "description": "Uses CreateProcessA to spawn cmd.exe and CreatePipe to intercept its input/output, allowing remote control."
+    },
+    {
+      "name": "C2 Networking",
+      "description": "Uses WININET.dll APIs (InternetConnectA, HttpOpenRequestA, HttpSendRequestA) to perform HTTP-based communication."
+    },
+    {
+      "name": "Remote Administration",
+      "description": "Exposes functions for process enumeration, service control, and file/drive information gathering."
+    }
+  ],
+  "details": {
+    "reasoning": "The application exhibits clear indicators of a RAT (Remote Access Trojan). While individual functions like RegisterServiceCtrlHandlerA or HttpSendRequestA are dual-use, their combination in this context (a console-based service that installs itself into the registry, spawns a hidden shell, and waits for commands via HTTP) indicates malicious intent.",
+    "general": "The function fcn.10001fb0 explicitly spawns a shell using CreateProcessA and CreatePipe. Persistence logic is found in fcn.100031a0 and fcn.10003330, which manipulate service registry keys. Command-and-control logic is centralized in fcn.10001570, which initiates HTTP connections to receive and process external commands.",
+    "uncertainties": "The exact C2 server address is dynamically constructed or derived from configuration, so the specific target is not hardcoded in the visible assembly.",
+    "conditions": "The file is designed as a Windows Service. It likely requires installation via its 'install' export (sym.NTLMSVC.dll_install) before it will execute as a persistent background process.",
+    "sandbox_recommendations": "Provide an environment with network simulation (e.g., INetSim) to capture the C2 traffic. Execute the binary as a service or with the parameters expected by the service controller."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SYSTEM\\CurrentControlSet\\Services\\%s\\Parameters",
+          "description": "Registry path used for service persistence."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "cmd.exe",
+          "description": "Shell process spawned for remote command execution."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001570",
+      "name": "fcn.10001570",
+      "description": "Main C2 loop handling HTTP communication and command dispatching."
+    },
+    {
+      "address": "0x10001fb0",
+      "name": "fcn.10001fb0",
+      "description": "Spawns cmd.exe and sets up pipes for input/output redirection."
+    },
+    {
+      "address": "0x100031a0",
+      "name": "fcn.100031a0",
+      "description": "Configures registry keys for service persistence."
+    }
+  ]
+}

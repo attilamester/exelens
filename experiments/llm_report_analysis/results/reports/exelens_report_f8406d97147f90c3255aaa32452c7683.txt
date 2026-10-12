@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The file acts as a kernel-mode driver/component installer that manipulates system files and registry keys, specifically targeting security mechanisms like LSASS, likely to establish persistence or inject malicious code into sensitive system processes.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR obfuscation of resource content",
+      "Dynamic API resolution through GetProcAddress"
+    ],
+    "details": "The file uses FindResourceA/LoadResource to retrieve an encrypted payload from the .rsrc section. The payload is XORed with a constant key (0xCD) before execution or usage."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence / Registry Modification",
+      "description": "Uses RegCreateKeyExA and RegSetValueExA to modify registry keys, likely to persist or hijack system services."
+    },
+    {
+      "name": "Process/Driver Manipulation",
+      "description": "Contains functions to probe and lock memory pages (MmProbeAndLockPages), suggesting kernel-mode interaction."
+    },
+    {
+      "name": "Privilege Escalation / Token Manipulation",
+      "description": "Utilizes DuplicateTokenEx and OpenProcessToken to potentially manipulate security tokens of processes like lsass.exe."
+    },
+    {
+      "name": "Environment Evasion",
+      "description": "Checks for specific environment variables and system directory paths to determine execution flow."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level API usage (e.g., KeGetCurrentIrql, NtShutdownSystem, MmProbeAndLockPages) with standard user-mode persistence mechanisms (Registry key manipulation of 'lsass') and code decryption confirms malicious intent beyond a simple installer. The code specifically looks for and targets critical system objects, which is characteristic of rootkits or advanced persistent threats.",
+    "general": "The function fcn.100017a0 contains clear evidence of high-intent manipulation: it copies files and modifies the registry value for 'lsass'. Furthermore, fcn.1000b46f and fcn.1000ab6f demonstrate clear interaction with the kernel-mode driver environment, importing and resolving functions like 'NtShutdownSystem' and 'KeServiceDescriptorTable'.",
+    "uncertainties": "The truncated nature of some function inputs means the full scope of the encrypted payload remains partially obscured, though the malicious nature of the visible components is sufficient for a verdict.",
+    "conditions": "The execution flow is gated by various checks, including the existence of a specific mutex 'GlobalRPCMutex' (fcn.10002109), environment variable checks ('system32'), and likely OS version requirements (GetVersionExA/GetVersion).",
+    "sandbox_recommendations": "Ensure the sandbox provides a full Windows environment (simulating kernel-mode drivers may be necessary for full execution). Use procmon to monitor registry activities related to 'lsass' and file system monitoring for creation of files in System32."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\lsass",
+          "description": "Registry key path manipulated by the malware."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for process synchronization and single-instance check."
+        },
+        {
+          "value": "lsass",
+          "description": "Targeted system process for persistent manipulation."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Performs file copying and registry modification, specifically targeting lsass."
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Core function involved in kernel-mode system table interaction (KeServiceDescriptorTable)."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Unpacks and writes hidden resource content to the disk, likely the primary malicious driver payload."
+    }
+  ]
+}

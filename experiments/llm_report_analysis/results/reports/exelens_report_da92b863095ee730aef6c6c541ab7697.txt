@@ -1,0 +1,88 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample is a modular trojan/downloader that initiates network connections, performs environment reconnaissance, and uses proxy-based obfuscation to exfiltrate system info or communicate with a C2 server.",
+  "packed": {
+    "status": "false",
+    "techniques": [
+      "XOR-based string/data decryption",
+      "Dynamic API resolution via GetProcAddress"
+    ],
+    "details": "The binary is not packed with standard packers, but it uses custom XOR decryption routines (e.g., fcn.00401293) to deobfuscate strings and imports at runtime."
+  },
+  "capabilities": [
+    {
+      "name": "Networking",
+      "description": "Establishes socket connections, uses HTTP/HTTPS over proxies, initiates GET/POST requests."
+    },
+    {
+      "name": "Process Management",
+      "description": "Enumerates processes, terminates processes, and injects code/commands."
+    },
+    {
+      "name": "System Reconnaissance",
+      "description": "Queries computer name, user name, OS version, and network configuration (proxy settings)."
+    },
+    {
+      "name": "File System Persistence",
+      "description": "Writes logs, copies files, and deletes system-related files."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of networking capabilities (sockets, proxy handling), process termination routines (TerminateProcess), and registry manipulation strongly indicates a malicious trojan intent. While individual functions like GetSystemTime or RegOpenKeyEx are dual-use, their use in an orchestration loop (e.g., fcn.004012b3 initializing network/system tools and fcn.00403605 terminating processes) confirms intent.",
+    "general": "High-intent evidence includes dynamic socket creation (WSOCK32.dll_socket), proxy-based C2 communication (fcn.004071dc, fcn.00406f95), process enumeration/termination (fcn.00403605, fcn.004038fb), and security descriptor manipulation (ADVAPI32.dll_SetSecurityInfo) to perform unauthorized file operations.",
+    "uncertainties": "The exact C2 domain or IP address is obfuscated via multiple layers and proxy configuration; however, the behavior is clearly that of a downloader/bot.",
+    "conditions": "The sample performs environmental checks such as querying proxy settings and computer name; it likely requires internet connectivity and specific OS versioning (detected via GetVersionExA).",
+    "sandbox_recommendations": "Simulate a live internet connection with an active proxy server to allow the downloader to reach the C2. The sample may require specific command-line arguments or registry keys to be present to trigger full functionality."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "F2.2LnkN",
+          "description": "Mutex or synchronization name."
+        },
+        {
+          "value": "_s_sKB985109.log",
+          "description": "Log file template name."
+        },
+        {
+          "value": "http:__",
+          "description": "Traffic protocol prefix."
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings",
+          "description": "Accessed to read proxy configuration."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x004012b3",
+      "name": "fcn.004012b3",
+      "description": "Main initialization function that resolves DLLs and imports core network/process management functions."
+    },
+    {
+      "address": "0x00403605",
+      "name": "fcn.00403605",
+      "description": "Process enumeration and termination module."
+    },
+    {
+      "address": "0x004071dc",
+      "name": "fcn.004071dc",
+      "description": "Core networking logic for socket communication and HTTP request formation."
+    },
+    {
+      "address": "0x00406afc",
+      "name": "fcn.00406afc",
+      "description": "File system operations module used for exfiltration or logging."
+    }
+  ]
+}

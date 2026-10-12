@@ -1,0 +1,89 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to perform kernel-level modifications, including modifying the System Service Descriptor Table (SSDT) and interacting with sensitive Windows kernel drivers like win32k.sys and ntoskrnl.exe. It also performs process-specific file operations, registry manipulation for persistence, and environment-based path obfuscation.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource encryption with simple XOR",
+      "Dynamic API resolution via GetProcAddress and custom string obfuscation",
+      "Dynamic loading of libraries"
+    ],
+    "details": "The file uses resources (specifically RCDATA) that are loaded into memory and decrypted with a basic XOR loop (0xCD) before execution. It also dynamically resolves symbols from kernel-related DLLs (ntdll.dll, win32k.sys) to perform system-level operations."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-level manipulation",
+      "description": "Uses SSDT patching via KeServiceDescriptorTable to hook system calls."
+    },
+    {
+      "name": "Process Injection/Driver Interaction",
+      "description": "Interacts with win32k.sys and ntoskrnl.exe, potentially for privilege escalation or hiding activity."
+    },
+    {
+      "name": "Persistence",
+      "description": "Manipulates registry keys to ensure execution upon system events."
+    },
+    {
+      "name": "Evasion",
+      "description": "Checks for debugger presence and uses string obfuscation to hide API imports."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent malicious actions—specifically SSDT patching (fcn.1000b369) and dynamic manipulation of kernel-mode structures—cannot be attributed to legitimate software. The use of kernel-level exports like 'KeServiceDescriptorTable' and 'KeAddSystemServiceTable' combined with the manual mapping of system drivers (win32k.sys, ntoskrnl.exe) strongly indicates a rootkit or high-privilege malware component designed to intercept system calls and evade detection.",
+    "general": "High-intent evidence includes the direct interaction with the SSDT in fcn.1000b369, the use of undocumented internal Windows structures, and the presence of logic to load and hook kernel-mode drivers (fcn.1000a2cd, fcn.1000b46f). The use of 'Int 2E' (fcn.1000b46f) for system calls directly from user space bypasses standard API monitoring.",
+    "uncertainties": "While the core malicious intent is clear, the exact delivery mechanism for the payload was not fully reconstructed due to the depth and complexity of the obfuscated control flow. The file's behavior depends heavily on the presence of specific system drivers.",
+    "conditions": "Execution flow relies on specific system environment variables and the presence of target files like 'win32k.sys'. It appears to require high-integrity (Administrative/System) privileges to function correctly, as it attempts to load drivers and manipulate kernel memory.",
+    "sandbox_recommendations": "Run in an environment that allows kernel-mode debugging (e.g., WinDbg hooked to a VM) to observe the SSDT hooking process. Ensure the sandbox is configured with a full Windows environment including the standard system32 directory for proper path resolution."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Registry path manipulated for persistence or driver loading."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "system32\\win32k.sys",
+          "description": "Target file for kernel manipulation."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "KeServiceDescriptorTable",
+          "description": "Target export for SSDT hooking."
+        },
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used to ensure single-instance execution."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Performs SSDT patching by locating the KeServiceDescriptorTable."
+    },
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Uses Int 2E system calls to interact directly with the kernel."
+    },
+    {
+      "address": "0x1000a2cd",
+      "name": "fcn.1000a2cd",
+      "description": "Orchestrates the manipulation of kernel-mode driver structures."
+    }
+  ]
+}

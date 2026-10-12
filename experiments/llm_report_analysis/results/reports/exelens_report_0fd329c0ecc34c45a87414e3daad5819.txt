@@ -1,0 +1,72 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple high-intent malicious capabilities, including system driver manipulation, modification of critical registry keys, and evasion techniques. It is designed to gain kernel-level control by modifying the System Service Descriptor Table (SSDT).",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based payload obfuscation",
+      "Resource-based payload storage",
+      "Dynamic API resolution (GetProcAddress/LoadLibrary)"
+    ],
+    "details": "The file uses FindResource/LoadResource to access hidden payloads in .rsrc (resources 101, 102, 103). These payloads undergo a simple XOR (0xcd) transformation before execution. The entry point initiates dynamic loading of system DLLs."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode Evasion/Manipulation",
+      "description": "Uses functions like KeServiceDescriptorTable, KeAddSystemServiceTable, and attempts to modify system service dispatch tables."
+    },
+    {
+      "name": "Persistence and Privilege Escalation",
+      "description": "Extensive registry manipulation (RegCreateKeyExA, RegSetValueExA) targeting system-critical paths, and manipulation of security descriptors."
+    },
+    {
+      "name": "Evasion/Anti-Analysis",
+      "description": "Contains checks for debugger artifacts, mutex-based execution gating (e.g., 'prkMtx'), and uses dynamic API resolution to mask imported functions."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode API interactions (KeServiceDescriptorTable, KeAddSystemServiceTable) and the direct manipulation of the System Service Descriptor Table is a classic rootkit behavior, ruling out a benign intent. The file performs deep system modifications that no standard installer or protector requires, confirming malicious intent.",
+    "general": "High-intent evidence includes fcn.1000b369 and fcn.1000ab6f, which interact with the SSDT and export tables to hook system calls. fcn.1000788e and fcn.100028d6 facilitate registry-based persistence and privilege manipulation.",
+    "uncertainties": "While the core malicious behavior (SSDT hooking) is identified, some secondary payload functions remain obscured by XOR encryption/dynamic loading, though this does not impact the verdict.",
+    "conditions": "The malware requires an environment with standard Windows system architecture; it performs version checks (`GetVersionExA`) and specifically targets paths containing 'system32'. It uses mutex 'prkMtx' as a single-instance gate.",
+    "sandbox_recommendations": "Run in a controlled kernel-mode capable sandbox. Do not debug directly as the malware contains anti-debugging logic. Ensure 'system32' directory is available."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\",
+          "description": "Registry path manipulated for persistence or driver installation."
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for single-instance enforcement."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "SSDT (System Service Descriptor Table) manipulation."
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Kernel-mode hook implementation."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Registry and security token manipulation logic."
+    }
+  ]
+}

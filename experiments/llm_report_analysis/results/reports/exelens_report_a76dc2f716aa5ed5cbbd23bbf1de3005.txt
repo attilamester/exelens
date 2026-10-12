@@ -1,0 +1,81 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a malicious loader/rootkit installer. It uses process hollowing, registry manipulation, and service modification to persist, and it contains significant logic for interacting with kernel-level components (ntoskrnl.exe, hal.dll, ntldr) and bypassing security restrictions.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource-based payload hiding",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress",
+      "XOR-based payload decryption",
+      "Code injection"
+    ],
+    "details": "The file contains a large resource (106KB) that is decrypted at runtime using a static XOR key (0xcd). The decrypted payload is loaded via custom resource management functions (FindResource/LoadResource/LockResource)."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "Uses KERNEL32!CreateProcessA and manual memory manipulation to execute code."
+    },
+    {
+      "name": "Registry Persistence",
+      "description": "Modifies system registry keys (e.g., Run keys, service configurations) for persistence."
+    },
+    {
+      "name": "Kernel-Level Interaction",
+      "description": "Contains logic to interact with ntoskrnl.exe and system descriptor tables (KeServiceDescriptorTable), indicative of rootkit behavior."
+    },
+    {
+      "name": "Evasion",
+      "description": "Checks for debugger/analysis tools, uses mutexes to avoid multiple infections, and attempts to modify system file attributes."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent malicious indicators, such as targeting critical kernel structures (KeServiceDescriptorTable), using process creation APIs to spawn system-like processes, and hardcoded registry persistence mechanisms, confirms malicious intent. While individual capabilities like VirtualAlloc or RegSetValueExA are dual-use, their application here is specific to loading a hidden binary and ensuring its execution and survival on the system, which is characteristic of malware.",
+    "general": "High-intent evidence includes calls to ADVAPI32!RegCreateKeyExA and ADVAPI32!RegSetValueExA to modify persistence keys, coupled with the decryption of a resource (fcn.100015f7) and subsequent execution of a process (fcn.10001b34/CreateProcessA). The functions fcn.1000ab6f and fcn.1000a2cd specifically target the KeServiceDescriptorTable (SSDT) to hook system calls, a classic rootkit behavior.",
+    "uncertainties": "The exact nature of the final injected payload remains obscured by the runtime decryption, but its interaction with kernel symbols confirms its malicious and high-privilege nature.",
+    "conditions": "The sample performs multiple environmental checks including registry value existence (e.g., via fcn.1000815d) and attempts to acquire a global mutex 'GlobalRPCMutex' to ensure a single instance. It likely requires administrative privileges to successfully modify the kernel service table.",
+    "sandbox_recommendations": "Run in an environment that allows kernel-mode debugging (e.g., WinDbg via serial port). The sample may require administrative rights; it is recommended to monitor registry activity in real-time."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used to ensure single-instance infection"
+        },
+        {
+          "value": "lsass",
+          "description": "Process name targeted for modification or impersonation"
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Targeted for service manipulation"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Handles registry-based persistence and service unregistration."
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Targets KeServiceDescriptorTable (SSDT) to install system hooks."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Resource decryption routine using XOR 0xcd."
+    }
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple functionalities typical of kernel-level rootkits, including modifying the System Service Descriptor Table (SSDT), interacting with low-level kernel structures, and installing file system filter drivers to hide files or registry keys. It uses resource-based payload delivery and anti-debugging/anti-analysis techniques.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource-based payload storage",
+      "Dynamic API resolution via GetProcAddress and custom string obfuscation",
+      "XOR-based obfuscation routines"
+    ],
+    "details": "The file uses RCDATA resources (102) to store encrypted payloads, which are decrypted at runtime (XOR 0xcd) and mapped to memory. It dynamically resolves critical system functions, likely to evade static analysis."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Uses SSDT hooking or direct kernel object manipulation (fcn.1000b369, fcn.1000ab6f)."
+    },
+    {
+      "name": "Persistence and Evasion",
+      "description": "Modifies system registry keys (Run keys) and deletes its own temporary installation files to conceal presence."
+    },
+    {
+      "name": "Environment awareness",
+      "description": "Checks system versions and environment variables to ensure it is running in a suitable target environment (fcn.1000103b, fcn.10006cfb)."
+    },
+    {
+      "name": "Mutex synchronization",
+      "description": "Creates system-wide mutexes (e.g., 'GlobalRPCMutex', 'prkMtx') to prevent multiple infections or signal status."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of SSDT modification (KeServiceDescriptorTable), low-level I/O control, and persistent registry modifications targeting system-related paths provides high-confidence evidence of malicious intent. The dual-use functions (VirtualAlloc, etc.) are used here to facilitate code injection and persistence mechanisms in a way not seen in standard legitimate installers.",
+    "general": "High-intent indicators include: SSDT hooking found in fcn.1000ab6f and fcn.1000b369, direct registry manipulation to modify system components in fcn.100017a0, and the use of 'NtShutdownSystem' or similar kernel APIs for system control.",
+    "uncertainties": "While the kernel-level code is clearly malicious, the full extent of the payload delivered after the initial unpacking (in RCDATA) cannot be fully analyzed statically, though the hooks and installation logic are sufficient to classify the intent.",
+    "conditions": "The sample performs environmental checks: it expects specific registry configurations or environment variables to be present, and it likely executes in stages, sometimes requiring a system reboot or specific administrative privileges to hook kernel structures successfully.",
+    "sandbox_recommendations": "Run in an environment with kernel debugging disabled but with sufficient instrumentation to monitor registry and driver loading. Expect the sample to attempt to hide itself, so monitoring raw disk access and kernel callbacks is advised."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for kernel-level synchronization."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "_system32",
+          "description": "Target directory for file copying or modification."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Contains SSDT hooking/patching logic."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Payload deployment function, including CreateProcess and file management."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Registry manipulation and privilege-checking core."
+    }
+  ]
+}

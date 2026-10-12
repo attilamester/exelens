@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This sample is a sophisticated dropper that uses process hollowing or kernel-level memory manipulation (via NtQuerySystemInformation, NtQueryObject, and memory management APIs) to inject a payload. It demonstrates persistence through registry modifications and employs anti-analysis techniques including resource-based decryption (XOR 0xCD) and string obfuscation.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-encoded resources",
+      "Dynamic API resolution",
+      "String obfuscation"
+    ],
+    "details": "The file uses resources (e.g., 0x65, 0x66) as payloads that are locked, read, and then decrypted using an XOR 0xCD operation before being executed or mapped into memory."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection / Kernel Manipulation",
+      "description": "Uses low-level APIs like NtQuerySystemInformation, NtQueryObject, and memory manipulation to interact with process/kernel structures."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies system registry keys to ensure execution."
+    },
+    {
+      "name": "Evasion",
+      "description": "Implements anti-debugging and anti-analysis checks, including environment variable checks (lsass) and mutex synchronization (prkMtx)."
+    },
+    {
+      "name": "Payload Loading",
+      "description": "Decrypts hidden resources and performs dynamic loading via GetProcAddress."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level API usage (NtQuerySystemInformation), self-modification/injection logic, and the systematic use of registry persistence strongly confirms malicious intent, ruling out benign dual-use.",
+    "general": "High-intent indicators include the use of `NtQuerySystemInformation` (fcn.1000c932), `NtQueryObject` (fcn.1000c7e7), and direct calls to kernel-level APIs (`KeRaiseIrqlToDpcLevel`). The routine in fcn.100017a0 modifies the registry specifically to hook into processes like 'lsass'.",
+    "uncertainties": "While the kernel manipulation is evident, the precise nature of the decrypted final payload remains partially obscured due to the multi-stage nature of the loader.",
+    "conditions": "Execution is gated by the creation of a global mutex 'GlobalRPCMutex' and environment variable checks (e.g., specific paths in system32).",
+    "sandbox_recommendations": "Run in a Windows sandbox; ensure the registry keys related to 'lsass' are monitored. Be prepared to handle anti-sandbox checks that look for specific file paths."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\...\\lsass",
+          "description": "Persistence key for hijacking system processes"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for execution synchronization"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name for system synchronization"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100043d2",
+      "name": "fcn.100043d2",
+      "description": "Core loader routine for decryption and process manipulation."
+    },
+    {
+      "address": "0x1000c932",
+      "name": "fcn.1000c932",
+      "description": "Handles sensitive system process queries (NtQuerySystemInformation)."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Persistence setter modifying registry keys."
+    }
+  ]
+}

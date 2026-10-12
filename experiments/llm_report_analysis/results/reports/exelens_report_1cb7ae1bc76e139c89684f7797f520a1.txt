@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a dropper and persistent agent. It extracts and decrypts resources, creates system mutexes, modifies registry keys for persistence, and injects code into system processes (lsass.exe).",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource encryption",
+      "Dynamic API resolution",
+      "XOR-based obfuscation"
+    ],
+    "details": "The payload is stored as encrypted resources (102, 101). Routines such as fcn.10001697 perform XOR-based decryption (0xcd key) on loaded resources before memory execution/injection."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "Injects or writes into process memory (e.g., lsass.exe) using ADVAPI32 functions and Registry manipulation."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies Windows Registry keys to ensure execution on system startup."
+    },
+    {
+      "name": "Evasion",
+      "description": "Checks for debugger presence and uses mutexes (GlobalRPCMutex, prkMtx) to prevent multiple instances or sandbox detection."
+    },
+    {
+      "name": "Dynamic API Resolution",
+      "description": "Uses GetProcAddress to resolve system APIs at runtime, common for hiding malicious intent."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistence (Registry modification), targeting the LSASS process for injection, and the use of mutexes to control execution flow provides clear evidence of malicious intent. The dual-use capabilities (VirtualAlloc, CreateThread) are used in a context that is not consistent with legitimate software installation.",
+    "general": "High-intent indicators include fcn.100017a0, which writes to registry values, and fcn.10009bd3, which interacts with ntoskrnl.exe and win32k.sys symbols. The sample also uses fcn.10001b34 to create a process with specific flags.",
+    "uncertainties": "Specific C2 IP addresses or URLs were not extracted as they were likely obfuscated/encrypted in resources not fully reachable in static analysis.",
+    "conditions": "Execution is gated by mutex checks (e.g., 'prkMtx') and potentially environment variable checks ('System32' path validation).",
+    "sandbox_recommendations": "Simulate a Windows environment with administrator privileges. Monitor registry keys in HKLM\\Software and system process memory for injected threads (especially lsass.exe)."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Likely persistence mechanism."
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Used to ensure single instance."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Used for execution gating."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Handles registry persistence and modification of system values."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Performs file system operations and process creation."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Core initialization logic, including resource decryption."
+    }
+  ]
+}

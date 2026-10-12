@@ -1,0 +1,63 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The file is a kernel-mode driver that registers itself as a File System Minifilter driver (`FLTMGR.SYS`) and a Registry Callback (`CmRegisterCallbackEx`). It actively performs process hollowing/injection by attaching to arbitrary processes, allocating memory with PAGE_EXECUTE_READWRITE permissions, and queueing an Asynchronous Procedure Call (APC) to execute code within those processes, which is a classic rootkit behavior.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code appears to be compiled as a standard kernel-mode driver without packing."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode Minifilter Driver",
+      "description": "Uses FLTMGR.SYS APIs to intercept file system operations."
+    },
+    {
+      "name": "Registry Callback",
+      "description": "Registers callbacks to intercept registry operations."
+    },
+    {
+      "name": "Process Injection (APC)",
+      "description": "Uses KeStackAttachProcess, NtAllocateVirtualMemory, and KeInsertQueueApc to execute code in remote processes."
+    },
+    {
+      "name": "Persistence",
+      "description": "Writes to the registry, potentially for auto-start configuration."
+    }
+  ],
+  "details": {
+    "reasoning": "While kernel drivers are dual-use, the combination of minfiltering, registry callbacks, and cross-process code execution via APCs is standard behavior for kernel-mode rootkits or stealth-based malware. The intentional redirection of execution to injected memory regions within system or user processes constitutes clear malicious intent.",
+    "general": "In fcn.00014dc0, the driver attaches to a process (KeStackAttachProcess), allocates memory (NtAllocateVirtualMemory), and queues an APC (KeInsertQueueApc), a confirmed pattern for process injection. The registration of registry callbacks via CmRegisterCallbackEx (fcn.000144f0) allows the malware to monitor or hide its presence from the OS.",
+    "uncertainties": "The exact nature of the payload being injected is obscured as it is dynamically allocated and likely generated or decrypted at runtime.",
+    "conditions": "The driver expects to be installed as a system service. It likely relies on a specific registry key or configuration file structure for its operations, as suggested by the ZwOpenKey and ZwQueryValueKey calls.",
+    "sandbox_recommendations": "The sample should be executed in a kernel-debug enabled environment (e.g., WinDbg). Monitor for `CmRegisterCallbackEx` and `FltRegisterFilter` calls. Set breakpoints on `KeInsertQueueApc` to capture the injected buffer."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "4e526272",
+          "description": "Likely a registry path or tag used by the driver to store configuration."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x000144f0",
+      "name": "fcn.000144f0",
+      "description": "Handles registration of registry callbacks and transaction management."
+    },
+    {
+      "address": "0x00014dc0",
+      "name": "fcn.00014dc0",
+      "description": "Primary routine for process injection via APC."
+    },
+    {
+      "address": "0x000114d0",
+      "name": "fcn.000114d0",
+      "description": "Initializes and registers the minifilter driver."
+    }
+  ]
+}

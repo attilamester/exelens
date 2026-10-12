@@ -1,0 +1,81 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to inject, hook, and manipulate kernel-mode structures (including KeServiceDescriptorTable), likely to subvert security software or gain persistent kernel-level access.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The file does not appear to be packed, as it contains recognizable code sequences and numerous imports consistent with a complex system-level utility or rootkit."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode hook / Subversion",
+      "description": "Uses functions like KeServiceDescriptorTable, KeAddSystemServiceTable, and attempts to map/modify memory structures to manipulate system calls."
+    },
+    {
+      "name": "File & Registry Modification",
+      "description": "Utilizes RegSetValueExA, CopyFileA, and SetFileAttributesA to ensure persistence and configuration changes, often masking files as system-related (e.g., 'system32')."
+    },
+    {
+      "name": "Anti-Analysis & Evasion",
+      "description": "Checks for debugger presence and system information to tailor behavior, using mutexes (e.g., 'GlobalRPCMutex', 'prkMtx') to prevent multiple instances or sandbox detection."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode API imports (KeServiceDescriptorTable, KeAddSystemServiceTable, MmMapLockedPages) and explicit attempts to modify system security descriptors and registry keys for persistent configurations (e.g., lsass injection/modification) strongly indicates a malicious rootkit/kernel-level malware intent. The use of dual-use functions (VirtualAlloc, WriteProcessMemory, etc.) is here contextualized by direct manipulation of kernel structures.",
+    "general": "Evidence is found in fcn.1000b46f and fcn.1000ab6f where KeServiceDescriptorTable is accessed. Function fcn.1000b73a accesses NtShutdownSystem. The use of ADVAPI32.dll for creating persistence by registering system components and the use of kernel-level memory mapping in fcn.1000c492 confirm the high-intent malicious behavior.",
+    "uncertainties": "While the binary is highly likely malicious, the lack of a command-and-control communication dump makes the specific final goal (ransomware, exfiltration, or botnet recruitment) an inference based on the observed system subversion.",
+    "conditions": "The malware checks for a specific environment and may require administrative privileges to execute the system modification routines. It uses mutexes (prkMtx) which suggests it may be designed to run as a single-instance service.",
+    "sandbox_recommendations": "Run in an environment with full kernel-mode monitoring tools (e.g., ProcMon with kernel stack tracing enabled). Ensure the system is configured to allow driver loading. Use a network simulator to observe if it attempts to resolve specific domains referenced in the code."
+  },
+  "ioc": [
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "_system32",
+          "description": "Used as a directory suffix in paths."
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\...\\lsass",
+          "description": "Registry key path potentially associated with persistence or process masking."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for process synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for process synchronization."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Handles registry-based persistence and manipulation."
+    },
+    {
+      "address": "0x100043d2",
+      "name": "fcn.100043d2",
+      "description": "Responsible for core system modification routines and registry configuration."
+    },
+    {
+      "address": "0x1000b73a",
+      "name": "fcn.1000b73a",
+      "description": "Attempts to interact with kernel-level shutdown and system structures."
+    }
+  ]
+}

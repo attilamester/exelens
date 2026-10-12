@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to modify system services, manipulate kernel-mode structures by accessing ntoskrnl.exe and win32k.sys, and install persistent hooks by modifying registry keys. It uses obfuscation (XOR loops) and dynamic API resolution to hide its payload.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based payload decryption",
+      "Dynamic API resolution (GetProcAddress)",
+      "Resource-based payload storage"
+    ],
+    "details": "The sample uses a custom XOR routine (RVA 0x1000165b, 0x1000173d) to decrypt payloads stored within its .rsrc section (resource ID 102). It also dynamically resolves system APIs from ntdll.dll and kernel32.dll."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel Mode Hooking",
+      "description": "Uses NtQuerySystemInformation, NtQueryObject, and attempts to modify system tables (KeServiceDescriptorTable, KeAddSystemServiceTable) to potentially hook system calls."
+    },
+    {
+      "name": "Registry Manipulation",
+      "description": "Modifies system registry keys, including those related to service configurations and persistent execution (Run keys/services)."
+    },
+    {
+      "name": "File System Modification",
+      "description": "Copies files to system directories (e.g., system32) and creates mutexes (e.g., GlobalRPCMutex, prkMtx) for synchronization and anti-re-execution."
+    },
+    {
+      "name": "Evasion",
+      "description": "Uses IsBadReadPtr, GetVersionEx, and timing delays (Sleep) to detect analysis environments."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level API hooking (KeServiceDescriptorTable modifications), registry manipulation in system hives, and the use of encrypted resources in the .rsrc section is characteristic of a rootkit or high-level persistent dropper. The code explicitly attempts to interact with ntoskrnl.exe and win32k.sys to perform low-level system operations, which is highly indicative of malicious intent rather than a legitimate installer.",
+    "general": "High-intent indicators include fcn.1000ab6f (KeServiceDescriptorTable modifications), fcn.100028d6 (RegSetValueExA registry persistence), and the XOR decryption loop in fcn.1000165b. The code also demonstrates explicit attempts to hide its presence via mutex checking (OpenMutexA/CreateMutexA) to ensure only one instance runs.",
+    "uncertainties": "The exact nature of the decrypted resource payload is inferred from the code's behavior (injection/hooking) as the resource itself was not provided for full extraction.",
+    "conditions": "Execution is contingent upon specific OS versions (checked via GetVersionExA). It requires administrative privileges to modify kernel structures and registry keys, and it will terminate if its mutexes are already present.",
+    "sandbox_recommendations": "Run in a high-integrity sandbox with kernel-mode debugging/monitoring enabled. Simulate an environment with admin privileges. The sample may require a specific environment (e.g., matching the 'system32' path check) to fully detonate."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Targeted for persistence and service manipulation"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Synchronization mutex used to ensure single-instance execution"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Another mutex used for synchronization"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Kernel-mode structure manipulation, specifically modifying system tables."
+    },
+    {
+      "address": "0x1000165b",
+      "name": "fcn.1000165b",
+      "description": "XOR decryption routine for embedded payloads."
+    },
+    {
+      "address": "0x100043d2",
+      "name": "fcn.100043d2",
+      "description": "Main logic for registry key manipulation and persistence."
+    }
+  ]
+}

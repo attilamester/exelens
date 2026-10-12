@@ -1,0 +1,74 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable installs a system service that mimics a legitimate svchost.exe configuration to achieve persistence. It parses registry keys to identify system services and modifies them, effectively establishing a rootkit-like persistence mechanism by pointing a service to its own malicious payload.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Obfuscated control flow",
+      "Dynamic API loading",
+      "Resource-based string obfuscation"
+    ],
+    "details": "The binary uses dynamic API resolution (GetProcAddress, LoadLibrary) to hide its capabilities and has a custom, highly complex call graph designed to frustrate static analysis."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Uses CreateServiceA and RegSetValueExA to register itself as a background service."
+    },
+    {
+      "name": "Process Injection/Configuration Hijacking",
+      "description": "Writes to registry paths associated with system svchost services (SYSTEM\\CurrentControlSet\\Services)."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Uses IsDebuggerPresent and handles unhandled exceptions to detect and thwart debugging."
+    },
+    {
+      "name": "File Manipulation",
+      "description": "Uses CreateFileA and WriteFile to drop or modify local configuration files like _s_systemconfig_t.dat."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistence mechanisms (service creation, registry manipulation of svchost settings) and anti-debugging techniques in a context involving the modification of system-critical registry keys constitutes clear malicious intent. The dual-use features like CreateFile or LoadLibrary are here employed explicitly for installing a persistent service under a false system-like name, confirming the malicious nature of the software.",
+    "general": "The function fcn.00401658 directly interacts with the Windows registry to modify 'CurrentVersion\\Svchost' (RVA 0x401658). This is combined with CreateServiceA (imported) to install a persistent service. Anti-debugging is confirmed by the check in fcn.00404400 using IsDebuggerPresent.",
+    "uncertainties": "While the high-level intent is clear, the exact payload of the service is contained within encrypted data structures (referenced in .data and resources) that would require full emulation or decryption to fully reconstruct.",
+    "conditions": "The execution requires administrative privileges to successfully write to the HKLM registry hives for service installation. It likely expects to be run in an environment where it can blend into system processes (e.g., system32 directory).",
+    "sandbox_recommendations": "Run in an environment with monitoring enabled for registry modifications in HKLM. Pre-configure the environment with the target registry keys present to observe how the malware alters the svchost configuration."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SYSTEM\\CurrentControlSet\\Services",
+          "description": "Target registry path for service installation"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      {
+        "value": "_s_systemconfig_t.dat",
+        "description": "Configuration file dropped in the Windows directory"
+      }
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401658",
+      "name": "fcn.00401658",
+      "description": "Primary persistence logic, registry modification, and service installation"
+    },
+    {
+      "address": "0x00404400",
+      "name": "fcn.00404400",
+      "description": "Anti-debugging and anti-analysis guardrail"
+    },
+    {
+      "address": "0x00401cb4",
+      "name": "main",
+      "description": "Initialization and mutex check for single-instance execution"
+    }
+  ]
+}

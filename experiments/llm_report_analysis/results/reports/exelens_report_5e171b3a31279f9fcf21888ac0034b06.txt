@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a modular malware downloader/installer that performs system environment inspection, installs persistent malicious services, injects malicious code into kernel objects (like NtShutdownSystem and System Service Descriptor Table), and uses advanced anti-analysis techniques.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation",
+      "Dynamic API resolution (GetProcAddress)",
+      "Dynamic library loading (LoadLibrary)"
+    ],
+    "details": "The sample uses XOR obfuscation (0xcd key) for strings and resources (e.g., in fcn.10001697). It dynamically resolves essential system APIs using LoadLibrary/GetProcAddress."
+  },
+  "capabilities": [
+    {
+      "name": "Process/Service Manipulation",
+      "description": "Utilizes CreateProcessA, CreateServiceA (implied), and Registry manipulation to maintain persistence."
+    },
+    {
+      "name": "Kernel-Level Modifications",
+      "description": "Attempts to hook kernel functions (e.g., NtShutdownSystem) and modify the System Service Descriptor Table (SSDT)."
+    },
+    {
+      "name": "Evasion/Anti-Analysis",
+      "description": "Includes checks for debugging artifacts, mutex-based execution guarding, and file attribute manipulation."
+    },
+    {
+      "name": "Credential/System Harvesting",
+      "description": "Retrieves user names and inspects system environment variables for configuration details."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level SSDT modification attempts (fcn.1000b369), intentional hooking of sensitive system functions (NtShutdownSystem), and the use of hardcoded obfuscated resource structures (101, 102, 103) confirms a malicious intent to infect and persist at a deep system level, beyond the capabilities of legitimate software installers.",
+    "general": "High-intent indicators include the attempt to modify the System Service Descriptor Table (SSDT) in fcn.1000b369, the hook installation for NtShutdownSystem in fcn.1000b46f, and anti-analysis gates such as mutex check 'prkMtx' and anti-debugging logic in fcn.10003c04.",
+    "uncertainties": "The exact nature of the encrypted payload in resource 102 could not be fully decrypted without runtime emulation, though the code structures explicitly handle it as an executable binary.",
+    "conditions": "Execution is gated by the creation and check of a global mutex (e.g., 'GlobalRPCMutex' or 'prkMtx') and specific registry key configurations (DMWI/DMWH keys).",
+    "sandbox_recommendations": "Ensure the sandbox provides a simulated Windows environment, including common registry keys and system directory structure. The malware performs heavy registry interaction; ensure persistent monitoring is enabled."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "DMWI",
+          "description": "Registry key used for persistence configuration."
+        },
+        {
+          "value": "DMWH",
+          "description": "Registry key used for system configuration storage."
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "prkMtx",
+          "description": "Mutex used to ensure single instance execution and evade multiple runs."
+        },
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex utilized for synchronizing installation phases."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Handles critical SSDT hooking/patching logic."
+    },
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Orchestrates the hooking of system services like NtShutdownSystem."
+    },
+    {
+      "address": "0x10003c04",
+      "name": "fcn.10003c04",
+      "description": "Manages file installation, persistence, and service creation."
+    }
+  ]
+}

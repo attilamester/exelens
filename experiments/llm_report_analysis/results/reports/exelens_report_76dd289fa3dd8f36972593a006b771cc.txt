@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a downloader/dropper that persists via registry keys and collects system information (OS, CPU, Network) for exfiltration. It uses base64-encoded strings and XOR decryption to obfuscate its configuration and C2-related data.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Custom XOR obfuscation of strings and data",
+      "Base64-like encoding of configuration data"
+    ],
+    "details": "The file contains a large overlay (entropy ~7.13) and performs manual string decryption using XOR loops (e.g., fcn.00402fcc) before using APIs, indicating a multi-stage loading approach."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Writes to the Windows Run registry keys to achieve startup persistence."
+    },
+    {
+      "name": "Data Exfiltration / C2",
+      "description": "Communicates via HTTP (POST requests) using WININET APIs and collects system/network metadata."
+    },
+    {
+      "name": "Stealth",
+      "description": "Uses mutexes (`CreateMutexA`) to prevent multiple instances and checks for existing files/processes to evade detection."
+    },
+    {
+      "name": "Environment Awareness",
+      "description": "Collects OS version, username, computer name, and adapter information."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistent registry modifications, data collection (adapter info/OS/processor), and active C2 communication (WININET HTTP POST) represents a high-intent malicious profile. The presence of XOR decryption routines and string-based obfuscation confirms intent to evade simple static analysis, disqualifying the file as legitimate utility software.",
+    "general": "The function fcn.00402e01 implements HTTP POST requests using HttpOpenRequestA and HttpSendRequestA. Function fcn.0040207b performs persistent registry operations (RegSetValueExA) under 'SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run'. Data collection functions like fcn.00402c9a invoke GetAdaptersInfo, demonstrating clear exfiltration intent.",
+    "uncertainties": "While the binary structure is clear, the exact nature of the encrypted payload in the overlay remains partially opaque without runtime memory dumping, though the C2 behavior is definitive.",
+    "conditions": "The malware checks for existing process mutexes and file paths (e.g., via PathFileExistsA) before execution; it likely requires a standard Windows environment to populate registry and network configuration paths.",
+    "sandbox_recommendations": "Ensure internet connectivity is available (or use a fake DNS/HTTP responder). Monitor for registry writes to HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run and ensure the file has write access to %APPDATA% or %TEMP% folders."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Persistence key modified for startup execution"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "%APPDATA%\\Roaming",
+          "description": "Likely drop location"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00402e01",
+      "name": "fcn.00402e01",
+      "description": "HTTP communication and command processing routine"
+    },
+    {
+      "address": "0x0040207b",
+      "name": "fcn.0040207b",
+      "description": "Registry manipulation for persistence"
+    },
+    {
+      "address": "0x00402fcc",
+      "name": "fcn.00402fcc",
+      "description": "Primary data XOR decryption routine"
+    },
+    {
+      "address": "0x00402c9a",
+      "name": "fcn.00402c9a",
+      "description": "System and network information collection"
+    }
+  ]
+}

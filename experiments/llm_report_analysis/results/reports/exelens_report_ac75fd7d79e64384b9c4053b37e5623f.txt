@@ -1,0 +1,71 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample exhibits typical behavior of a downloader or backdoor. It performs process enumeration, resolves APIs dynamically (potentially to evade static analysis), and uses WinINet to establish connections for command and control. It decrypts configurations and communicates over HTTP to perform data exchange.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Custom string obfuscation/encryption",
+      "Dynamic API resolution (GetProcAddress)",
+      "Runtime code decryption/unpacking"
+    ],
+    "details": "The sample uses a custom algorithm to decrypt strings and likely unpacks embedded payloads. Functions like fcn.100014c7 (XOR decryption) and fcn.1000327e suggest self-decryption before execution."
+  },
+  "capabilities": [
+    {
+      "name": "Networking",
+      "description": "Utilizes WININET.dll (HttpOpenRequestA, HttpSendRequestA) to perform HTTP-based communication, characteristic of a C2 client."
+    },
+    {
+      "name": "Process Injection/Enumeration",
+      "description": "Uses KERNEL32.dll (Process32First, Process32Next) to enumerate running processes, often used for evasion or injecting payloads into specific targets."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Checks system versions and uses timing checks (Sleep, QueryPerformanceCounter) to hinder sandbox analysis and automated debugging."
+    },
+    {
+      "name": "Dynamic Execution",
+      "description": "Uses GetProcAddress and LoadLibrary (implicitly via dynamic resolution) to load functions at runtime, hiding its API footprint."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of process enumeration (fcn.10002052), dynamic C2 configuration retrieval, and use of WinINet functions to send data (fcn.10005348) demonstrates clear malicious intent consistent with a backdoor or information stealer, rather than a dual-use software protector.",
+    "general": "High-intent indicators include the dynamic resolution of WININET and KERNEL32 functions, usage of GetProcAddress to resolve C2-related APIs at runtime (fcn.10004a83), and the logic flow in fcn.10005348 that sends HTTP requests, indicating active communication with a remote server.",
+    "uncertainties": "While the specific payload decrypted is not fully visible due to runtime obfuscation, the network communication logic and process monitoring routines are sufficient to classify the intent as malicious.",
+    "conditions": "The malware checks for specific system environment indicators and may require a live internet connection to a specific domain or C2 server to activate full functionality. It also employs anti-analysis timing delays.",
+    "sandbox_recommendations": "Provide an active internet connection to the sandbox. Ensure the sandbox can resolve common domain requests. Monitor for file creation in %TEMP% and registry modifications."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "WININET.dll",
+          "description": "Network library used for C2."
+        },
+        {
+          "value": "PrsCf",
+          "description": "Likely a registry key or configuration section name used by the malware."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10005348",
+      "name": "fcn.10005348",
+      "description": "Primary network communication and HTTP request handler."
+    },
+    {
+      "address": "0x10002052",
+      "name": "fcn.10002052",
+      "description": "Enumerates running processes and likely checks for specific environment targets."
+    },
+    {
+      "address": "0x10004a83",
+      "name": "fcn.10004a83",
+      "description": "Dynamic API resolution routine used to load malicious functional modules."
+    }
+  ]
+}

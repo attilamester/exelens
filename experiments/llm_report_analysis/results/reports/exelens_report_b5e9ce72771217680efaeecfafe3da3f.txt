@@ -1,0 +1,90 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a remote access backdoor. It establishes persistence via registry keys, hides its own binary, and implements a command-and-control communication loop over HTTP to download and execute additional commands/payloads on the compromised system.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed; the logic is explicitly visible, showing clear backdoor command processing and persistence mechanisms."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Uses RegCreateKeyExA and RegDeleteValueA to manipulate the 'Run' key for persistence, and copies its binary to a specific directory."
+    },
+    {
+      "name": "Networking (C2)",
+      "description": "Uses WININET.dll functions to perform HTTP communications, including custom headers and command retrieval."
+    },
+    {
+      "name": "Process Execution",
+      "description": "Uses CreateProcessAsUserA and CreateProcessA to launch commands remotely."
+    },
+    {
+      "name": "Environment Reconnaissance",
+      "description": "Collects user name, computer name, and local system time to report back to the C2."
+    }
+  ],
+  "details": {
+    "reasoning": "The application exhibits clear indicators of malicious intent rather than dual-use behavior. Specifically, the combination of persistence mechanisms (writing to the 'Run' key), stealthy binary copying, and the implementation of a C2 communication loop that interprets commands (e.g., 'check', 'start', 'kill') strongly indicates a remote access tool. The functions to handle process listing, service monitoring, and command execution via hidden pipes confirm it is intended to control the host system remotely.",
+    "general": "High-intent evidence includes fcn.00403eb0 performing registry persistence, fcn.004022b0 performing process/service listing, and fcn.001570 driving the C2 loop. Code sequences like 'ADVAPI32.dll_CreateProcessAsUserA' inside the C2 communication logic (RVA 0x401f60) are characteristic of a RAT's ability to execute commands with user privileges.",
+    "uncertainties": "While the binary is not packed, the exact C2 server URL and communication protocol details are dynamically constructed or derived, limiting visibility into the specific remote server infrastructure.",
+    "conditions": "The main execution flow requires the system to be reachable by the C2; the malware sleeps periodically (0x2710 ms) and uses a mutex (GLOBALADR32) to ensure single-instance execution.",
+    "sandbox_recommendations": "Run in an isolated network environment with a faked C2 response capability. Set the system time to present date, and simulate a user environment, as the malware checks for specific registry persistence conditions."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Persistence registry key location"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "Adobe 8.0.0\\update.exe",
+          "description": "Suspicious persistence filename path"
+        },
+        {
+          "value": "_MS80547.bat",
+          "description": "Temporary batch script used for staging execution"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GLOBALADR32",
+          "description": "Mutex name used to ensure single instance"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401570",
+      "name": "fcn.00401570",
+      "description": "Primary C2 communication and command execution loop."
+    },
+    {
+      "address": "0x00403eb0",
+      "name": "fcn.00403eb0",
+      "description": "Handles registry persistence and staging the binary to a hidden location."
+    },
+    {
+      "address": "0x004022b0",
+      "name": "fcn.004022b0",
+      "description": "Enumerates processes and services for reconnaissance."
+    },
+    {
+      "address": "0x00401f60",
+      "name": "fcn.00401f60",
+      "description": "Executes commands via CreateProcess and handles shell redirection."
+    }
+  ]
+}

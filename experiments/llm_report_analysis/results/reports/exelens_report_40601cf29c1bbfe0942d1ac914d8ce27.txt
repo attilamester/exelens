@@ -1,0 +1,85 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable acts as a downloader and backdoor component. It performs network reconnaissance, manages proxy connections, and uses process injection techniques to manipulate system processes. It also exhibits persistence behavior by modifying the registry and checking for the presence of specific mutexes to avoid multiple instances.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based string obfuscation",
+      "Dynamic API resolution via GetProcAddress",
+      "Dynamic library loading (LoadLibraryA)"
+    ],
+    "details": "The sample uses a custom XOR and subtraction routine (RVA: 0x401293) to decode strings at runtime. Many API function pointers are resolved dynamically during execution to evade static analysis of the import table."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Hollowing",
+      "description": "Uses CreateToolhelp32Snapshot, OpenProcess, and likely VirtualAllocEx/WriteProcessMemory/CreateRemoteThread (implied by shellcode-like memory allocation patterns) to inject and control code in other processes."
+    },
+    {
+      "name": "Network Communication (Proxy/Backdoor)",
+      "description": "Supports SOCKS/HTTP proxy configuration via registry settings and establishes remote connections using WSOCK32.dll, enabling command and control communication."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies Windows Registry keys (e.g., Software\\Microsoft\\Windows\\CurrentVersion) to ensure execution on system startup."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Checks for debugger presence and system environment (e.g., IsWow64Process) to alter behavior."
+    }
+  ],
+  "details": {
+    "reasoning": "While the binary employs standard techniques like dynamic API resolution and string obfuscation (common in protectors), it combines these with high-intent malicious actions: process hollowing, registry-based persistence, and establishing unauthorized C2 network connections. The presence of functions interacting with 'psapi.dll' to enumerate and manipulate processes, coupled with network proxy configuration through the registry, confirms malicious intent rather than mere application protection.",
+    "general": "The function fcn.004033fc (RVA: 0x4033fc) contains code for process enumeration and interaction. The function fcn.0040585c (RVA: 0x40585c) demonstrates network resource enumeration and potential lateral movement/C2 capabilities. String obfuscation is decoded by fcn.00401293 (RVA: 0x401293).",
+    "uncertainties": "The sample performs many network-based actions that require a live C2 server. Without connectivity to the hardcoded/dynamic IPs, the full payload delivery stage (post-initial communication) could not be fully observed.",
+    "conditions": "The primary execution triggers include successful network connectivity for C2 check-in and the absence of existing mutexes (e.g., the 'ioihc' mutex). It also performs registry checks for 'hFlag' and 'PassPath'.",
+    "sandbox_recommendations": "Provide an internet-simulated environment (e.g., INetSim) to capture C2 requests. Monitor registry modifications in HKLM\\Software and system process activity using ProcMon."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings",
+          "description": "Modified to enable/configure proxy settings for C2 traffic."
+        },
+        {
+          "value": "hFlag",
+          "description": "Mutex-like flag used for process coordination."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "_sKB985109.log",
+          "description": "Log file format constructed during network enumeration."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401293",
+      "name": "fcn.00401293",
+      "description": "XOR-based string deobfuscation routine."
+    },
+    {
+      "address": "0x004012b3",
+      "name": "fcn.004012b3",
+      "description": "Initialization and dynamic API resolver; loads kernel and networking libraries."
+    },
+    {
+      "address": "0x004033fc",
+      "name": "fcn.004033fc",
+      "description": "Process injection and manipulation handler."
+    },
+    {
+      "address": "0x004071d7",
+      "name": "fcn.004071d7",
+      "description": "Primary network communication and request handler."
+    }
+  ]
+}

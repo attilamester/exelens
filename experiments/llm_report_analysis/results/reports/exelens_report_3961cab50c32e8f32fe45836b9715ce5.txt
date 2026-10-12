@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a downloader and screen capture tool. It gathers system information (drives, environment), captures desktop screens (using GDI and CxImage), and exfiltrates this data via HTTP to a C2 server. It also includes capability for process injection.",
+  "packed": {
+    "status": "false",
+    "techniques": [
+      "String obfuscation (XOR/Stack strings)",
+      "Dynamic API resolution (GetProcAddress)"
+    ],
+    "details": "The code is not packed but makes heavy use of dynamic string construction and dynamically resolved APIs. The entropy in the .text section is within normal bounds for this type of complex utility."
+  },
+  "capabilities": [
+    {
+      "name": "Screen Capture",
+      "description": "Utilizes GDI (BitBlt, GetDC) and CxImage library functions to capture the screen and save to image formats."
+    },
+    {
+      "name": "Data Exfiltration",
+      "description": "Uses WinINet (HttpOpenRequest, HttpSendRequest) to upload captured data over HTTP."
+    },
+    {
+      "name": "Process Injection",
+      "description": "Contains code to manipulate thread contexts (GetThreadContext, SetThreadContext) and use VirtualAlloc, indicating capability for process hollowing or thread injection."
+    },
+    {
+      "name": "Environment Reconnaissance",
+      "description": "Collects information on available drives, running processes, and computer names."
+    }
+  ],
+  "details": {
+    "reasoning": "The application exhibits a combination of high-intent behaviors that are not explained by its role as a screen capture tool. The inclusion of thread context manipulation APIs (fcn.10019705) and C2 communication functionality (fcn.10008af1) suggests it is designed for espionage or data exfiltration rather than legitimate screen-capture software.",
+    "general": "The function fcn.10019705 performs thread context manipulation (GetThreadContext, SetThreadContext) in conjunction with ResumeThread, a classic pattern for process hollowing. fcn.10008af1 implements HTTP exfiltration using InternetConnectA and HttpSendRequestA, sending buffers of data to a remote host.",
+    "uncertainties": "The exact C2 destination is obfuscated via dynamic string construction, making it impossible to map the destination without full dynamic execution or deeper de-obfuscation of the configuration.",
+    "conditions": "The malware expects an active internet connection to communicate with its C2 and specific file system conditions to store the captured screenshots in a temporary path resolved by GetTempPathA.",
+    "sandbox_recommendations": "Ensure internet connectivity is available (or simulated) and monitor HTTP requests to external domains. The application may need administrative privileges to perform the screen capture and system enumeration effectively."
+  },
+  "ioc": [
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "%TEMP%",
+          "description": "Temporary directory where screen captures are likely staged."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "PhysicalDrive",
+          "description": "Registry/File reference for drive enumeration."
+        },
+        {
+          "value": "gbdafetasfBBBapiz",
+          "description": "Suspected hardcoded filename or resource segment used in exfiltration logic."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10008af1",
+      "name": "fcn.10008af1",
+      "description": "Handles the HTTP exfiltration routine using WinINet."
+    },
+    {
+      "address": "0x10019705",
+      "name": "fcn.10019705",
+      "description": "Contains process hollowing/thread injection logic via Get/SetThreadContext."
+    },
+    {
+      "address": "0x10009b49",
+      "name": "fcn.10009b49",
+      "description": "Performs screen capturing using GDI BitBlt and CxImage save routines."
+    }
+  ]
+}

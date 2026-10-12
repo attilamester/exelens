@@ -1,0 +1,82 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable performs C2 communication over HTTP, decrypts downloaded payloads via XOR, achieves persistence via registry Run keys, and executes the decrypted payloads using CreateProcessA.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed; the logic is visible, including XOR decryption routines and clear API usage."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Registers itself to run at startup via the Windows Registry."
+    },
+    {
+      "name": "Network Communication",
+      "description": "Uses WININET to send POST requests to a C2 server for command and control or payload retrieval."
+    },
+    {
+      "name": "Payload Execution",
+      "description": "Decrypts downloaded content and spawns new processes."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Implements local time/date comparison checks, possibly to avoid sandbox execution."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistent registry modification, repeated C2 check-ins via WININET, and the execution of downloaded and XOR-decrypted binary data in memory is characteristic of a malicious loader/botnet agent, not legitimate software.",
+    "general": "In fcn.004012a9, the code uses RegSetValueExA to add an entry to the Software\\Microsoft\\Windows\\CurrentVersion\\Run registry key. In fcn.0040181b, it uses HttpSendRequestA for POST requests, and in fcn.00401d12 it executes an XOR 0x55 decryption routine before calling CreateProcessA in fcn.004017a4.",
+    "uncertainties": "The exact URL strings are not fully resolved, but the structure confirms C2 communication patterns.",
+    "conditions": "The sample requires network connectivity to a C2 and potentially specific system time conditions (based on file time comparison in fcn.00401338) to reach the main execution logic.",
+    "sandbox_recommendations": "Provide an active internet connection, simulate C2 server responses, and ensure the system time is set to a current, valid date to avoid anti-sandbox triggers."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Used for persistence."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "c:\\windows",
+          "description": "Hardcoded base path for file operations."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401000",
+      "name": "main",
+      "description": "Initializes application, checks version, and coordinates payload fetching."
+    },
+    {
+      "address": "0x0040181b",
+      "name": "fcn.0040181b",
+      "description": "Handles WININET HTTP POST requests for communication."
+    },
+    {
+      "address": "0x004012a9",
+      "name": "fcn.004012a9",
+      "description": "Establishes persistence by modifying the registry."
+    },
+    {
+      "address": "0x004017a4",
+      "name": "fcn.004017a4",
+      "description": "Spawns new processes using CreateProcessA."
+    },
+    {
+      "address": "0x00401d12",
+      "name": "fcn.00401d12",
+      "description": "Performs XOR 0x55 decryption on downloaded data."
+    }
+  ]
+}

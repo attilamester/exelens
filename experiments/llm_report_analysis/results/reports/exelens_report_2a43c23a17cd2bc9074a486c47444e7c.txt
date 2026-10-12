@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a service installer/dropper. It extracts an embedded payload from its .data section, modifies it using a custom XOR routine, writes it to a file, and configures the system to run the payload as a Windows service by modifying the registry and creating a helper batch file.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Custom XOR decryption",
+      "Resource/Data hiding in .data section"
+    ],
+    "details": "The .data section has high entropy (7.24), containing a large data blob. The function fcn.004010e1 performs a multi-stage XOR operation on this memory area before it is written to disk."
+  },
+  "capabilities": [
+    {
+      "name": "Service Installation",
+      "description": "Uses OpenSCManagerA and RegCreateKeyA to register the payload as a system service."
+    },
+    {
+      "name": "Persistence",
+      "description": "Writes to registry keys under SYSTEM\\CurrentControlSet\\Services to ensure execution on startup."
+    },
+    {
+      "name": "File Manipulation",
+      "description": "Creates system files and batch scripts (net.bat) to execute commands."
+    },
+    {
+      "name": "Code Decryption",
+      "description": "Decrypts an embedded payload in the .data section using a custom XOR algorithm."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of service registration (OpenSCManagerA/CreateServiceA), registry persistence (System\\CurrentControlSet\\Services), and the dynamic decryption of a payload stored in the .data section strongly indicates malicious intent rather than legitimate installer behavior. The use of a temporary batch file (net.bat) to execute system registry modifications is a common evasion technique.",
+    "general": "High-intent evidence includes the call to KERNEL32.dll_GetProcAddress for 'CreateServiceA' (RVA 0x401347), the modification of 'SYSTEM\\CurrentControlSet\\Services' via RegCreateKeyA (RVA 0x401496), and the decryption routine in fcn.004010e1.",
+    "uncertainties": "The exact nature of the decrypted payload is unknown as it is held in memory during the execution phase; however, its handling via CreateFileA and WriteFile strongly points to it being a binary module.",
+    "conditions": "The execution flow requires the file to exist in a writable directory. It checks for specific system files in the Windows directory (e.g., systemconfig_t.dat).",
+    "sandbox_recommendations": "Run in a controlled Windows environment with procmon to monitor registry modifications and file system writes. Provide dummy files if the sample checks for specific configuration files in the Windows directory."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SYSTEM\\CurrentControlSet\\Services",
+          "description": "Registry path used for service persistence."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "net.bat",
+          "description": "Temporary batch file used for service configuration commands."
+        },
+        {
+          "value": "systemconfig_t.dat",
+          "description": "Configuration file checked by the sample."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x0040113a",
+      "name": "fcn.0040113a",
+      "description": "Core installation and persistence logic involving registry and service manipulation."
+    },
+    {
+      "address": "0x004010e1",
+      "name": "fcn.004010e1",
+      "description": "Custom XOR decryption routine for the embedded payload."
+    },
+    {
+      "address": "0x00401802",
+      "name": "fcn.00401802",
+      "description": "Initial environment check and payload handling logic."
+    }
+  ]
+}

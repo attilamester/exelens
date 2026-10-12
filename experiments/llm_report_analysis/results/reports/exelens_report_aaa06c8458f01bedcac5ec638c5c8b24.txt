@@ -1,0 +1,85 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to modify system-level drivers or services ('win32k.sys'), perform process injection, and interact with the Windows Kernel via 'KeServiceDescriptorTable' and direct memory operations. It exhibits persistence through registry keys and uses anti-analysis techniques to identify and bypass security components.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation of resource data",
+      "Dynamic API resolution through GetProcAddress/LoadLibrary",
+      "Function pointers resolution in kernel memory"
+    ],
+    "details": "The file uses XOR operations (RVA 0x1000167b) to deobfuscate resource data, which is loaded using FindResourceA/LoadResource. Several function pointers are resolved dynamically, and kernel-mode structures are manipulated."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Accesses/modifies KeServiceDescriptorTable to hook or intercept system calls."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies Windows Registry keys (e.g., 'DMWH', 'lsass') to ensure startup execution."
+    },
+    {
+      "name": "Code Injection",
+      "description": "Uses VirtualAlloc and CreateRemoteThread/WriteProcessMemory equivalent logic to inject code into other processes."
+    },
+    {
+      "name": "Process/Driver Obfuscation",
+      "description": "Attempts to camouflage by copying files to 'system32' and using 'win32k.sys' or related system names."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent malicious actions—specifically the manual hooking of kernel structures ('KeServiceDescriptorTable'), process injection, and the use of hardcoded system-file names like 'win32k.sys'—indicates a rootkit or advanced persistent threat (APT) behavior, rather than legitimate software protection.",
+    "general": "Specific indicators include: 'fcn.1000b369' (hooking kernel service table), 'fcn.100017a0' (persistence via registry), and 'fcn.10004d5c' (process memory manipulation). The code also imports 'sym.dll_installer.dll', suggesting a custom installer/dropper chain.",
+    "uncertainties": "While the binary is highly likely to be a kernel-mode rootkit/trojan, some functions (e.g., 'fcn.1000b73a') may behave differently depending on the specific Windows version detected at runtime.",
+    "conditions": "The malware requires administrative privileges to interact with 'KeServiceDescriptorTable'. It checks for 'system32' environmental paths and may require specific registry keys to be present to avoid crashing.",
+    "sandbox_recommendations": "Run in an isolated environment with kernel-debugging support. Enable registry and file system monitoring to catch persistence attempts. Monitor kernel-mode system call activity (SSDT hooking)."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\...\\DMWH",
+          "description": "Persistence registry key"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "%system32%\\win32k.sys",
+          "description": "Potential target path for modification"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for process synchronization"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Manipulates KeServiceDescriptorTable (SSDT) to hook system calls."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Handles persistence via registry modification and file copying."
+    },
+    {
+      "address": "0x10004d5c",
+      "name": "fcn.10004d5c",
+      "description": "Kernel memory probing, mapping, and potential driver injection."
+    }
+  ]
+}

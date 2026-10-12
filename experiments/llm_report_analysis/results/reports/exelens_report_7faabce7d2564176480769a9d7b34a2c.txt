@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a modular installer-like sample that performs system-level modifications, including registry manipulation and potential kernel-mode component interaction/injection.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation of internal resources",
+      "Dynamic API resolution"
+    ],
+    "details": "Resource sections are accessed and decrypted/unpacked using XOR operations (0xcd, 0x65, etc.). The sample resolves system API functions dynamically and likely uses these to interact with system components."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/System Modification",
+      "description": "Utilizes CreateProcessA, RegSetValueExA, and potentially loads kernel-mode components (ntkrnlpa.exe, win32k.sys)."
+    },
+    {
+      "name": "Persistence Mechanism",
+      "description": "Modifies system registry keys and copies files to system directories to establish persistence."
+    },
+    {
+      "name": "Mutex Creation",
+      "description": "Creates system-wide mutexes (e.g., 'GlobalRPCMutex', 'prkMtx') to prevent multiple instances and likely to signal state."
+    },
+    {
+      "name": "Kernel-Level Interaction",
+      "description": "Functions like fcn.1000ab6f and fcn.1000b46f interact with kernel data structures (KeServiceDescriptorTable)."
+    }
+  ],
+  "details": {
+    "reasoning": "While the file possesses many dual-use capabilities (like registry and file manipulation), the intent is malicious based on the combination of modifying system-critical files (win32k.sys, lsa), attempting to patch or access internal Windows kernel structures (ServiceDescriptorTable), and the use of obfuscated resource payloads designed to look like system components. This indicates intent to subvert system integrity rather than provide legitimate software functionality.",
+    "general": "The function fcn.1000ab6f and fcn.1000b46f directly reference KeServiceDescriptorTable, a clear high-intent indicator for kernel-mode subversion. fcn.100017a0 patches the registry to point system processes to malicious binaries (e.g., 'lsass').",
+    "uncertainties": "The full extent of the kernel-mode interaction is constrained by the nature of the truncated analysis; while the intent is clear, the exact payload of the kernel patches cannot be fully verified without complete disassembly of the decrypted resource.",
+    "conditions": "The execution requires the file to successfully create its mutex ('prkMtx', 'GlobalRPCMutex'). It performs environment checks (GetSystemDirectoryA, GetVersionExA) and requires administrative privileges to modify registry keys under HKLM and system files.",
+    "sandbox_recommendations": "Simulate an administrative user environment. Monitor HKLM\\System\\CurrentControlSet\\Services for new entries. Expect attempts to overwrite system files in System32."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\System\\CurrentControlSet\\Services",
+          "description": "Potential persistence registry key"
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Instance tracking mutex"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Payload coordination mutex"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Performs system subversion involving SSDT patching."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Modifies system registry to redirect service execution."
+    },
+    {
+      "address": "0x10003c04",
+      "name": "fcn.10003c04",
+      "description": "Dropper function that writes binaries to system paths."
+    }
+  ]
+}

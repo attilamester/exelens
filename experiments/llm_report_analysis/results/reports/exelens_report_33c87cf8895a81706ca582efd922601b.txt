@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a credential stealer, specifically targeting browser data (Firefox, Netscape) and email clients (MSN, Outlook). It performs enumeration of local system registry keys, profiles, and temporary directories, then exfiltrates stolen data by invoking OleAuto/COM services.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation",
+      "Dynamic API resolution (via GetProcAddress)",
+      "System memory manipulation"
+    ],
+    "details": "Routine fcn.0040182c performs XOR-based decryption and utilizes CryptUnprotectData to retrieve credentials. The core logic relies on dynamic resolution of DLLs (e.g., pstorec.dll, crypt32.dll)."
+  },
+  "capabilities": [
+    {
+      "name": "Credential Stealing",
+      "description": "Enumerates and decrypts stored credentials from browser and email applications."
+    },
+    {
+      "name": "Information Exfiltration",
+      "description": "Uses COM objects to potentially exfiltrate stolen credentials via HTTP/Web services."
+    },
+    {
+      "name": "Persistence/Anti-Forensics",
+      "description": "Creates and executes batch scripts via CMD to attempt self-deletion or cleanup of temporary artifacts."
+    },
+    {
+      "name": "System Enumeration",
+      "description": "Queries registry keys (Windows CurrentVersion, Outlook profiles) and system environment variables."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of specific registry path targeting (Outlook, MSN, Google Talk, IE/Firefox), the use of CryptUnprotectData to decrypt local secrets, and the subsequent exfiltration flow through COM/ActiveX, confirms malicious intent. The dual-use nature of these APIs is negated by the focus on sensitive credentials and the creation of temporary batch files for cleanup.",
+    "general": "The function fcn.00402e5d and fcn.00404ed4 directly target login storage locations. The use of OleAuto (fcn.0040704f) to wrap exfiltration data into an HTTP request confirms the intent to steal and send information. The logic in fcn.004075d0 creates and runs a batch file to delete evidence, a common technique for anti-forensics.",
+    "uncertainties": "The exact destination of the exfiltrated data (the remote URL) is obscured by the COM/ActiveX wrapper, though logic suggests an HTTP post request.",
+    "conditions": "The execution requires the target software to be installed (e.g., Firefox, Outlook) and local registry keys to be present for the stealer to find and decrypt secrets.",
+    "sandbox_recommendations": "Simulate a live environment by creating dummy registry keys in 'Software\\Microsoft\\Internet Account Manager\\Accounts'. Provide mock browser profiles in the 'AppData' local path for the malware to locate and attempt to process."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall",
+          "description": "Enumerated to find installed software for credential harvesting."
+        },
+        {
+          "value": "Software\\Microsoft\\Internet Account Manager\\Accounts",
+          "description": "Targets Outlook account information."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "%TEMP%\\smss.exe",
+          "description": "Temporary executable file path used during the cleanup phase."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x0040182c",
+      "name": "fcn.0040182c",
+      "description": "Decryption routine for stored credentials using CryptUnprotectData."
+    },
+    {
+      "address": "0x00404ed4",
+      "name": "fcn.00404ed4",
+      "description": "Harvests Mail.Ru agent login data from the registry."
+    },
+    {
+      "address": "0x0040704f",
+      "name": "fcn.0040704f",
+      "description": "Handles data exfiltration via COM/ActiveX objects."
+    }
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This sample is a remote access trojan (RAT) disguised as a system service component (NTLMSVC). It installs itself to the system registry, initiates a command shell (`cmd.exe`) in a hidden pipe-based session, and allows for remote control, file listing, process management, and URL downloads.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed, though it employs standard dynamic API loading and modular structure typical of legitimate Windows services."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Hollowing",
+      "description": "Utilizes CreateProcessA and redirected handles (pipes) to execute and control cmd.exe remotely."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies Windows Registry keys under SYSTEM\\CurrentControlSet\\Services to register as a system service."
+    },
+    {
+      "name": "Remote Command & Control",
+      "description": "Uses WININET.dll functions to communicate via HTTP, including HttpSendRequest, InternetConnect, and HttpOpenRequest."
+    },
+    {
+      "name": "System Enumeration",
+      "description": "Enumerates processes (Toolhelp32Snapshot), services (EnumServicesStatusExA), and drive information."
+    },
+    {
+      "name": "File/Utility Download",
+      "description": "Uses URLDownloadToFileA to retrieve and execute external payloads."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistence mechanisms (service registration), command shell redirection (pipe-based cmd.exe execution), and remote control functionality (service control, remote process termination, and URL downloads) confirms malicious intent. The binary mimics a legitimate service but lacks the expected complexity of an actual authentication provider, serving only as a C2 agent.",
+    "general": "High-intent evidence includes fcn.100031a0 (modifying Service parameters in Registry), fcn.10001570 (C2 logic and shell redirection), and fcn.100030e0 (URLDownloadToFileA). The use of InternetConnectA/HttpOpenRequestA to communicate with C2 servers further cements the malicious classification.",
+    "uncertainties": "While the binary is clearly malicious, the lack of an active C2 server prevents full analysis of the payload behavior once the connection is established.",
+    "conditions": "The sample acts as a service. It requires installation (fcn.100031a0) via service control manager or direct command execution. Once installed, it waits for remote command input over HTTP.",
+    "sandbox_recommendations": "Simulate a network environment with a dummy HTTP C2 server responding to requests. The sample must be run with admin privileges to successfully manipulate registry keys and install services."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SYSTEM\\CurrentControlSet\\Services\\*\\Parameters",
+          "description": "Registry path used for service configuration and persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "NTLMSVC",
+          "description": "The name used for the malicious service."
+        },
+        {
+          "value": "cmd.exe",
+          "description": "Process used for remote shell execution."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100031a0",
+      "name": "fcn.100031a0",
+      "description": "Handles persistence by modifying service registry keys."
+    },
+    {
+      "address": "0x10001570",
+      "name": "fcn.10001570",
+      "description": "Main C2 loop and shell redirection logic."
+    },
+    {
+      "address": "0x100030e0",
+      "name": "fcn.100030e0",
+      "description": "Handles remote file downloads via URLDownloadToFileA."
+    }
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a downloader and backdoor component. It collects system information (MAC addresses, processor identification), establishes persistence via registry RunOnce keys, and performs HTTP POST/GET requests to communicate with a C2 server to fetch and execute additional payloads or commands.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "String obfuscation via XOR",
+      "Dynamic API resolution"
+    ],
+    "details": "The overlay section has high entropy (7.20), suggesting an encrypted payload or configuration data. Internal string handling uses XOR routines (fcn.00401280) to de-obfuscate configuration and C2-related strings at runtime."
+  },
+  "capabilities": [
+    {
+      "name": "C2 Communication",
+      "description": "Utilizes WININET.dll (HttpOpenRequestA, HttpSendRequestA) for beaconing and payload delivery."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies Windows registry 'RunOnce' keys via RegCreateKeyExA and RegSetValueExA."
+    },
+    {
+      "name": "System Enumeration",
+      "description": "Queries network adapters (GetAdaptersInfo) and registry keys (Hardware Description) to identify the machine."
+    },
+    {
+      "name": "Remote Code Execution",
+      "description": "Uses GetProcAddress and memory allocation to potentially inject or execute secondary modules."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistent registry modifications, dynamic network communication with external hosts, and the presence of custom XOR-based decryption logic for C2-related indicators (strings like 'agfriqiurelisfqm', 'maxr_imaues_view_bhb') confirms malicious intent rather than a legitimate software installation routine. The high-entropy overlay and specific networking patterns (POST requests, specific HTTP query strings) are standard indicators of a remote-controlled backdoor.",
+    "general": "High-intent malicious activity is evidenced in fcn.00401000 (HTTP C2 communication) and fcn.00401400 (registry persistence). The use of fcn.00401280 to decrypt C2 URLs and command strings throughout the execution flow indicates active evasion of static analysis.",
+    "uncertainties": "The exact content of the high-entropy overlay is unknown without dynamic execution, but its usage with file-writing APIs (fwrite) and subsequent execution (fcn.00401370) strongly implies it is an encrypted payload.",
+    "conditions": "The main logic requires successful network connectivity and specific C2 server responses to progress. Execution is guarded by registry presence checks and potentially environment-specific factors (e.g., specific CPU string identifiers).",
+    "sandbox_recommendations": "Ensure internet connectivity is available (or simulated via Fakenet) to allow the binary to reach the beaconing stage. The binary expects to interact with an HTTP-based C2. The system should be monitored for registry changes under 'SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce'."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce",
+          "description": "Persistence mechanism used to ensure the binary runs after login."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0",
+          "description": "Registry path queried for system identification."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401000",
+      "name": "fcn.00401000",
+      "description": "Primary network communication handler using WININET APIs for C2 interaction."
+    },
+    {
+      "address": "0x00401400",
+      "name": "fcn.00401400",
+      "description": "Handles registry persistence by creating entries in RunOnce."
+    },
+    {
+      "address": "0x00401280",
+      "name": "fcn.00401280",
+      "description": "Central XOR-based string decryption routine used to de-obfuscate C2 strings."
+    },
+    {
+      "address": "0x00401370",
+      "name": "fcn.00401370",
+      "description": "Loader functionality that prepares downloaded data for execution."
+    }
+  ]
+}

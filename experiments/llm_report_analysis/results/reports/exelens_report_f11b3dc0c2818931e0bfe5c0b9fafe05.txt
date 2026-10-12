@@ -1,0 +1,82 @@
+{
+  "verdict": "benign",
+  "confidence": "high",
+  "summary": "The executable is a resource dropper/installer utility that extracts embedded icon files (IDR_ICOFILE1 and IDR_ICOFILE2) into a temporary directory ('c:\\tmp', 'c:\\temp', or 'c:\\intel') before exiting. It uses a custom XOR-based obfuscation routine on one of the resources.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Custom XOR obfuscation routine (fcn.00401610)"
+    ],
+    "details": "The file contains a custom XOR transformation function used to decode one of the embedded RCDATA resources (IDR_ICOFILE2) before writing it to disk. This is a common pattern in legitimate software to protect proprietary icon sets or binary data from casual inspection."
+  },
+  "capabilities": [
+    {
+      "name": "Resource Extraction",
+      "description": "Utilizes FindResourceA, LoadResource, and LockResource to extract embedded icons."
+    },
+    {
+      "name": "File System Operations",
+      "description": "Creates directories and writes binary data to files in temporary system folders."
+    },
+    {
+      "name": "Process/Thread Synchronization",
+      "description": "Uses CreateMutexA to ensure single-instance execution."
+    },
+    {
+      "name": "Obfuscation",
+      "description": "Implements a simple XOR-based XOR decryption routine (fcn.00401610) for data resources."
+    }
+  ],
+  "details": {
+    "reasoning": "The application exhibits typical installer behavior: checking for a mutex to prevent multiple instances, creating local directories, and extracting files from its own resource section. The XOR function is used for basic obfuscation of icon data rather than malicious payload delivery. There is no evidence of network activity, process injection, or persistence mechanisms typical of malware.",
+    "general": "The execution flow in 'main' calls 'CreateMutexA' with 'mark01'. The functions 'fcn.00401210' and 'fcn.00401690' handle the directory creation and file writing. Resource extraction follows the documented Windows API pattern for reading and writing embedded binary data.",
+    "uncertainties": "The exact content of the XORed icons is opaque, but the code structure confirms they are written to disk as file system objects, consistent with icon/configuration extraction.",
+    "conditions": "The application attempts to create temporary directories in order (c:\\tmp, c:\\temp, c:\\intel). It must have write permissions to one of these locations for the file drop to complete successfully.",
+    "sandbox_recommendations": "Ensure the sandbox provides write access to 'C:\\tmp' or 'C:\\temp'. Monitor the file creation events in these directories to confirm successful extraction of the icons."
+  },
+  "ioc": [
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "mark01",
+          "description": "Mutex name used to enforce single-instance execution."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "c:\\tmp",
+          "description": "Primary target directory for extracted resources."
+        },
+        {
+          "value": "c:\\temp",
+          "description": "Secondary target directory."
+        },
+        {
+          "value": "c:\\intel",
+          "description": "Tertiary target directory."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401b20",
+      "name": "main",
+      "description": "Entry point for mutex checking and orchestration of resource extraction."
+    },
+    {
+      "address": "0x00401610",
+      "name": "fcn.00401610",
+      "description": "XOR-based obfuscation routine used for data processing."
+    },
+    {
+      "address": "0x00401690",
+      "name": "fcn.00401690",
+      "description": "Coordinates resource loading, decryption, and file creation."
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This sample is a remote access trojan (RAT) that establishes persistence via Registry modification, uses custom encrypted communications over HTTP/Internet Explorer, and implements remote command execution capabilities, including process/service management.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed; the logic is clearly visible in the disassembly, including command parsing, networking logic, and process control."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Uses RegCreateKeyExA and RegDeleteValueA on the Software\\Microsoft\\Windows\\CurrentVersion\\Run registry key."
+    },
+    {
+      "name": "Process Execution",
+      "description": "Spawns hidden cmd.exe processes via CreateProcessA/CreatePipe to capture command output."
+    },
+    {
+      "name": "Network Communication",
+      "description": "Uses WININET APIs to communicate over HTTP with C2 servers, using custom header construction (e.g., Content-Length)."
+    },
+    {
+      "name": "Service/Process Control",
+      "description": "Able to enumerate, start, kill processes, and manage Windows services via OpenSCManagerA and ControlService."
+    }
+  ],
+  "details": {
+    "reasoning": "The application exhibits clear malicious intent. It hides its activity (AllocConsole/hidden pipes), creates a persistent Run-key entry (Adobe_Reader_Speed_Launcher), and implements a custom C2 protocol using WININET to accept commands like 'shell', 'kill', and 'start'. These capabilities are not consistent with benign software functionality.",
+    "general": "High-intent indicators include: the use of CreateProcessA with pipes to redirect command-line input/output (fcn.00401b19), the registration of a 'Speed Launcher' in the startup registry key (fcn.004030d8), and the explicit C2 command processing loop in fcn.00401406.",
+    "uncertainties": "While the C2 address is obscured or dynamic, the mechanism for receiving commands is clearly intended for unauthorized remote control.",
+    "conditions": "The malware requires an active internet connection to contact its C2 server; it also performs mutex checks (GLOBALADR32) to ensure only one instance is running.",
+    "sandbox_recommendations": "Simulate a live internet connection with a responder, allow registry access, and monitor for process creation of 'cmd.exe' from the main process."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Registry key used for persistence"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "Adobe_Reader_Speed_Launcher",
+          "description": "Used as a masquerading registry value name"
+        },
+        {
+          "value": "GLOBALADR32",
+          "description": "Mutex name used for single-instance control"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401406",
+      "name": "fcn.00401406",
+      "description": "Primary C2 communication and command processing loop"
+    },
+    {
+      "address": "0x004030d8",
+      "name": "fcn.004030d8",
+      "description": "Persistence logic involving registry modification and file system deployment"
+    },
+    {
+      "address": "0x00401b19",
+      "name": "fcn.00401b19",
+      "description": "Process command-line interaction via pipes"
+    }
+  ]
+}

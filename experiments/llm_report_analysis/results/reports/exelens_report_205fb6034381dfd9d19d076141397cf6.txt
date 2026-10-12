@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple high-intent malicious capabilities, including kernel-level API hooking, registry modification for persistence, process injection, and potential kernel-mode driver exploitation, specifically targeting security and system management components.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based payload obfuscation",
+      "Dynamic API resolution (GetProcAddress)"
+    ],
+    "details": "The file uses a custom XOR routine (XOR key 0xCD) to unpack data from the .rsrc section, which appears to hold shellcode or configuration data. Dynamic resolution of functions from ntdll.dll and other system libraries is heavily employed."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode Hooking",
+      "description": "Uses NtQuerySystemInformation and attempts to manipulate system structures (KeServiceDescriptorTable), indicative of rootkit-like behavior."
+    },
+    {
+      "name": "Process Injection",
+      "description": "Employs CreateProcessA, VirtualAlloc, and WriteFile to inject code into other processes (like lsass.exe via registry modification)."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies Windows registry keys (Run keys) to ensure execution across reboots."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Contains checks for debugger presence and sandbox-related file artifacts."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode hook attempts (fcn.1000b369, modifying KeServiceDescriptorTable), the registry manipulation targeting 'lsass', and the use of 'NtShutdownSystem' and 'DbgPrint' functions points unequivocally to malicious intent rather than a legitimate installer or protector. The sample targets low-level OS internals to evade detection and maintain control.",
+    "general": "High-intent evidence includes calls to fcn.1000b369 (modifying KeServiceDescriptorTable), fcn.100017a0 (modifying registry to inject into lsass.exe), and the use of kernel function names like 'PsGetCurrentProcess' and 'NtQueryObject' which are not typical for benign user-mode software.",
+    "uncertainties": "While the kernel-level code interaction is clear, the exact nature of the payload inside the .rsrc section remains partially opaque due to truncated analysis data, although its role as a loader/injector is evident.",
+    "conditions": "The sample performs environment checks (GetEnvironmentVariable) for 'system32' and 'temp' paths. It uses a specific mutex ('GlobalRPCMutex', 'prkMtx') to ensure only one instance runs. It requires high privileges to interact with kernel structures.",
+    "sandbox_recommendations": "Run in an environment with kernel debugging disabled or controlled, as the sample explicitly checks for system-level anomalies. Ensure the environment simulates a standard Windows user desktop and includes an 'lsass.exe' process for the sample to attempt injection."
+  },
+  "ioc": [
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for single-instance execution."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Alternative mutex name checked during execution."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "lsass.exe",
+          "description": "Target process for registry modification/injection."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Kernel-mode hook function modifying SSDT entries."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Registry manipulation and persistence logic."
+    },
+    {
+      "address": "0x10009bd3",
+      "name": "fcn.10009bd3",
+      "description": "System information query/hooking initialization."
+    }
+  ]
+}

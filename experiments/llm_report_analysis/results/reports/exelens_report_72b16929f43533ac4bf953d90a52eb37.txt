@@ -1,0 +1,75 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample is a sophisticated dropper that installs a kernel-level driver or modifies system memory to bypass security mechanisms. It uses mutex checks to avoid multiple instances, persistent registry modification (including lsass injection), and dynamic loading of ntdll/ntkrnl functions to perform its malicious operations.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR obfuscation of resources",
+      "Dynamic API resolution via GetProcAddress",
+      "Self-modifying code"
+    ],
+    "details": "The sample contains encrypted resources, likely the main payload or driver components, which are decrypted at runtime in memory (RVA: 0x1000164c using 0xcd XOR key) and then executed or loaded."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Modifies registry keys (RegSetValueExA) to maintain persistence on the system."
+    },
+    {
+      "name": "Process Injection",
+      "description": "Uses CreateProcessA to inject or launch malicious binaries."
+    },
+    {
+      "name": "Evasion/Anti-Analysis",
+      "description": "Uses mutexes (CreateMutexW, prkMtx) to prevent concurrent execution and avoid sandbox detection."
+    },
+    {
+      "name": "System Modification",
+      "description": "Performs memory patching and calls kernel-related functions (NtQuerySystemInformation, NtQueryObject, KeServiceDescriptorTable patching) to bypass security."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level hooking (KeServiceDescriptorTable), LSASS registry modifications for persistence, and the use of hardcoded strings associated with system bypassing ('ntoskrnl.exe', 'NtQuerySystemInformation') confirms malicious intent, ruling out legitimate software.",
+    "general": "Specific high-intent evidence: fcn.100017a0 (lsass registry persistence), fcn.1000ab6f (KeServiceDescriptorTable patching to bypass security), and fcn.1000b46f (direct kernel modification calls).",
+    "uncertainties": "Truncated disassembly prevents a full analysis of the decrypted payload functionality, but the loader and system modification routines are sufficient to identify malicious intent.",
+    "conditions": "The malware requires administrative privileges to perform registry modifications and kernel-level patching; it likely checks for existing infection via the 'prkMtx' mutex.",
+    "sandbox_recommendations": "Provide administrative access, enable simulation of legitimate registry activity, and monitor for changes to the 'lsass' registry keys and system service table modifications."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for instance tracking"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex for kernel-level protection"
+        },
+        {
+          "value": "lsass",
+          "description": "Registry key targeted for modification"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Modifies LSASS registry values for persistence."
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Patches KeServiceDescriptorTable for kernel-level hooking."
+    },
+    {
+      "address": "0x100043d2",
+      "name": "fcn.100043d2",
+      "description": "Resource decryption routine and loader entry."
+    }
+  ]
+}

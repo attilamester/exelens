@@ -1,0 +1,71 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This sample is a remote access trojan (RAT) that establishes a C2 connection via WinINet, provides remote shell capabilities using cmd.exe, enumerates system processes and services, and exfiltrates information to the C2.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The file is not packed; the logic is clearly visible in the disassembly, including command-line parsing, networking initialization, and process/service management."
+  },
+  "capabilities": [
+    {
+      "name": "Remote Command Execution",
+      "description": "Utilizes CreatePipe and CreateProcessA to execute shell commands remotely via cmd.exe."
+    },
+    {
+      "name": "C2 Communication",
+      "description": "Communicates with a remote server using WinINet (InternetConnectA, HttpOpenRequestA, HttpSendRequestA)."
+    },
+    {
+      "name": "Information Gathering",
+      "description": "Collects system information, including process lists, service lists, drive information, and user account details."
+    },
+    {
+      "name": "Persistence/Process Management",
+      "description": "Uses OpenProcess and TerminateProcess to control system processes, and OpenService/ControlService to manipulate services."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of specific capabilities—specifically the use of pipes to intercept cmd.exe I/O, WinINet for C2 communication, and process/service enumeration—is characteristic of a backdoor/RAT. These capabilities, when combined with evidence of sending shell output ('Shell started successfully') and receiving instructions, confirm malicious intent rather than dual-use utility.",
+    "general": "Evidence of intent is found in fcn.00401ba9 (shell spawning via cmd.exe), fcn.00401e12 (process/service enumeration), and fcn.004010c0 (C2 connection initialization). The code explicitly handles command strings like 'shell', 'Sleep_Time:', and 'exit'.",
+    "uncertainties": "The exact C2 domain/IP is not visible in the code as it is passed dynamically or from a configuration not fully resolved, but the structure is unambiguously malicious.",
+    "conditions": "The malware requires internet access to function and expects a C2 server to respond with instructions. It uses WinINet, which may respect system proxy settings.",
+    "sandbox_recommendations": "The sample should be executed in an isolated network environment with a simulated C2 server (e.g., INetSim) to intercept its HTTP requests. Monitor for spawns of cmd.exe and pipe creation."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "cmd.exe",
+          "description": "Command shell used for remote execution."
+        },
+        {
+          "value": "shell",
+          "description": "Command keyword recognized by the bot."
+        },
+        {
+          "value": "Sleep_Time:",
+          "description": "Configuration keyword for C2 polling intervals."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401ba9",
+      "name": "fcn.00401ba9",
+      "description": "Spawns a remote shell using cmd.exe and pipes."
+    },
+    {
+      "address": "0x00401e12",
+      "name": "fcn.00401e12",
+      "description": "Enumerates system processes, services, and drives for reconnaissance."
+    },
+    {
+      "address": "0x004010c0",
+      "name": "fcn.004010c0",
+      "description": "Initializes WinINet network connection to the C2 server."
+    }
+  ]
+}

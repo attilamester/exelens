@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample demonstrates clear persistence and payload dropping behavior. It extracts an embedded configuration and writes a malicious batch file to the system's AppData directory, which is configured to execute a malicious DLL (`netapi64.dll`) via `rundll32.exe`. It also performs anti-analysis checks (debugger detection via `IsDebuggerPresent`) and manipulates registry keys for persistence.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed; it appears to be a compiled C++ executable with standard runtime library boilerplate."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence via Registry",
+      "description": "Uses RegSetValueExW to write registry keys, facilitating persistence for the dropped batch file."
+    },
+    {
+      "name": "File Dropping",
+      "description": "Writes 'aeinv.bat' to the AppData folder using CreateFileW and WriteFile."
+    },
+    {
+      "name": "Process Execution",
+      "description": "Uses ShellExecuteW to run 'rundll32.exe' to execute a library file, indicating a multi-stage infection process."
+    },
+    {
+      "name": "Environment Manipulation",
+      "description": "Interacts with environmental variables like APPDATA and ALLUSERSPROFILE."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Uses IsDebuggerPresent to check for debuggers and modifies the UnhandledExceptionFilter to bypass crash reporting."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistent registry modifications, dropping a batch file intended for execution, and the invocation of rundll32.exe to load an external DLL (netapi64.dll) clearly identifies malicious intent. These actions are typical of a downloader/dropper malware rather than legitimate software.",
+    "general": "In fcn.004010d0, the code writes to the registry using RegSetValueExW. In fcn.004011e0, it creates 'aeinv.bat' and uses ShellExecuteW to launch 'rundll32.exe' with arguments pointing to 'netapi64.dll'. Anti-debugging is confirmed via IsDebuggerPresent in fcn.00403311.",
+    "uncertainties": "While the logic for decrypting the embedded configuration is visible, the specific payload of netapi64.dll is not included in the static analysis provided, though its role is clearly identified by the execution string.",
+    "conditions": "The execution flow is triggered immediately upon launch, but it relies on environment variables (e.g., APPDATA) being correctly set in the operating system environment.",
+    "sandbox_recommendations": "Simulate a standard Windows environment with %APPDATA% present. Monitor file creation in the user's AppData/Roaming folder and intercept registry modifications to the Run keys."
+  },
+  "ioc": [
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "aeinv.bat",
+          "description": "Batch file dropped by the malware in the APPDATA directory."
+        },
+        {
+          "value": "netapi64.dll",
+          "description": "Malicious library executed by rundll32.exe."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "rundll32.exe",
+          "description": "System utility used to execute the malicious DLL."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x004011e0",
+      "name": "fcn.004011e0",
+      "description": "Handles the file dropping of 'aeinv.bat' and its execution via ShellExecuteW."
+    },
+    {
+      "address": "0x00401000",
+      "name": "fcn.00401000",
+      "description": "Performs registry manipulation for persistence using RegSetValueExW."
+    },
+    {
+      "address": "0x00403311",
+      "name": "fcn.00403311",
+      "description": "Contains anti-analysis routines including IsDebuggerPresent checks."
+    }
+  ]
+}

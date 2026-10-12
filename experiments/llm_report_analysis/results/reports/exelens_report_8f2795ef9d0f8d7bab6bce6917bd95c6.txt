@@ -1,0 +1,75 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains sophisticated system-level modifications and anti-analysis techniques, including the patching of Windows kernel structures (KeServiceDescriptorTable), kernel object manipulation (NtQueryObject, NtQuerySystemInformation), and process injection via direct memory writing. It exhibits behavior consistent with rootkit-like functionality or kernel-mode malware.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based payload obfuscation",
+      "Dynamic API resolution via GetProcAddress"
+    ],
+    "details": "Routine fcn.100015f7 performs XOR decryption (0xcd key) of loaded resources before execution. The core logic relies on dynamic resolution of kernel-related APIs and system calls."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Modifies KeServiceDescriptorTable to hook system services."
+    },
+    {
+      "name": "Persistence",
+      "description": "Creates registry keys and modifies system configurations to maintain control."
+    },
+    {
+      "name": "Process/Thread Injection",
+      "description": "Uses VirtualAlloc/WriteProcessMemory techniques to inject into processes."
+    },
+    {
+      "name": "Environment Evasion",
+      "description": "Checks for debugger presence and system environment variables to avoid analysis."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent malicious capabilities, such as patching the kernel service descriptor table (fcn.1000ab6f) and direct interaction with ntdll.dll/ntoskrnl.exe (fcn.10009bd3, fcn.1000c492), overrides any potential benign justification (like a legitimate security tool). The use of these functions to modify memory protections (VirtualAlloc, MmMapLockedPagesSpecifyCache) and hook system functions is characteristically malicious.",
+    "general": "High-intent evidence includes patching the system service descriptor table (fcn.1000ab6f) and the explicit use of NtQuerySystemInformation (fcn.1000d4f0) and KeServiceDescriptorTable (fcn.1000b369). The code explicitly targets kernel structures with the intent to intercept or subvert legitimate OS functionality.",
+    "uncertainties": "The sample contains complex code paths for environment-specific execution (e.g., checks for 'win32k.sys' or specific OS versions). Some functionality might remain dormant in environments not meeting the specific requirements.",
+    "conditions": "Payload activation appears to depend on successful environment checks (GetSystemDirectory, GetVersionExA) and the existence of specific registry keys or file paths (lsass, ntkrnlpa.exe).",
+    "sandbox_recommendations": "Use a kernel-mode debugger, perform syscall tracing, and simulate a full Windows environment with kernel-level driver support to observe the hooks."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\",
+          "description": "Potential persistence path"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "_system32\\",
+          "description": "Target directory for system modification"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Primary function responsible for hooking the system service descriptor table."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Performs XOR decryption of embedded resources."
+    },
+    {
+      "address": "0x1000c492",
+      "name": "fcn.1000c492",
+      "description": "Manipulates memory descriptors (MDL) for direct kernel memory access."
+    }
+  ]
+}

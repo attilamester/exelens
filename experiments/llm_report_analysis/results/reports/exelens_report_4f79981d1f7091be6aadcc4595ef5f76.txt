@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample exhibits typical behavior of a sophisticated kernel-mode backdoor or rootkit installer. It performs system environment enumeration, interacts with kernel-level structures (likely attempting to modify SSDT or system service tables), and implements process-hollowing or code injection techniques via direct memory manipulation. It contains numerous anti-debugging, anti-analysis, and persistence mechanisms, including registry modifications and environment checks.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based payload obfuscation",
+      "Dynamic API resolution (GetProcAddress)",
+      "Resource-based payload storage"
+    ],
+    "details": "The file uses custom XOR loops (e.g., in fcn.100015f7) to decrypt embedded resources. It dynamically resolves functions from kernel modules and system DLLs, obfuscating its true malicious imports."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "Uses VirtualAlloc/WriteProcessMemory/CreateRemoteThread (indirectly via system calls) to inject code into other processes."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies system registry keys (e.g., Run keys, system settings) and copies files to system directories."
+    },
+    {
+      "name": "Anti-Analysis/Evasion",
+      "description": "Contains checks for debugger presence and sandbox environments, and uses obfuscated control flow."
+    },
+    {
+      "name": "Kernel-mode Interaction",
+      "description": "Attempts to interact with ntoskrnl.exe and ntdll.dll structures to potentially hook system calls."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent malicious capabilities—specifically targeting kernel-level structures (KeServiceDescriptorTable, NtQuerySystemInformation), persistent registry modifications, and the use of obfuscated, dynamically resolved API calls—indicates malicious intent beyond dual-use tools. The presence of specific code blocks targeting 'win32k.sys' and 'NtShutdownSystem' further confirms a malicious rootkit-like profile rather than legitimate administrative activity.",
+    "general": "High-intent evidence includes calls to fcn.1000b369 (interacting with KeServiceDescriptorTable), the use of NtQuerySystemInformation (fcn.1000d4f0) to enumerate system objects, and process hollowing patterns throughout the code, notably in fcn.100017a0 and fcn.10001a54.",
+    "uncertainties": "While the binary is clearly malicious, the full payload contained within the encrypted RCDATA resources could not be fully reconstructed, leaving potential specific secondary modules unidentified.",
+    "conditions": "The malware requires administrative privileges and specific system versions (e.g., checks in fcn.10007578) to activate its kernel-mode hooks. It also uses mutexes (e.g., GlobalRPCMutex) to prevent multiple instances from running simultaneously.",
+    "sandbox_recommendations": "Run in a controlled x64 environment with kernel-debugging enabled. Monitor registry activity for modifications to 'Run' keys and observe file creation in the System32 directory."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\",
+          "description": "Targeted for persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for synchronization."
+        },
+        {
+          "value": "win32k.sys",
+          "description": "Kernel driver targeted for potential hooking."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Implements hooks or modifications for KeServiceDescriptorTable."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Drives persistence via registry manipulation and file copying."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Resource decryption routine (XOR loop)."
+    }
+  ]
+}

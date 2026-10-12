@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains a sophisticated multi-stage installer that performs system-level modifications, including registry manipulation and potentially loading drivers (as indicated by references to 'ntkrnlpa.exe', 'KeGetCurrentIrql', and service table manipulation), alongside stealthy persistence mechanisms and potential credential dumping activities.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR-based resource decryption",
+      "Dynamic API resolution (GetProcAddress)",
+      "Dynamic library loading (LoadLibrary)"
+    ],
+    "details": "The file uses custom XOR loops (0xcd) to decrypt payloads hidden in resources, and utilizes dynamic API resolution to load and execute code from system DLLs (like 'ntdll.dll') to manipulate internal OS structures."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Modifies system registry keys (e.g., 'RegSetValueExA') and uses services to ensure execution across reboots."
+    },
+    {
+      "name": "Process/Driver Injection",
+      "description": "The code contains functions ('fcn.1000b369', 'fcn.1000b46f') that interact with the System Service Descriptor Table (SSDT), a common technique for rootkits to hide processes or hook system calls."
+    },
+    {
+      "name": "Evasion/Anti-Analysis",
+      "description": "Checks for debugger presence and system environment to avoid analysis, and uses multiple stages to hide its main functionality."
+    },
+    {
+      "name": "Credential Access",
+      "description": "References to 'lsass' indicate an intent to access or dump credentials from memory."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of SSDT modification techniques ('KeServiceDescriptorTable'), references to sensitive processes like 'lsass', and the use of 'RegCreateKeyExA' for system-wide persistence demonstrates a clear intent to compromise the system and achieve long-term, stealthy control. This goes far beyond the capabilities of a legitimate installer.",
+    "general": "High-intent evidence includes SSDT hooking functions (RVA 0x1000b369), registry manipulation (RVA 0x100028d6), and explicit attempts to locate and interact with 'lsass' (RVA 0x100017a0).",
+    "uncertainties": "The exact nature of the decrypted resource is hidden until runtime, but the loaded API names are sufficient to confirm the malicious nature.",
+    "conditions": "The malware checks for a mutex 'prkMtx' (RVA 0x1000753a). If the mutex exists, it may terminate or exit the primary execution path.",
+    "sandbox_recommendations": "Provide a fully simulated environment with common administrative tools installed. Do not bypass mutex checks. Monitor registry write attempts to 'HKLM' and 'Run' keys."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\",
+          "description": "Registry path where persistence keys are likely created."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "lsass",
+          "description": "String used to identify the process for credential dumping."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used to synchronize/prevent multiple instances."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Performs SSDT (System Service Descriptor Table) hooking, likely to intercept system calls."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Interact with registry and targets lsass for credential access."
+    },
+    {
+      "address": "0x100028d6",
+      "name": "fcn.100028d6",
+      "description": "Coordinates the main persistence logic via the registry."
+    }
+  ]
+}

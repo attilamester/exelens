@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a remote administration trojan (RAT) / backdoor. It installs itself as a Windows service named 'Microsoft .Net Framework COM Support', establishes C2 communications via HTTP, and allows remote command execution (shell) through pipes or by spawning cmd.exe processes. It also includes capabilities to list processes, list services, and download files from remote URLs.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is clearly visible and not packed. The entropy levels of sections are within standard bounds for compiled C/C++ code."
+  },
+  "capabilities": [
+    {
+      "name": "Service Persistence",
+      "description": "Uses CreateServiceA and ChangeServiceConfig2A to register as a background service."
+    },
+    {
+      "name": "Remote Shell/Process Hollowing",
+      "description": "Spawns cmd.exe and interacts with it via pipes (CreatePipe), allowing remote command input and output retrieval."
+    },
+    {
+      "name": "C2 Communication",
+      "description": "Uses WININET.dll functions (HttpSendRequestA, InternetConnectA) for C2 communication via HTTP."
+    },
+    {
+      "name": "System Enumeration",
+      "description": "Lists processes (CreateToolhelp32Snapshot), services (EnumServicesStatusExA), and drives (GetLogicalDrives)."
+    },
+    {
+      "name": "File Download",
+      "description": "Uses urlmon.dll_URLDownloadToFileA to fetch external payloads."
+    }
+  ],
+  "details": {
+    "reasoning": "The application is explicitly designed to act as a backdoor service. It contains strings like 'Shell_started_successfully' and 'Process cmd.exe exited', uses HTTP headers for C2, and implements administrative commands such as 'kill', 'start', and 'GetUrl'. These features in conjunction with service-based persistence demonstrate malicious intent typical of remote access trojans.",
+    "general": "High-intent evidence includes the registration of a service ('Microsoft .Net Framework COM Support') in fcn.00402b9c, the use of CreatePipe to hook command-line input/output in fcn.00401406, and the implementation of a C2 loop interacting with wininet.dll functions in fcn.004010c0.",
+    "uncertainties": "While the binary is not packed, the exact C2 server URL and communication protocol details are likely dynamically generated or obfuscated within the HTTP requests constructed at runtime.",
+    "conditions": "The sample requires being run with specific arguments ('-install' to install the service, '-uninstall' to remove it). It relies on standard Windows service control flow. To interact with the 'shell', the analyst must trigger the shell-specific command loop.",
+    "sandbox_recommendations": "Run the sample with '-install' to observe its persistence mechanism. Monitor network traffic for HTTP GET/POST requests targeting external IP addresses. Simulate interaction by providing input to the spawned pipes if possible."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "Microsoft .Net Framework COM Support",
+          "description": "Name of the installed malicious service"
+        },
+        {
+          "value": "_svchost.exe",
+          "description": "File name used for persistence"
+        },
+        {
+          "value": "shell",
+          "description": "Command string for shell mode"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "c:\\windows\\svchost.exe",
+          "description": "Installation path"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00402b9c",
+      "name": "fcn.00402b9c",
+      "description": "Installs and configures the backdoor as a Windows service"
+    },
+    {
+      "address": "0x00401406",
+      "name": "fcn.00401406",
+      "description": "Main C2 loop and command handler"
+    },
+    {
+      "address": "0x00401c04",
+      "name": "fcn.00401c04",
+      "description": "Spawns and manages remote shell processes (cmd.exe)"
+    }
+  ]
+}

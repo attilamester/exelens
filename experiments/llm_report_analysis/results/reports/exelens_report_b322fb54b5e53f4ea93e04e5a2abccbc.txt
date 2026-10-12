@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a kernel-mode driver installer or system-level tool. It utilizes obfuscated resource data (XOR 0xCD) to unpack embedded payloads, attempts to modify registry keys (lsass, Run keys), creates mutexes for persistence, and interacts with system-level structures including KeServiceDescriptorTable to potentially patch or monitor kernel functions. The presence of 'fanny.bmp' and 'Q:_____.lnk' alongside registry manipulation suggests it is a variant of a rootkit or downloader.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "XOR-based obfuscation (0xCD)",
+      "Resource-based payload hiding"
+    ],
+    "details": "Payloads are stored in RSRC (resource 102), decrypted using an XOR 0xCD loop in fcn.100015f7 and fcn.10001723 before being written to disk or memory."
+  },
+  "capabilities": [
+    {
+      "name": "Payload Unpacking",
+      "description": "Decrypts and extracts embedded resources from RSRC section."
+    },
+    {
+      "name": "Persistence and Registry Manipulation",
+      "description": "Uses RegSetValueExA and RegCreateKeyExA to modify system registry keys."
+    },
+    {
+      "name": "Kernel-mode System Interaction",
+      "description": "Interacts with KeServiceDescriptorTable (SSDT) and uses IoAllocateMdl/MmProbeAndLockPages for direct memory manipulation."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Uses CreateFile, CopyFile, and SetFileAttributes to install or move components in system directories (system32)."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of registry modifications (e.g., targeting LSASS and Run keys), the presence of kernel-level API interaction code (KeServiceDescriptorTable, KeGetCurrentIrql), and the self-unpacking/XOR logic clearly demonstrates malicious intent aimed at persistence and stealthy system modification. This is not a standard software protection behavior.",
+    "general": "High-intent indicators include fcn.100017a0 (RegCreateKeyExA, RegSetValueExA, RegQueryValueExA), fcn.1000b369 (patching KeServiceDescriptorTable), and fcn.10001b34 (CreateProcessA). The use of these APIs in a hidden resource context confirms a malicious rootkit or downloader.",
+    "uncertainties": "The exact nature of the decrypted payload (resource 102) remains unknown as it requires runtime memory dumping, and the specific target architecture/OS version constraints are not fully confirmed due to truncated analysis data.",
+    "conditions": "Payload activation is gated by environment checks (GetEnvironmentVariableA for 'system32' path) and successful registry key modification. Successful execution requires admin-level privileges due to kernel-level API usage.",
+    "sandbox_recommendations": "Simulate a Windows environment with administrative privileges. Ensure network monitoring is active to capture potential command-and-control callback attempts. Monitor registry hive 'HKLM\\SYSTEM\\CurrentControlSet' for modifications."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet",
+          "description": "Registry path modified for persistence."
+        },
+        {
+          "value": "lsass",
+          "description": "Registry key/value targeted for modification."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "system32",
+          "description": "Directory targeted for file installation."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Functions used to modify the KeServiceDescriptorTable for kernel hooking."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Routine for loading and XOR-decrypting embedded resources."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Registry modification logic used for persistence."
+    }
+  ]
+}

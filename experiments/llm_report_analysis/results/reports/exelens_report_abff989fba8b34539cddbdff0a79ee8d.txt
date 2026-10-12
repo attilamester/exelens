@@ -1,0 +1,88 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a malicious driver-based rootkit installer or system component manipulator. It performs complex system-level operations, including bypassing Kernel Mode Code Signing (KMCS) via system service descriptor table (SSDT) manipulation, modifying the registry to ensure persistence, and executing privileged operations by targeting 'ntkrnlpa.exe' and 'ntoskrnl.exe'. It uses resource-based payloads which it decrypts at runtime using a single-byte XOR key.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource encryption",
+      "Dynamic API resolution (GetProcAddress/LoadLibrary)"
+    ],
+    "details": "The file contains encrypted payloads within the .rsrc section (resource ID 102). It uses a custom XOR routine (XOR key 0xcd) in fcn.100015f7 to decrypt these resources at runtime before potentially mapping or executing them."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Uses SSDT hooking or direct kernel object manipulation (KeServiceDescriptorTable, KeAddSystemServiceTable) to potentially subvert OS integrity."
+    },
+    {
+      "name": "Registry Persistence",
+      "description": "Modifies system registry keys to ensure execution (e.g., RegSetValueExA)."
+    },
+    {
+      "name": "Privilege Escalation / Token Handling",
+      "description": "Uses DuplicateTokenEx and OpenProcessToken to manipulate process privileges."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Copies, deletes, and sets attributes of system files, specifically targeting files like 'win32k.sys'."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent kernel-mode operations (SSDT hooking, modifying system integrity checks) and the use of obfuscation techniques on sensitive system files (e.g., win32k.sys) strongly indicates malicious intent rather than a legitimate installer or protector. The code explicitly searches for kernel-level structures and attempts to hijack system calls, which is a hallmark of rootkit behavior.",
+    "general": "High-intent malicious evidence is found in fcn.1000b369 (SSDT hooking via KeServiceDescriptorTable), fcn.1000a0fc (targeting system drivers like win32k.sys), and the XOR decryption of resource data in fcn.100015f7. The use of 'ntkrnlpa.exe' and 'ntoskrnl.exe' manipulation further confirms malicious intent.",
+    "uncertainties": "While the kernel-level code is clearly malicious in its techniques, the specific payload extracted from resources (e.g., the exact nature of the file being written) would require further analysis in an isolated environment.",
+    "conditions": "Execution is gated by environment checks (GetSystemDirectoryA, GetVersionExA). The code appears to check for administrative privileges and specific OS versions before proceeding with the malicious driver-level hooks.",
+    "sandbox_recommendations": "Run in a controlled kernel-debugging environment (e.g., WinDbg linked to a virtual machine). The malware expects a standard Windows environment and may fail if it detects virtualization/analysis too early; ensure the sandbox is properly hardened against VM-exit detection."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Targeted for persistence."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "system32\\win32k.sys",
+          "description": "System driver targeted for modification."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used to synchronize execution."
+        },
+        {
+          "value": "KeServiceDescriptorTable",
+          "description": "Symbol for rootkit-style hooking."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Resource decryption routine using XOR 0xcd."
+    },
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Manipulates KeServiceDescriptorTable, indicative of rootkit behavior."
+    },
+    {
+      "address": "0x1000a0fc",
+      "name": "fcn.1000a0fc",
+      "description": "System driver (win32k.sys) file access and modification routine."
+    }
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a sophisticated rootkit/driver installer that checks for specific system conditions and then deploys and installs a driver. It utilizes resource-based payload extraction with XOR obfuscation, registry-based persistence, and includes capabilities to interact with kernel-level components.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource-based payload storage",
+      "XOR-based data obfuscation",
+      "Dynamic API resolution (GetProcAddress/LoadLibrary)"
+    ],
+    "details": "The payload is stored in the .rsrc section (resource 102). A function (fcn.100015f7) retrieves this resource, and fcn.10001697/fcn.10001723 implements an XOR-loop (key: 0xCD) to de-obfuscate or patch the payload before writing it to disk or updating the resource."
+  },
+  "capabilities": [
+    {
+      "name": "Payload Persistence",
+      "description": "Uses RegSetValueExA to modify registry run keys or system service configuration."
+    },
+    {
+      "name": "Kernel Interaction",
+      "description": "Attempts to interact with ntoskrnl.exe, ntkrnlpa.exe, and win32k.sys through kernel-mode API patterns (e.g., KeGetCurrentIrql, NtQuerySystemInformation, NtShutdownSystem)."
+    },
+    {
+      "name": "Privilege Escalation / Token Handling",
+      "description": "Utilizes AdjustTokenPrivileges/DuplicateTokenEx patterns and SID manipulation."
+    },
+    {
+      "name": "Anti-Analysis / Mutex Checks",
+      "description": "Uses global mutexes (e.g., 'GlobalRPCMutex', 'prkMtx') to prevent multiple instances and detect sandbox environments."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode API interactions (e.g., Service Descriptor Table patching, MDL mapping), resource-based payload obfuscation, and registry modification for persistence strongly indicates a rootkit intent, which is inherently malicious.",
+    "general": "High-intent indicators include fcn.1000b369 (Service Descriptor Table modification), fcn.1000c492 (MDL memory mapping), and the use of registry values to store potentially driver-related data.",
+    "uncertainties": "The exact function of the decrypted binary is not fully revealed, as fcn.10001697 contains complex logic that might perform additional decryption steps at runtime.",
+    "conditions": "The file expects specific registry keys or environment variables to be present and potentially requires administrative privileges to successfully map and load kernel components.",
+    "sandbox_recommendations": "Use a kernel-mode debugger (e.g., WinDbg) attached to the target VM. Monitor file writes to the system directory and registry changes to 'HKLM\\SYSTEM\\CurrentControlSet\\Services'."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Targeted for driver/service installation persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for process synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name related to kernel-level locking."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Potentially modifies the SSDT to hook system calls."
+    },
+    {
+      "address": "0x10001723",
+      "name": "fcn.10001723",
+      "description": "Implements an XOR routine to de-obfuscate payload resources."
+    },
+    {
+      "address": "0x1000c492",
+      "name": "fcn.1000c492",
+      "description": "Handles MDL memory mapping, a standard technique for kernel-mode memory access."
+    }
+  ]
+}

@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to hide and persist on a system by modifying system binaries (lsass) and installing a kernel-mode driver, using obfuscated resources for its payload.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR encoding",
+      "Dynamic API resolution via GetProcAddress and LoadLibrary"
+    ],
+    "details": "The file uses custom XOR routines (e.g., fcn.100015f7, fcn.10001723) to decrypt embedded resources (type 232). The entry point performs basic initialization before invoking these routines to prepare for payload execution."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence via System Registry",
+      "description": "Modifies 'lsass' registry entries to persist upon system startup."
+    },
+    {
+      "name": "Process Injection/Hooking",
+      "description": "Uses APIs like BeginUpdateResourceA and UpdateResourceA, suggesting manipulation of binary images."
+    },
+    {
+      "name": "Environment Evasion",
+      "description": "Checks for environment variables and specific file paths to evade sandboxes or automated analysis environments."
+    },
+    {
+      "name": "Kernel-level interaction",
+      "description": "Includes symbols related to kernel memory management (MmMapLockedPages, MmProbeAndLockPages) and kernel structures (KeServiceDescriptorTable)."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode capability (manipulating SSDT, mapping kernel memory), modification of critical system components (lsass), and the use of obfuscation to hide its core logic is highly characteristic of rootkit-type malware. There is no legitimate functionality in a typical user-space executable that warrants direct manipulation of the System Service Descriptor Table (SSDT) or the lsass process.",
+    "general": "The executable performs malicious intent via functions fcn.100017a0 (modifying registry-based system start), fcn.1000b46f (kernel memory manipulation), and fcn.1000b73a (system shutdown manipulation). The use of these specific, sensitive APIs in conjunction with the obfuscated payload indicates clear malicious intent.",
+    "uncertainties": "The exact nature of the payload inside the resource 102 (106KB) could not be fully disassembled as it appears to be a separate, encrypted module. However, the loader's behavior is sufficiently clear to determine malicious intent.",
+    "conditions": "The malware checks for a 'GlobalRPCMutex' and environment variables to decide whether to activate its payload. It also performs specific file checks and uses a sleep timer (Sleep) to delay execution, likely to evade sandbox detection.",
+    "sandbox_recommendations": "Simulate a fully featured Windows environment, ensure the system clock is set to a current real-time date, and monitor registry keys related to system services. Do not run in a minimal sandbox as it may check for file system structure (e.g., System32 directory presence)."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\lsass",
+          "description": "Registry key targeted for modification for persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used to ensure single instance execution."
+        },
+        {
+          "value": "lsass",
+          "description": "Targeted system process name for injection or modification."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Manipulates the Windows registry to achieve persistence."
+    },
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Performs kernel memory mapping and system manipulation."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Resource loading and XOR-based decryption routine."
+    }
+  ]
+}

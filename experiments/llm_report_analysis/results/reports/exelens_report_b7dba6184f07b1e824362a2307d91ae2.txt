@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This file is a network-based remote administration tool (RAT) acting as a backdoor. It registers as a system service and establishes a command-and-control connection to 'vip.issnbgkit.net'. It supports remote command execution, file downloading, and environment reconnaissance.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed; the logic is transparent and follows standard C/C++ compilation patterns."
+  },
+  "capabilities": [
+    {
+      "name": "Backdoor/Remote Command Execution",
+      "description": "Uses CreatePipe and CreateProcess to spawn command shells (cmd.exe) and redirect input/output over a network socket."
+    },
+    {
+      "name": "Network Communication",
+      "description": "Utilizes WinINet (HTTP) and Winsock for C2 communication, including custom file transfer protocols (getfile)."
+    },
+    {
+      "name": "Service Persistence",
+      "description": "Registers as a Windows service using ADVAPI32 service management functions."
+    },
+    {
+      "name": "Environment Reconnaissance",
+      "description": "Retrieves system time, hostname, and directory information to report back to the C2 server."
+    }
+  ],
+  "details": {
+    "reasoning": "While service installation and network I/O are dual-use, the combination of 'cmd.exe' redirection, socket communication via Winsock, and the C2-like polling behavior (fcn.100017cb) clearly identifies this as a malicious backdoor/RAT rather than a legitimate administration tool.",
+    "general": "High-intent malicious evidence is found in fcn.100017cb, which executes 'cmd.exe /c', redirects pipes to a socket, and provides a remote shell interface. The network communication logic (fcn.1000211b) explicitly implements file download/execute capability using 'getfile' commands.",
+    "uncertainties": "The sample performs network communication to 'vip.issnbgkit.net'; as the server is unreachable, the exact nature of the encrypted payload data is unknown, but the structural implementation is clearly a backdoor.",
+    "conditions": "Requires network connectivity to 'vip.issnbgkit.net' and standard service permissions to persist. Execution flow is triggered by entry0 acting as a ServiceMain entry point.",
+    "sandbox_recommendations": "Use a fake network service (e.g., INetSim) to simulate the C2 response from 'vip.issnbgkit.net'. Monitor file creation in the Windows directory and process spawning of cmd.exe."
+  },
+  "ioc": [
+    {
+      "type": "url",
+      "values": [
+        {
+          "value": "http://vip.issnbgkit.net",
+          "description": "Primary Command and Control server"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "cmd.exe /c",
+          "description": "Command used for shell execution"
+        },
+        {
+          "value": "getfile",
+          "description": "Remote control command for file download"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100017cb",
+      "name": "fcn.100017cb",
+      "description": "Main backdoor loop; handles command execution, pipe redirection, and socket I/O"
+    },
+    {
+      "address": "0x100012c8",
+      "name": "fcn.100012c8",
+      "description": "Implements file downloading functionality from the C2 server"
+    },
+    {
+      "address": "0x1000211b",
+      "name": "fcn.1000211b",
+      "description": "Handles C2 HTTP requests and command processing for file operations"
+    }
+  ]
+}

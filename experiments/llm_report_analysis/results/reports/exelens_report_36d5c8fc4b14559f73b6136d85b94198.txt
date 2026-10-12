@@ -1,0 +1,93 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a downloader/dropper that communicates with hardcoded URLs, performs process creation, and establishes persistence via registry modification. It uses custom string obfuscation to hide its activity and network endpoints.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "String obfuscation",
+      "Dynamic API resolution"
+    ],
+    "details": "The binary contains several routines (e.g., fcn.00402668, fcn.0040259e) that perform custom XOR-based decoding and character transformation on encrypted or obfuscated data buffers found in the .data section."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Modifies the Windows Run registry key via RegSetValueExW to ensure execution on startup."
+    },
+    {
+      "name": "Network Communication",
+      "description": "Uses WININET.dll APIs (HttpOpenRequestA, HttpSendRequestA) to perform HTTP GET/POST operations."
+    },
+    {
+      "name": "Process Execution",
+      "description": "Uses CreateProcessA to launch secondary commands or payloads."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Uses CreateMutexA (mutex: 'letusgozrmmv1.1') to ensure only one instance runs."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistent registry modification, repeated network communication to update endpoints, and the use of 'CreateProcessA' to execute dropped or external files confirms malicious intent rather than dual-use utility behavior. The presence of a mutex prevents redundant execution, a common tactic for maintaining control over the infected system.",
+    "general": "High-intent indicators include: fcn.00402842 (RegSetValueExW) which establishes persistence in Software\\Microsoft\\Windows\\CurrentVersion\\Run; fcn.00401365 and fcn.004015a1 which demonstrate C2 communication via WININET.dll; and fcn.004022ac (CreateProcessA) which manages secondary execution. String obfuscation is confirmed in functions like fcn.0040259e which decode URLs.",
+    "uncertainties": "While the binary is clearly a downloader, the exact nature of the final payload downloaded from the remote URLs is not visible without runtime interception.",
+    "conditions": "The malware requires internet access to reach the embedded host URLs (dril_quip.deltae.com.br, inmarsat.crystalmark.co.uk). It periodically checks for updates and requires sufficient privileges to write to the Registry Run key.",
+    "sandbox_recommendations": "Provide an internet connection (or simulated HTTP response) to allow the downloader to reach its C2. Monitor Registry activity for persistence attempts and process creation for spawned subprocesses."
+  },
+  "ioc": [
+    {
+      "type": "url",
+      "values": [
+        {
+          "value": "http://dril_quip.deltae.com.br/update.html",
+          "description": "Hardcoded C2 update URL"
+        },
+        {
+          "value": "http://inmarsat.crystalmark.co.uk/update.html",
+          "description": "Hardcoded C2 update URL"
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Registry key targeted for persistence"
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "letusgozrmmv1.1",
+          "description": "Mutex name used to detect concurrent instances"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00402842",
+      "name": "fcn.00402842",
+      "description": "Persistence mechanism: writes to the Windows Registry Run key."
+    },
+    {
+      "address": "0x004015a1",
+      "name": "fcn.004015a1",
+      "description": "Primary network communication and data exfiltration handler."
+    },
+    {
+      "address": "0x0040259e",
+      "name": "fcn.0040259e",
+      "description": "Decoding/obfuscation routine for strings and network configuration."
+    },
+    {
+      "address": "0x004022ac",
+      "name": "fcn.004022ac",
+      "description": "Execution wrapper for CreateProcessA."
+    }
+  ]
+}

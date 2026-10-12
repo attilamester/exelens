@@ -1,0 +1,71 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a downloader/dropper that persistently modifies the Windows Registry to ensure execution at system startup and attempts to download and execute secondary payloads via HTTP/WININET.",
+  "packed": {
+    "status": "false",
+    "techniques": [
+      "String obfuscation",
+      "Dynamic API resolution"
+    ],
+    "details": "No standard packing detected, but the code uses custom XOR-based string de-obfuscation and dynamic API loading via GetProcAddress."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Writes to the Windows Registry 'Run' key to ensure execution after reboot."
+    },
+    {
+      "name": "Network Communication",
+      "description": "Uses WININET.dll to perform HTTP requests (GET/POST) to a hardcoded remote IP address."
+    },
+    {
+      "name": "Process Injection/Execution",
+      "description": "Contains logic to create new processes using CreateProcessA, suggesting the deployment of secondary payloads."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistence (RegCreateKeyExA + RegSetValueExA on the 'Run' key) and network communication to an external IP for potential data retrieval or payload downloading indicates clear malicious intent, rather than a dual-use utility.",
+    "general": "The function fcn.004069b0 performs registry modifications on the Windows CurrentVersionRun key. Network activity is initiated by fcn.00401710, which connects to the URL 'http://203.200.205.245/java_careers.html'. The code subsequently executes or manages this payload via WININET APIs.",
+    "uncertainties": "The exact nature of the payload downloaded from the remote server could not be determined, but the orchestration code (CreateProcess/HttpOpenRequest) strongly implies an infection vector.",
+    "conditions": "Execution is triggered by system startup due to the registry persistence, or manual detonation. The malware expects specific network connectivity to the hardcoded IP.",
+    "sandbox_recommendations": "Use a network simulation tool to intercept the request to 203.200.205.245. Provide a fake HTML response to observe further payload download activity. Monitor registry changes at HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run."
+  },
+  "ioc": [
+    {
+      "type": "url",
+      "values": [
+        {
+          "value": "http://203.200.205.245/java_careers.html",
+          "description": "C2 download URL found in the binary strings."
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Registry path used for persistence."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x004069b0",
+      "name": "fcn.004069b0",
+      "description": "Performs persistence by adding the executable to the Windows Registry Run key."
+    },
+    {
+      "address": "0x00401710",
+      "name": "fcn.00401710",
+      "description": "Handles the core network connection and HTTP request logic via WININET."
+    },
+    {
+      "address": "0x00404367",
+      "name": "fcn.00404367",
+      "description": "Contains logic for process creation, likely used to execute downloaded payloads."
+    }
+  ]
+}

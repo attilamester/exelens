@@ -1,0 +1,83 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This sample is a complex dropper/loader that uses system service table (SST) hooking techniques to gain kernel-level influence, persistence via registry keys, and includes file modification capabilities, likely intended to disable or bypass security products.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation",
+      "Dynamic API resolution (GetProcAddress/LoadLibrary)"
+    ],
+    "details": "Resource-based payload obfuscation using XOR 0xCD. The main functions decrypt their data at runtime using custom XOR routines before execution."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-level hooking",
+      "description": "Utilizes KeServiceDescriptorTable hooking (fcn.1000b369, fcn.1000aa69) to potentially subvert system calls."
+    },
+    {
+      "name": "Persistence",
+      "description": "Sets registry keys and modifies system files to ensure survival across reboots."
+    },
+    {
+      "name": "Process Injection/Execution",
+      "description": "Uses CreateProcessA (fcn.10001b34) to launch system-like processes."
+    },
+    {
+      "name": "File Manipulation",
+      "description": "Uses CopyFileA, DeleteFileA, and SetFileAttributesA to manipulate sensitive system files."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level API hooking (KeServiceDescriptorTable), registry manipulation for persistence, and the systematic attempt to interact with protected system files (e.g., win32k.sys, ntoskrnl.exe) demonstrates a clear malicious intent to compromise system integrity. This is not standard behavior for installers or protectors, which typically limit interaction to their own directories.",
+    "general": "High-intent evidence includes calls to modify the KeServiceDescriptorTable (fcn.1000b369), manipulating system files in System32 (fcn.1000103b), and explicitly attempting to target system components using I/O via win32k.sys handling.",
+    "uncertainties": "The exact nature of the decrypted payloads remains partially hidden, requiring dynamic analysis to map the final post-hooking behavior.",
+    "conditions": "The malware checks for a specific environment (GetEnvironmentVariable) and registry keys. It requires elevation, likely to perform kernel memory manipulation.",
+    "sandbox_recommendations": "Use a kernel-aware debugger (e.g., WinDbg). Monitor registry activities around 'Run' keys and observe file system modifications in System32."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "DMWH",
+          "description": "Mutex or registry path identifier used for coordination"
+        },
+        {
+          "value": "DMWI",
+          "description": "Mutex or registry path identifier"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for synchronization"
+        },
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Modifies system service descriptor table."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Drops and executes a file as a new process."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Main logic for security-related registry manipulation."
+    }
+  ]
+}

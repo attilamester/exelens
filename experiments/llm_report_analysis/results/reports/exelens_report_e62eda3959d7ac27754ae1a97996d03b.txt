@@ -1,0 +1,75 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a sophisticated dropper/installer that decrypts embedded resources using a custom XOR algorithm, installs malicious persistence (likely a driver/service), and attempts to manipulate system memory and kernel structures (KeServiceDescriptorTable).",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR encryption",
+      "Resource-based loading",
+      "API dynamic resolution"
+    ],
+    "details": "The file uses XOR (0xcd) to decrypt encrypted resources (e.g., 102: size 106496). Dynamic API resolution is handled via LoadLibraryA/GetProcAddress to obfuscate imports."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence Manipulation",
+      "description": "Uses RegSetValueExA to modify Registry keys, likely for startup persistence."
+    },
+    {
+      "name": "Process/Driver Manipulation",
+      "description": "Attempts to interact with NT kernel structures like KeServiceDescriptorTable."
+    },
+    {
+      "name": "Resource Decryption",
+      "description": "Custom routines to decrypt embedded binary blobs."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Checks for debugger/VM environments and uses mutexes to ensure single execution."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level hooking (KeServiceDescriptorTable), hidden resource decryption, and persistence via system registry modification provides high-intent evidence of malicious behavior, exceeding dual-use cases.",
+    "general": "High-intent indicators include function fcn.1000b369 (manipulating KeServiceDescriptorTable), fcn.100017a0 (modifying registry values for persistence), and fcn.100015f7 (decrypting embedded resources).",
+    "uncertainties": "While the kernel-level code is clearly malicious in design, detonation is dependent on environment-specific registry keys and OS version checks (e.g., Windows version checks in fcn.100082ce).",
+    "conditions": "Requires a specific environment setup: registry keys or presence of certain system drivers. May require specific Windows versions or boot conditions.",
+    "sandbox_recommendations": "Run in a hardened Windows kernel-mode debugger environment. Monitor file I/O and Registry write operations. Use a mock internet service to satisfy networking requirements if triggered."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for process synchronization"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for kernel synchronization"
+        },
+        {
+          "value": "lsass",
+          "description": "Registry key modification target"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Manipulates kernel system service descriptor table."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Decryption routine for encrypted resources."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Implements persistence via Registry manipulation."
+    }
+  ]
+}

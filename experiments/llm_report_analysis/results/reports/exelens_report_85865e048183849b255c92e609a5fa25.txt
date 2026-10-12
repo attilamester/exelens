@@ -1,0 +1,93 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a dropper/installer that establishes persistence by modifying Windows service registry keys, creates a temporary batch script to update system service configurations, and interacts with the Windows Service Control Manager to start malicious services.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code appears to be compiled C++ code using MSVCRT and MSVCP60. No packing or obfuscation techniques were identified; the logic is visible in the clear."
+  },
+  "capabilities": [
+    {
+      "name": "Service Manipulation",
+      "description": "Uses ADVAPI32.dll functions to open the Service Control Manager and create or start services."
+    },
+    {
+      "name": "Persistence Mechanism",
+      "description": "Modifies registry keys (HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services) and creates temporary batch files for service reconfiguration."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Writes, reads, and deletes configuration files; uses CreateFileA, DeleteFileA, and WritePrivateProfileStringA."
+    },
+    {
+      "name": "Self-Deletion",
+      "description": "The process attempts to delete itself or associated temp files via KERNEL32.dll_DeleteFileA."
+    }
+  ],
+  "details": {
+    "reasoning": "The application exhibits clear high-intent malicious behavior. It explicitly opens the Windows Service Control Manager, queries service keys, and creates new service entries via registry modifications (fcn.00401132). It further attempts to execute a batch file ('temp.bat') created on the fly to alter system service parameters. These actions are characteristic of malware persistence mechanisms rather than legitimate software installation routines.",
+    "general": "Specific high-intent sequences include: 1) fcn.00401132 calling ADVAPI32.dll_RegOpenKeyExA followed by RegSetValueExA to modify system service parameters. 2) The creation of 'temp.bat' written via fwrite (RVA 0x401509) and executed via WinExec to perform reg-add operations on service dll paths. 3) The code checks for and deletes specific files like 's32.dll' within the system directory.",
+    "uncertainties": "While the logic for modifying service parameters is clear, the exact contents of the dropped 's32.dll' or the payload of the installed service remain outside the scope of this analysis as they are not statically present in the executable's resources or code.",
+    "conditions": "The sample uses a Mutex ('_INSTALL_SERVICES_NOW_') to ensure single execution. It also performs checks for the existence of files like 'systemconfig_shenghai.dat' and expects registry entries related to 'svchost.exe' in 'netsvcs'.",
+    "sandbox_recommendations": "Provide a simulated Windows environment with administrative privileges. Ensure the 'svchost' registry keys are present in the HKLM hive to allow the service registration path to proceed. The malware may sleep for extended periods (using Sleep calls) so fast-forwarding time or hooking Sleep is recommended."
+  },
+  "ioc": [
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "C:\\Windows\\systemconfig_shenghai.dat",
+          "description": "Configuration file checked and read by the executable."
+        },
+        {
+          "value": "temp.bat",
+          "description": "Temporary batch script created by the process to execute registry changes."
+        },
+        {
+          "value": "s32.dll",
+          "description": "Component file targeted for deletion or modification."
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Targeted registry hive for persistence via service modification."
+        },
+        {
+          "value": "SYSTEM\\CurrentControlSet\\Services\\netsvcs",
+          "description": "Target service group queried for modification."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "_INSTALL_SERVICES_NOW_",
+          "description": "Mutex name used for single-instance control."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401132",
+      "name": "fcn.00401132",
+      "description": "Main persistence logic: modifies registry service keys and initiates service installation routines."
+    },
+    {
+      "address": "0x00401765",
+      "name": "fcn.00401765",
+      "description": "Handles file configuration operations, specifically reading 'systemconfig_shenghai.dat'."
+    },
+    {
+      "address": "0x004016b5",
+      "name": "fcn.004016b5",
+      "description": "Service control routine: opens the SCM and attempts to start specified services."
+    }
+  ]
+}

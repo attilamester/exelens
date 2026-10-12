@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a downloader and backdoor, connecting to remote servers to retrieve and execute commands or binary files. It persists via the registry (RunOnce), uses a mutex for single-instance checks, and communicates over HTTP to interact with a Command & Control (C2) server.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The binary is not packed; the logic is clearly visible in the disassembly."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Registers itself in the Windows RunOnce registry key for startup execution."
+    },
+    {
+      "name": "Networking",
+      "description": "Uses WININET APIs (HttpOpenRequestA, HttpSendRequestA) to communicate over HTTP with a remote server."
+    },
+    {
+      "name": "Process Execution",
+      "description": "Downloads and executes arbitrary files using CreateProcessA."
+    },
+    {
+      "name": "Mutex Creation",
+      "description": "Uses CreateMutexA to ensure only one instance is running, checking for success or specific error codes."
+    },
+    {
+      "name": "File Manipulation",
+      "description": "Performs file I/O operations including file deletion, creation, and writing."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of HTTP C2 communication (WININET), persistent registry modifications (RunOnce), and the ability to download and launch remote files (CreateProcessA) demonstrates clear malicious intent consistent with a backdoor/downloader. Legitimate software rarely initiates unsolicited HTTP POST/GET requests to servers to download and execute unknown binary content via CreateProcess.",
+    "general": "Main functionality is driven by fcn.00401745 (C2 logic) and fcn.004016ce (Process creation). The registry persistence is handled in section..text (RVA 0x00401000) using ADVAPI32.dll_RegSetValueExA on the RunOnce key. Network communication is verified via calls to WININET.dll_HttpSendRequestA.",
+    "uncertainties": "While the C2 host names are obfuscated in the code strings, the logic is confirmed to be a downloader; the exact nature of the payload depends on server-side response content.",
+    "conditions": "The sample requires a network connection to the C2 server to receive commands/payloads. It performs a file-check loop (using PathFileExistsA) and a mutex check to manage its state. The main logic starts after a sleep interval (using MSVCRT.dll__sleep).",
+    "sandbox_recommendations": "Provide an active network environment with a faked HTTP C2 endpoint. The sample requires appropriate environment variables (APPDATA, USERPROFILE) to be correctly resolved by SHELL32.dll_DoEnvironmentSubstA for proper execution flow."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce",
+          "description": "Persistence mechanism for startup execution."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "c:\\windows\\inf",
+          "description": "Directory used for file operations."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401745",
+      "name": "fcn.00401745",
+      "description": "C2 communication engine using WININET APIs."
+    },
+    {
+      "address": "0x00401000",
+      "name": "section..text",
+      "description": "Registry persistence logic."
+    },
+    {
+      "address": "0x004016ce",
+      "name": "fcn.004016ce",
+      "description": "Wrapper for CreateProcessA, used to launch downloaded payloads."
+    }
+  ]
+}

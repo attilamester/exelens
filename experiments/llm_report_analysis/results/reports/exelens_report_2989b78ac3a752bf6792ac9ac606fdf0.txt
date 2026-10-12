@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a loader/injector that reads its own binary, parses the PE structure to resolve APIs dynamically, and performs memory-based manual mapping of a secondary payload into a newly allocated region, which it then executes.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Dynamic API resolution (manual import reconstruction)",
+      "Manual PE mapping (Reflective Loader style)",
+      "Simple byte-wise XOR obfuscation of embedded data"
+    ],
+    "details": "The sample uses a manual import resolution routine (fcn.180001990) to call LoadLibrary/GetProcAddress. It reads its own binary file from disk (fcn.180001370) and uses a manual mapping routine (fcn.180001ae0) to write segments to VirtualAlloc-ed memory, likely de-obfuscating a hidden payload via an XOR routine (fcn.180001230)."
+  },
+  "capabilities": [
+    {
+      "name": "Process/Memory Injection",
+      "description": "Allocates executable memory and manually maps PE sections, indicative of reflective loading."
+    },
+    {
+      "name": "Manual PE Parsing",
+      "description": "Parses PE headers and import tables dynamically to avoid standard loader detection."
+    },
+    {
+      "name": "Anti-Debugging",
+      "description": "Uses IsDebuggerPresent to terminate execution if a debugger is detected."
+    },
+    {
+      "name": "Data Obfuscation",
+      "description": "Applies a simple XOR loop to decrypt or de-obfuscate data segments."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of reading its own file from disk (CreateFileA), parsing the PE structure (fcn.180001ae0), and performing memory allocation/protection changes (VirtualAlloc, VirtualProtect) followed by calling an entry point from the newly allocated memory constitutes high-intent malicious behavior (Reflective Loading). This pattern is not characteristic of standard protected software, which typically uses documented legitimate loaders.",
+    "general": "High-intent malicious activity is evidenced in fcn.180001ae0, which allocates executable memory (VirtualAlloc with 0x40/PAGE_EXECUTE_READWRITE), and fcn.1800016e0/fcn.1800018e0, which perform manual section mapping and base relocation, effectively bypassing the Windows OS loader.",
+    "uncertainties": "The exact nature of the payload being decrypted (fcn.180001170) is obscured, but the loader functionality itself is clearly malicious in intent.",
+    "conditions": "The sample performs environment checks (IsDebuggerPresent) and requires the original file to be readable on disk at its location as determined by GetModuleFileNameA.",
+    "sandbox_recommendations": "Ensure the binary can access its own path on disk. Run in an environment without automated debugger-detection bypasses to observe the anti-analysis branch (terminating the process)."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "_svchost.exe",
+          "description": "Target process name used in comparison checks"
+        },
+        {
+          "value": "_netsvcs",
+          "description": "Potential service or registry key string for persistence"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x180001ae0",
+      "name": "fcn.180001ae0",
+      "description": "Main loader routine: allocates memory and prepares for manual PE mapping."
+    },
+    {
+      "address": "0x180001990",
+      "name": "fcn.180001990",
+      "description": "Manual import reconstruction using LoadLibrary/GetProcAddress."
+    },
+    {
+      "address": "0x180001170",
+      "name": "fcn.180001170",
+      "description": "Orchestrates payload decryption (XOR) and execution."
+    },
+    {
+      "address": "0x1800016e0",
+      "name": "fcn.1800016e0",
+      "description": "Performs manual mapping and relocation of PE sections."
+    }
+  ]
+}

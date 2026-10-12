@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a remote access trojan (RAT) or downloader. It performs environment enumeration, establishes persistence by modifying registry keys, and communicates with a C2 server via a proxy or direct connection. It contains capabilities for process injection, file manipulation, and reconnaissance.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based string/data obfuscation",
+      "Dynamic API resolution via LoadLibraryA and GetProcAddress"
+    ],
+    "details": "The binary uses custom XOR loops (fcn.00401293) to deobfuscate critical strings and API names at runtime. Code sections show a relatively high entropy (6.31), indicating potential packing or compression."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Management",
+      "description": "Utilizes CreateToolhelp32Snapshot, Process32First, and OpenProcess to enumerate and interact with running processes."
+    },
+    {
+      "name": "Persistence/Registry Manipulation",
+      "description": "Uses RegSetValueExA and RegCreateKeyExA to set auto-start or configuration entries, and SHSetValueA for registry persistence."
+    },
+    {
+      "name": "Networking",
+      "description": "Implements socket-based communication (WSAStartup, socket, connect, send, recv) to interact with remote infrastructure, including proxy awareness."
+    },
+    {
+      "name": "File and Directory Manipulation",
+      "description": "Uses CreateFileA, CopyFileA, DeleteFileA, and CreateDirectoryA to manage a payload or data directory structure."
+    },
+    {
+      "name": "Environment Enumeration",
+      "description": "Collects system information using GetComputerNameA, GetSystemDefaultLangID, and enumerates network resources using MPR.dll functions."
+    }
+  ],
+  "details": {
+    "reasoning": "While some components (e.g., registry access) are dual-use, the convergence of dynamic API resolution, process injection capability, network socket communication to external addresses, and evidence of file modification/deletion strongly points to a RAT or backdoor intent. There is no legitimate functionality visible to explain the combination of proxy-aware network communication, process enumeration, and persistent registry modifications.",
+    "general": "The function fcn.00403603 performs process enumeration; fcn.004012b3 handles dynamic API loading and setting up network/file capabilities. Extensive use of socket API calls (WSOCK32.dll) in combination with registry manipulation (fcn.00401788) characterizes typical malware loader/C2 behavior.",
+    "uncertainties": "Because the sample uses heavy string obfuscation and potentially packed code, the full scope of the C2 commands and final payload remain partially hidden.",
+    "conditions": "The malware checks for specific conditions, such as the existence of specific registry keys (hFlag) and network connectivity availability. It uses Sleep and network timeouts (select) for timing.",
+    "sandbox_recommendations": "Provide an environment with active internet connectivity or an INETSim-style simulated network. Set system time to a standard date. Monitor registry modifications in the CurrentVersion/Software keys."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings",
+          "description": "Used to check for proxy settings."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "%APPDATA%\\KB985109.log",
+          "description": "Log file path created by the sample."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x004012b3",
+      "name": "fcn.004012b3",
+      "description": "Loader function that resolves APIs dynamically and initializes network/file structures."
+    },
+    {
+      "address": "0x00403603",
+      "name": "fcn.00403603",
+      "description": "Process management function for enumeration and interaction."
+    },
+    {
+      "address": "0x00401788",
+      "name": "fcn.00401788",
+      "description": "Handles registry persistence and configuration storage."
+    },
+    {
+      "address": "0x00404d4d",
+      "name": "fcn.00404d4d",
+      "description": "Handles primary C2 socket communication logic."
+    }
+  ]
+}

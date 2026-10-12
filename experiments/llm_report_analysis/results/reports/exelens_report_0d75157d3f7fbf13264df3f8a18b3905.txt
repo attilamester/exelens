@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a downloader/dropper that persists via Registry keys, communicates with an external C2 server via HTTP to fetch commands or payloads, and can execute files on the local system.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed; the import table and function logic are fully visible and standard."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Writes an executable path to the Windows Registry 'RunOnce' key."
+    },
+    {
+      "name": "C2 Networking",
+      "description": "Uses WININET APIs to communicate via HTTP, including POST requests and file downloads."
+    },
+    {
+      "name": "Process Execution",
+      "description": "Uses CreateProcessA to launch downloaded or local files."
+    },
+    {
+      "name": "Environment Manipulation",
+      "description": "Uses DoEnvironmentSubstA and string manipulation to locate system directories."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistence (writing to RunOnce), C2 communication (WININET APIs), and file execution (CreateProcessA) strongly confirms malicious intent rather than a dual-use software update mechanism, particularly given the dynamic payload retrieval pattern (HTTP response interpretation).",
+    "general": "The function fcn.00401000 performs registry modification in the 'RunOnce' key. The function fcn.00401980 handles the C2 logic using InternetOpenA, HttpOpenRequestA, and HttpSendRequestA. The command execution is performed by fcn.004018f0 using CreateProcessA.",
+    "uncertainties": "While the C2 URL is not explicitly visible in plaintext, the operational flow is clear regardless of the specific server address.",
+    "conditions": "The file requires active network connectivity to reach the C2 server and may require appropriate permissions to modify the registry.",
+    "sandbox_recommendations": "Use a network simulator to intercept WININET calls and provide a fake HTTP 200 OK response with command headers (e.g., '__JW') to trigger the payload download/execution branch."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce",
+          "description": "Registry key targeted for persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "__JW",
+          "description": "Indicator string used in HTTP response parsing."
+        },
+        {
+          "value": "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1)",
+          "description": "User-Agent string used for C2 communication."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401000",
+      "name": "fcn.00401000",
+      "description": "Persistence: Writes to the Windows RunOnce registry key."
+    },
+    {
+      "address": "0x00401980",
+      "name": "fcn.00401980",
+      "description": "Networking: Handles HTTP C2 communication using WININET."
+    },
+    {
+      "address": "0x004018f0",
+      "name": "fcn.004018f0",
+      "description": "Execution: Launches external processes using CreateProcessA."
+    }
+  ]
+}

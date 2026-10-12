@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a dropper/installer that attempts to gain high privileges to load a kernel-mode driver, patch system tables (KeServiceDescriptorTable), and persist via registry modifications and file copying to system directories.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based payload decryption",
+      "Dynamic API resolution"
+    ],
+    "details": "The file contains resource-based encrypted payloads that are decrypted at runtime using a static XOR key (0xcd), then loaded into memory."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Modifies Windows Registry keys (e.g., Run keys) to ensure execution on system startup."
+    },
+    {
+      "name": "Kernel Mode Manipulation",
+      "description": "Attempts to patch the System Service Descriptor Table (SSDT) in kernel memory to intercept system calls."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Copies files to system directories (e.g., System32) and hides files using file attributes."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Checks for debugger presence and system environment variables to avoid sandboxes."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode SSDT patching (fcn.1000b369), registry-based persistence, and dynamic resolution of sensitive kernel-related functions like 'KeServiceDescriptorTable' and 'PsGetCurrentProcess' strongly indicates malicious rootkit behavior rather than legitimate installer functionality.",
+    "general": "High-intent evidence includes calls to 'MmProbeAndLockPages', 'MmMapLockedPagesSpecifyCache' (fcn.1000c492), and the manual modification of kernel structures. The code actively resolves and patches 'KeServiceDescriptorTable' to redirect system function calls.",
+    "uncertainties": "While the binary is clearly a dropper for a rootkit-like driver, the final payload extracted from the encrypted resources was not fully analyzed as it is only present in memory at runtime.",
+    "conditions": "The primary malicious payload activates only if the process is executed with sufficient privileges to interact with kernel memory and if it passes specific environment checks related to system directories and registry persistence.",
+    "sandbox_recommendations": "Run with Administrator privileges; use a tool to monitor registry modifications; monitor for attempts to load unsigned drivers."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Persistence mechanism used to maintain execution."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used to ensure single instance execution."
+        },
+        {
+          "value": "lsass",
+          "description": "Target process name frequently used by rootkits to hide or inject."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Kernel-mode SSDT patching routine."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Performs system enumeration and registry-based persistence setup."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Resource decryption and file dropping routine."
+    }
+  ]
+}

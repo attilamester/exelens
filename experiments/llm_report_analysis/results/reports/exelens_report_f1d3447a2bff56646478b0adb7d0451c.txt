@@ -1,0 +1,66 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a malware loader that resolves its C2 domain through registry lookups and environment checks, establishes a persistent network connection to fetch and execute a secondary payload in memory.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR decryption",
+      "API dynamic resolution via hashes"
+    ],
+    "details": "The sample uses a custom algorithm (fcn.10004040, fcn.10004096) for decrypting strings and configuration data. It uses hash-based API resolution (fcn.100018a8, fcn.10001810) to evade static analysis and hide its imported functional capabilities."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Loading",
+      "description": "Utilizes CreateProcessA, WriteFile, and likely manual mapping to execute decrypted payloads."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies registry keys (RegSetValueExA) to ensure execution across reboots."
+    },
+    {
+      "name": "Network Communication",
+      "description": "Uses WinINet library (HttpSendRequestA) to retrieve remote data."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Uses QueryPerformanceCounter and GetTickCount to detect sandbox timing behavior."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of specific registry key monitoring ('Software\\Microsoft\\Windows\\CurrentVersion\\Run'), dynamic API resolving, and network communication via WinINet indicates high-intent malware behavior. The presence of internal strings related to 'C2' and 'POST' requests confirms it is a downloader for secondary payloads.",
+    "general": "The function fcn.100057e5 acts as the primary downloader, using HttpOpenRequestA and HttpSendRequestA. High-intent malicious activity is found in fcn.1000206f and fcn.10002138, which perform memory allocation (VirtualAlloc via HeapAlloc/custom routines) and code execution for injected payloads.",
+    "uncertainties": "The exact nature of the payload fetched from the C2 server cannot be determined as it is delivered at runtime over the network.",
+    "conditions": "Execution is gated by successful registry lookup for C2 address (fcn.10006dc9) and an internet connection test. It may require a specific environment setup or an existing registry value to trigger the download.",
+    "sandbox_recommendations": "Provide an active internet connection to the sandbox. Ensure registry keys are allowed to be modified. Monitor network traffic for HTTP POST requests to suspicious domains derived from the registry string decryption."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Likely target for persistence persistence"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100057e5",
+      "name": "fcn.100057e5",
+      "description": "Main C2 communication and payload downloader function"
+    },
+    {
+      "address": "0x1000206f",
+      "name": "fcn.1000206f",
+      "description": "Primary routine for mapping and executing the downloaded payload"
+    },
+    {
+      "address": "0x10006dc9",
+      "name": "fcn.10006dc9",
+      "description": "Retrieves configuration/C2 address from registry"
+    }
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to search for, modify, and potentially load or interact with low-level system drivers (e.g., win32k.sys, ntoskrnl.exe). It performs self-installation, persistence via registry keys, and includes advanced techniques like kernel-mode structure manipulation, mutex-based anti-analysis, and code injection.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource-based payload hiding",
+      "XOR-based obfuscation (0xcd loop)",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress"
+    ],
+    "details": "The file uses resources (specifically 102/103) to store encrypted data. A decryption loop (XOR 0xcd) is present in `fcn.10001697`. The sample also uses dynamic API loading and manual kernel structure traversal, suggesting intent to evade static detection."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "Uses CreateProcessA with potentially malicious arguments."
+    },
+    {
+      "name": "Registry Persistence",
+      "description": "Writes to registry keys using RegSetValueExA, suggesting persistence."
+    },
+    {
+      "name": "Kernel-mode structures traversal",
+      "description": "Accesses KeServiceDescriptorTable and performs kernel memory mapping (Mdl operations)."
+    },
+    {
+      "name": "Evasion/Anti-Analysis",
+      "description": "Uses mutexes (`prkMtx`, `GlobalRPCMutex`) to ensure single-instance or avoid sandbox environments."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level memory mapping (IoAllocateMdl, MmMapLockedPagesSpecifyCache) and modification of kernel structures (KeServiceDescriptorTable) coupled with persistence and obfuscated resources indicates malicious intent, specifically consistent with rootkit or advanced modular malware behavior. Legitimate installers do not interact with the NT kernel dispatch tables.",
+    "general": "High-intent evidence includes calls to `fcn.1000ab6f` and `fcn.1000b46f` which perform direct manipulations of kernel objects. The function `fcn.10009d28` contains code designed to identify and hook internal Windows kernel functions (e.g., KeRaiseIrqlToDpcLevel).",
+    "uncertainties": "The exact payload is stored in encrypted resources. Since the decryption keys are likely derived from environment or system state, we cannot be certain of the decrypted payload's nature without dynamic execution.",
+    "conditions": "Execution likely requires elevated privileges (Administrator/SYSTEM) for the kernel-level modifications. It also uses environment variable checks (`GetEnvironmentVariableA`) to potentially identify specific target configurations.",
+    "sandbox_recommendations": "Use a kernel-aware debugger (like WinDbg) in a virtual machine environment with kernel-mode debugging enabled. Monitor for registry changes at `HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet` and attempts to modify system drivers."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\",
+          "description": "Potential persistence location"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for process synchronization"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for potential kernel synchronization"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001697",
+      "name": "fcn.10001697",
+      "description": "Main routine responsible for decryption and installation tasks."
+    },
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Contains direct interaction with kernel-mode structures for process and driver operations."
+    },
+    {
+      "address": "0x10009d28",
+      "name": "fcn.10009d28",
+      "description": "Performs identification of kernel-mode symbols and system versioning."
+    }
+  ]
+}

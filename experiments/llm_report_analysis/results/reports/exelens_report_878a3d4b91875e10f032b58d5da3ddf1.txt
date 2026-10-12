@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple features typical of a kernel-mode rootkit or driver installer, including dynamic resolution of system functions, modification of system service tables (KeServiceDescriptorTable), and persistent registry manipulation to hide files and processes (e.g., targeting 'lsass').",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation of internal strings and data",
+      "Dynamic API resolution using GetProcAddress/LoadLibrary"
+    ],
+    "details": "Routines like fcn.10001697 perform XOR (0xcd) decryption on resource data. The binary heavily relies on dynamically resolving functions from ntdll.dll and kernel APIs."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Modifies registry keys (e.g., 'lsass') via RegSetValueExA to maintain execution."
+    },
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Attempts to locate and modify the system service descriptor table (KeServiceDescriptorTable) in memory."
+    },
+    {
+      "name": "Process/File Hiding",
+      "description": "Uses 'cnFormSyncExFBC' and 'cnFormVoidFBC' classes to manipulate system objects, likely for hooking."
+    },
+    {
+      "name": "Evasion",
+      "description": "Uses mutexes ('GlobalRPCMutex', 'prkMtx') to ensure single execution and evade sandbox environments."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level memory modification (KeServiceDescriptorTable hooking), registry persistence targeting critical system components ('lsass'), and the use of internal driver-like functions (KeRaiseIrqlToDpcLevel) without a verifiable legitimate driver purpose confirms malicious intent.",
+    "general": "fcn.1000b369 targets KeServiceDescriptorTable; fcn.100017a0 modifies registry keys for persistent hiding; fcn.10001b34 extracts and executes a hidden resource.",
+    "uncertainties": "While the kernel-level hooks are highly indicative of a rootkit, some specific functionality relies on the extracted resource (102: size 106496), which was not fully analyzed beyond its extraction.",
+    "conditions": "Requires administrative privileges (for registry modifications and kernel access) and likely execution on a specific Windows version (checks GetVersionExA).",
+    "sandbox_recommendations": "Run with administrative privileges. Monitor registry changes at HKLM\\SYSTEM\\CurrentControlSet and watch for attempts to load/patch ntoskrnl.exe."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "lsass",
+          "description": "Targeted registry key for persistence"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for single-instance checks"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for synchronization"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Attempts to locate and hook KeServiceDescriptorTable"
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Registry manipulation for system component persistence"
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Extracts and executes a hidden resource"
+    }
+  ]
+}

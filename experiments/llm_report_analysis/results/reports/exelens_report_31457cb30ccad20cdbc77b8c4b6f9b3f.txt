@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a modular rootkit/kernel-level loader that utilizes process hollowing or kernel-mode modifications. It includes mechanisms for registry manipulation, file system persistence, and stealthy communication by referencing kernel-level functions like KeRaiseIrqlToDpcLevel and KeServiceDescriptorTable, and dynamic loading of system drivers or DLLs.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource-based payload packing",
+      "Dynamic API resolution via GetProcAddress",
+      "Memory manipulation (VirtualAlloc/VirtualFree)"
+    ],
+    "details": "The file contains encrypted/obfuscated resources (102:106496 bytes) and performs dynamic code loading, using standard Windows API for memory allocation and thread creation (VirtualAlloc, CreateThread, LoadLibrary)."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Attempts to interact with kernel structures like the Service Descriptor Table (SSDT)."
+    },
+    {
+      "name": "Persistence via Registry",
+      "description": "Modifies Registry keys to ensure execution, using RegCreateKeyExA and RegSetValueExA."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Uses CopyFileA, DeleteFileA, and SetFileAttributesA to manage its own presence and potential payload storage."
+    },
+    {
+      "name": "Process Injection/Execution",
+      "description": "Uses CreateProcessA to spawn processes, likely part of a hollowing or injection sequence."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level structural manipulation (referenced by 'KeServiceDescriptorTable' and 'NtShutdownSystem' strings and logic) and registry-based persistence clearly indicates malicious intent rather than dual-use functionality. The code specifically looks for kernel drivers and manipulates the environment, which is highly consistent with rootkit behavior.",
+    "general": "The function fcn.1000ab6f and fcn.1000b46f explicitly reference kernel-level structures. Function fcn.1000788e performs registry persistence via RegEnumKeyExA and LookupAccountSidA. Function fcn.100028d6 performs network-related activity and dynamic API hooking.",
+    "uncertainties": "The exact nature of the encrypted payload in resource 102 could not be fully statically determined, but the presence of loader logic confirms its role in the malicious lifecycle.",
+    "conditions": "The file likely requires administrative or SYSTEM privileges to perform kernel-mode operations and registry modifications.",
+    "sandbox_recommendations": "Run in an environment that monitors both user-mode and kernel-mode APIs. Use a debugger to bypass Anti-VM/Anti-Debugging checks found in functions like fcn.10007578."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "DMWH",
+          "description": "Registry key/value prefix for potential persistence."
+        },
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used to ensure single-instance execution."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "system32\\win32k.sys",
+          "description": "Referenced system file for potential modification or hook target."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Kernel-level hooking and SSDT modification logic."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Registry-based persistence and privilege lookup logic."
+    },
+    {
+      "address": "0x100043d2",
+      "name": "fcn.100043d2",
+      "description": "Payload preparation and resource decompression."
+    }
+  ]
+}

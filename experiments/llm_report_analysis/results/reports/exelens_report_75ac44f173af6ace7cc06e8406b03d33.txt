@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This sample is a complex multi-stage installer/dropper that performs system-level modifications, including registry manipulation and kernel-mode driver interaction or system process patching. It employs anti-analysis techniques and resource decryption.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation in resources",
+      "Dynamic API resolution (GetProcAddress/LoadLibrary)"
+    ],
+    "details": "Resources are loaded and decrypted using a simple XOR routine (0xcd key). Extensive use of dynamic API resolution via GetProcAddress for system functions suggests intent to hide behavior from static analysis."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence / Registry Modification",
+      "description": "Modifies system registry keys, specifically targeting 'lsass' registry entries."
+    },
+    {
+      "name": "Process Injection / Patching",
+      "description": "Appears to interact with kernel/driver objects (Win32k.sys, NtQueryObject, KeServiceDescriptorTable)."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Drops files, creates mutexes for single-instance checks, and manipulates file attributes."
+    },
+    {
+      "name": "Anti-Debugging / Anti-Analysis",
+      "description": "Checks for environment variables, mutex existence, and performs version/OS checks before payload activation."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of registry modifications (specifically targeting LSASS), dynamic loading of system-critical APIs, and clear evidence of kernel-level hooking (KeServiceDescriptorTable interaction) confirms high-intent malicious behavior rather than a simple software protector.",
+    "general": "High-intent evidence found in fcn.100017a0 (Registry modification of lsass), fcn.10001b34 (dropping/executing files), and fcn.1000ab6f (KeServiceDescriptorTable/kernel hooking routines). The use of these functions indicates intent to compromise system security.",
+    "uncertainties": "The exact nature of the payload dropped or the final goal of the kernel patching is obscured by the multi-stage dynamic loading and data obfuscation.",
+    "conditions": "The file requires specific environment variables and system state checks (e.g., fcn.1000103b checks for environment variables; fcn.100022a2 checks for a 'prkMtx' mutex). It also checks for Windows versions and specific registry configurations.",
+    "sandbox_recommendations": "Run in a Windows environment, monitor for registry changes on CurrentControlSet, and intercept calls to system APIs like NtQueryObject and KeServiceDescriptorTable."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "lsass",
+          "description": "Targeted registry entry for modification."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for process synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex identified in fcn.1000753a."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Kernel-mode service descriptor table hooking routine."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Handles registry key creation and value setting, targeting system processes."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Handles dropping files and process creation for secondary payloads."
+    }
+  ]
+}

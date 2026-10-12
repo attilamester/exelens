@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a custom backdoor or surveillance tool. It gathers system information (computer name, username, OS version, processor info, and MAC addresses), encrypts this data, and exfiltrates it to a remote server using HTTP POST requests via WININET. It also persists by checking for specific file paths and potentially modifying files.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Dynamic API resolution (partially observed)",
+      "String obfuscation/Custom XOR encoding",
+      "Overlaid encrypted data"
+    ],
+    "details": "The executable contains an overlay with high entropy (7.10) which likely holds the core payload or configuration data. Internal strings and data buffers are processed via XOR operations and custom encoding loops (e.g., fcn.00401b70) before exfiltration."
+  },
+  "capabilities": [
+    {
+      "name": "Data Exfiltration",
+      "description": "Uses WININET.dll to perform HTTP POST requests, indicating exfiltration of gathered data."
+    },
+    {
+      "name": "System Profiling",
+      "description": "Gathers hardware and software environment details via Registry queries (Processor, OS version) and iphlpapi.dll (MAC addresses)."
+    },
+    {
+      "name": "Persistence/Mutex",
+      "description": "Uses CreateMutexA to ensure single-instance execution and likely uses specific file manipulation to persist."
+    },
+    {
+      "name": "Network Reconnaissance",
+      "description": "Queries host and adapter information using WS2_32.dll and iphlpapi.dll."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of collecting sensitive system information (username, processor, network interfaces) and immediately attempting to send that information via HTTP POST (HttpOpenRequestA, HttpSendRequestA) to an external server strongly indicates malicious intent, specifically data theft or a C2 (Command & Control) heartbeat mechanism. This is not dual-use behavior.",
+    "general": "High-intent malicious actions include gathering MAC addresses via iphlpapi.dll, collecting system version strings, and exfiltrating this data via POST requests in fcn.00401c90. Registry keys related to 'HARDWARE\\DESCRIPTION\\System' and 'SOFTWARE\\MICROSOFT\\WINDOWS NT' are accessed to fingerprint the victim machine.",
+    "uncertainties": "The exact C2 destination URL is obfuscated and not clearly visible as a plaintext string; it is constructed or decoded at runtime.",
+    "conditions": "The malware requires an active internet connection to exfiltrate data and performs environment checks that may prevent execution in some sandbox environments. It specifically checks for 'mimei' strings in network responses to decide whether to proceed.",
+    "sandbox_recommendations": "Run with a simulated internet connection, preferably using a tool like INetSim. Observe HTTP POST traffic. Ensure the registry hives mentioned in the assembly are populated with standard Windows values to prevent the malware from terminating early."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0",
+          "description": "Used to query CPU information"
+        },
+        {
+          "value": "SOFTWARE\\MICROSOFT\\WINDOWS NT\\CurrentVersion",
+          "description": "Used to query OS version and product name"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "mimei",
+          "description": "Control string checked in server responses"
+        },
+        {
+          "value": "POST",
+          "description": "HTTP method used for exfiltration"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401000",
+      "name": "main",
+      "description": "Initializes the application, sets up mutex, and triggers system data collection."
+    },
+    {
+      "address": "0x00401c90",
+      "name": "fcn.00401c90",
+      "description": "Handles the HTTP network communication (InternetOpenA, HttpSendRequestA) for exfiltration."
+    },
+    {
+      "address": "0x00403040",
+      "name": "fcn.00403040",
+      "description": "Enumerates file systems and prepares data for reporting."
+    }
+  ]
+}

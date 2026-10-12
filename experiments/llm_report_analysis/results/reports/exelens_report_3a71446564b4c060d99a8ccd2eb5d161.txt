@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a dropper and loader, unpacking a resource-embedded payload in memory, modifying system configuration, and performing process-injection-like activity through registry manipulation to achieve persistence and potential privilege elevation by targeting system services (e.g., win32k.sys, lsass).",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Resource-based payload storage",
+      "XOR-based obfuscation/encryption",
+      "Manual dynamic API resolution via GetProcAddress"
+    ],
+    "details": "The file contains a large resource (106KB) and employs custom XOR decryption loops (e.g., fcn.100015f7 with XOR key 0xcd). It uses dynamic API resolution (GetProcAddress, LoadLibrary) to obscure imports and avoid static detection."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Persistence",
+      "description": "Modifies system registry keys to manipulate service/driver execution paths (e.g., modifying 'lsass' related entries)."
+    },
+    {
+      "name": "Evasion/Anti-Analysis",
+      "description": "Uses timing checks (Sleep), mutex checks (OpenMutexA), and environment checks to detect sandbox or debugger presence."
+    },
+    {
+      "name": "Persistence",
+      "description": "Manipulates registry keys under HKLM\\SYSTEM\\CurrentControlSet to ensure execution on system boot."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of payload decryption (XOR 0xcd), registry-based persistence targeting critical system components (lsass, win32k), and the presence of anti-analysis patterns (mutex checks, sleep loops) is inconsistent with benign installer behavior. The code specifically attempts to redirect or hook system file execution paths, which is a clear indicator of malicious intent to compromise system integrity.",
+    "general": "High-intent evidence includes calls to ADVAPI32.dll_RegSetValueExA in fcn.10001000 to manipulate system keys, and the use of fcn.100017a0 to update registry paths for 'lsass'. The routine fcn.100015f7 performs manual resource decryption which is then loaded and executed.",
+    "uncertainties": "While the decrypted payload's final functionality is not fully visible due to memory-only execution, the loader's behavior confirms malicious intent.",
+    "conditions": "The sample requires specific system environments (e.g., Windows version checks in fcn.100082ce) and checks for a specific global mutex 'GlobalRPCMutex' or 'prkMtx' to manage single-instance execution. Detonation will likely fail in automated environments if these mutexes are already present or if the environment doesn't match the expected Windows version (NT 5/6+).",
+    "sandbox_recommendations": "Simulate a fully configured Windows environment (registry keys present, specific system file paths like \\system32\\win32k.sys existing), allow network connectivity, and maintain execution for at least 5 minutes to bypass sleep and timing gates."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\lsass",
+          "description": "Persistence mechanism targeting LSASS registry key"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used to detect concurrent instances"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Secondary mutex name identified in system interaction routines"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Primary resource decryption and payload loader routine"
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Persistence setter via registry manipulation"
+    },
+    {
+      "address": "0x100028d6",
+      "name": "fcn.100028d6",
+      "description": "Main execution logic gate managing primary activity flow"
+    }
+  ]
+}

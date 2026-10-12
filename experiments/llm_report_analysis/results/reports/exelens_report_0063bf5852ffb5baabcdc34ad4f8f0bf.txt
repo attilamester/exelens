@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample is a malicious dropper/rootkit installer that unpacks and executes embedded payloads. It uses kernel-level techniques (SSDT hooking/system service table modifications) and registry persistence to maintain control, targets specific OS versions, and employs anti-analysis techniques to bypass security controls.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom encryption (XOR with 0xCD)",
+      "Resource-based payload hiding",
+      "Dynamic API resolution (GetProcAddress)"
+    ],
+    "details": "The file contains encrypted data in the .rsrc section (resource 0x65, 0x66) which is decrypted using an XOR 0xCD loop (fcn.10001697) before being executed or mapped into memory."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Modifies Windows Registry (Run keys) to ensure execution across reboots."
+    },
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Attempts to interact with KeServiceDescriptorTable to hook system calls."
+    },
+    {
+      "name": "Process Injection/Hollowing",
+      "description": "Uses VirtualAlloc and CreateProcess to inject or hollow out system processes (e.g., lsass)."
+    },
+    {
+      "name": "System Evasion",
+      "description": "Checks environment variables and file paths to avoid detection and sandbox environments."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode service table modification (fcn.1000b369), registry manipulation, and the deliberate targeting of critical system components like 'lsass' constitutes clear malicious intent. The dual-use nature of APIs like VirtualAlloc is mitigated by the context of writing encrypted payloads to disk and attempting to hook kernel structures.",
+    "general": "High-intent indicators include: fcn.1000b369 (SSDT modification), fcn.100017a0 (lsass.exe registry manipulation/persistence), and the XOR decryption routines (fcn.10001697) used to unpack hidden payloads.",
+    "uncertainties": "While the functionality is clear, the exact behavior of the decrypted payload (the contents of the .rsrc section) is partially hidden, though it is consistent with rootkit behavior.",
+    "conditions": "The malware checks for specific environment variables and OS versions (via GetVersionExA). It requires administrative privileges to modify the system registry and kernel service tables.",
+    "sandbox_recommendations": "Simulate a Windows environment with high-privilege access. Monitor registry modifications on Run keys. Use an isolated network environment to observe any outbound traffic, although none is immediately obvious in the provided assembly."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Registry key modified for persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used to ensure single instance execution."
+        },
+        {
+          "value": "lsass",
+          "description": "Targeted system process name for injection/hollowing."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Modifies system service descriptor table (SSDT) in kernel memory."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Handles registry persistence and modification."
+    },
+    {
+      "address": "0x10001697",
+      "name": "fcn.10001697",
+      "description": "Payload decryption and staging function."
+    }
+  ]
+}

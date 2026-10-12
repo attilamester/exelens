@@ -1,0 +1,66 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality consistent with a persistence mechanism that registers itself in the Windows Registry Run key. It uses a custom heap manager and includes obfuscated logic to process and write its own path into the 'Software\\Microsoft\\Windows\\CurrentVersion\\Run' registry path.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom heap management",
+      "Dynamic API resolution"
+    ],
+    "details": "The binary includes multiple custom heap management and memory allocation routines (e.g., fcn.00403bf1, fcn.004040a6) suggesting a packer or self-extracting payload structure. It uses these to manage memory segments which are later populated with configuration or code."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Writes to the Windows Registry Run key to ensure execution on startup."
+    },
+    {
+      "name": "Registry Manipulation",
+      "description": "Opens and writes to registry keys using ADVAPI32 functions."
+    },
+    {
+      "name": "Mutex Creation",
+      "description": "Uses CreateMutexA to ensure single-instance execution."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of using registry operations to write a 'WebSecurity_file' key to 'Software\\Microsoft\\Windows\\CurrentVersion\\Run' (RVA 0x4014f0) constitutes clear malicious intent for persistence. While some components like custom heap management could be dual-use (e.g., in legitimate software protection), the direct registry modification for persistence in the context of an obfuscated payload confirms malicious behavior.",
+    "general": "The function at 0x004014f0 uses RegOpenKeyExA and RegSetValueExA to target 'Software\\Microsoft\\Windows\\CurrentVersion\\Run' with the value 'WebSecurity_file', which is a classic indicator of malware persistence. This functionality is driven by the main entry point logic.",
+    "uncertainties": "The exact nature of the payload being registered could not be fully decrypted due to the custom heap and structure, but the persistence mechanism is clearly identifiable.",
+    "conditions": "The primary persistence behavior requires the file to execute under a user account with sufficient permissions to modify the specified registry keys.",
+    "sandbox_recommendations": "Run in an environment monitoring registry modifications. Ensure the file has a name that does not immediately trigger alerts if the malware contains logic to check its own filename."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Target key for persistence"
+        },
+        {
+          "value": "WebSecurity_file",
+          "description": "Registry value name used for persistence"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x004014f0",
+      "name": "fcn.004014f0",
+      "description": "Responsible for registry-based persistence by writing to the Run key."
+    },
+    {
+      "address": "0x00401000",
+      "name": "main",
+      "description": "Initializes the environment and checks for existing instances via Mutex."
+    },
+    {
+      "address": "0x00403bf1",
+      "name": "fcn.00403bf1",
+      "description": "Custom heap allocation routine used to manage payload segments."
+    }
+  ]
+}

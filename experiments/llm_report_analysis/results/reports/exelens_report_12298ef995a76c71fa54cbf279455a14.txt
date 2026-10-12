@@ -1,0 +1,89 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to manipulate system internals, including potentially hooking system calls (e.g., KeServiceDescriptorTable), checking for specific OS versions, and interacting with kernel structures. It also includes code for creating processes, setting file attributes, and managing persistent mutexes.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation in resource sections",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress",
+      "API hooking and kernel-mode structure manipulation"
+    ],
+    "details": "The binary uses XOR operations (0xcd) to obfuscate resources and performs dynamic loading of system DLLs to resolve sensitive functions."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Hollowing",
+      "description": "Utilizes CreateProcessA and potentially other APIs to manipulate process execution."
+    },
+    {
+      "name": "Persistence Mechanisms",
+      "description": "Modifies registry keys (Run keys) and sets file attributes to hide or protect payloads."
+    },
+    {
+      "name": "Kernel-mode/System Internals Manipulation",
+      "description": "Attempts to interact with KeServiceDescriptorTable and system calls to gain control or hide."
+    },
+    {
+      "name": "Environment Evasion",
+      "description": "Checks environment variables and computer names to identify target environments or sandbox restrictions."
+    }
+  ],
+  "details": {
+    "reasoning": "While some components (e.g., file copying, registry manipulation) are dual-use, the combination of manual SSDT (KeServiceDescriptorTable) manipulation, kernel-mode function calls, and the use of obfuscated resources strongly indicates malicious intent rather than a legitimate software installation routine. The direct modification of low-level kernel tables is a hallmark of sophisticated rootkits or advanced malware.",
+    "general": "The function fcn.1000b369 performs direct manipulation of the System Service Descriptor Table (SSDT) by resolving KeServiceDescriptorTable and modifying entries. Function fcn.10009bd3 checks for ntoskrnl.exe and manipulates kernel-level structures.",
+    "uncertainties": "The exact nature of the payload inside the resource sections (101, 102) remains encrypted and would require execution in a kernel-aware sandbox to fully observe.",
+    "conditions": "The payload appears to check for administrative privileges (SidSubAuthority checks) and specific OS environment strings before proceeding with kernel-mode hook installation.",
+    "sandbox_recommendations": "Use a kernel-aware debugger or sandbox capable of monitoring SSDT integrity. Monitor registry writes to HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Persistence key for automatic execution."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "system32\\win32k.sys",
+          "description": "Target file for system-level modifications."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name possibly used for kernel-level protection."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Primary function for SSDT hooking/patching."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Handles process creation and payload execution."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Registry and privilege-related setup routines."
+    }
+  ]
+}

@@ -1,0 +1,90 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The file is a malicious installer that performs sophisticated anti-analysis, registry persistence, and system-level code injection. It uses custom resource decryption (XOR 0xCD) and interacts with internal system structures (SSDT/service tables) to hide its presence and maintain persistence.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based payload decryption",
+      "Dynamic API resolution (GetProcAddress)",
+      "System service table manipulation",
+      "Dynamic library loading"
+    ],
+    "details": "The file contains a large resource (106KB) that is decrypted at runtime using a simple XOR routine (0xCD). It also dynamically resolves system APIs (e.g., NtQuerySystemInformation, NtQueryObject) to bypass security software and monitor system state."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Hooking",
+      "description": "Utilizes NtQuerySystemInformation and attempts to manipulate system tables to hook processes and hide files."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies system registry keys to ensure re-execution, specifically targeting system-critical paths."
+    },
+    {
+      "name": "File System Evasion",
+      "description": "Checks for specific file names and uses CopyFileA/SetFileAttributesA to masquerade as system components."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Uses mutexes (GlobalRPCMutex, prkMtx) to prevent multiple instances and detect sandboxes."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent actions—specifically the direct manipulation of the System Service Descriptor Table (SSDT) via NtQuerySystemInformation/KeServiceDescriptorTable, combined with registry modification to load code into the LSASS process space—clearly indicates malicious intent rather than a legitimate software installation routine. The dual-use nature of these functions (like VirtualAlloc) is overridden by their specific context of targeting kernel-mode structures and internal system processes.",
+    "general": "Evidence of high-intent: 1) fcn.1000b369 performs direct modification of KeServiceDescriptorTable. 2) fcn.100017a0 injects data into the registry, specifically targeting 'lsass'. 3) fcn.1000b46f and fcn.1000a2cd interact with kernel-level interfaces.",
+    "uncertainties": "The exact function of the encrypted resource (106KB) is not fully clear, though it is used as a template for file operations.",
+    "conditions": "The primary malicious payload is activated after the file is successfully run and verified via the global mutexes. It also depends on certain registry environment variables for path resolution (e.g., system32 checks).",
+    "sandbox_recommendations": "Provide the sample with internet access, run under a Windows XP/7 environment if possible, and simulate common system registry activity. Rename the sample to avoid simple filename-based detection."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Used for persistence."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "system32\\win32k.sys",
+          "description": "Targeted for modification/access."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Manipulates the System Service Descriptor Table (SSDT)."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Modifies registry values for persistence, targeting system processes."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Creates processes and manages file attributes for evasion."
+    }
+  ]
+}

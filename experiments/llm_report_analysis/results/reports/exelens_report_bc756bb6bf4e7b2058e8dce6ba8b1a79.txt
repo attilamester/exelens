@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This sample acts as a persistent backdoor/remote access trojan that connects to a hard-coded C2 domain (via DNS query and InternetConnectA), supports remote shell execution via pipes, and manages persistence through Windows Services and local file manipulation.",
+  "packed": {
+    "status": "false",
+    "techniques": [
+      "Custom XOR-based string obfuscation"
+    ],
+    "details": "The file is not packed with a standard packer. Instead, it uses custom XOR-based obfuscation routines that decrypt configuration data, domain names, and file paths dynamically at runtime (e.g., in fcn.00401610 and main)."
+  },
+  "capabilities": [
+    {
+      "name": "C2 Communication",
+      "description": "Performs DNS lookups, connects to remote servers via WININET APIs, and executes HTTP commands."
+    },
+    {
+      "name": "Process Execution/Piping",
+      "description": "Creates pipes and executes processes using CreateProcessA to redirect I/O for remote shell functionality."
+    },
+    {
+      "name": "Persistence/Service Manipulation",
+      "description": "Interacts with the Service Control Manager to start/control Windows services (ADVAPI32.dll)."
+    },
+    {
+      "name": "Environment Reconnaissance",
+      "description": "Enumerates local drives, computer name, and environment variables."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of C2 network capabilities, persistent service interaction, and the ability to execute remote commands via pipes is characteristic of a backdoor. The use of custom string XOR routines confirms an intent to hide these capabilities, moving it beyond a standard utility or installer.",
+    "general": "The function fcn.004010e0 orchestrates network interaction using WININET.dll. The fcn.004028e0 and fcn.004026b0 functions leverage pipe creation and process execution. The use of ADVAPI32 service functions to query and control system services points to clear persistence-related malicious intent.",
+    "uncertainties": "While the domain name is obfuscated, the logic confirms it contacts an external server. The specific C2 command structure relies on the decrypted string data, which requires full runtime emulation to extract completely.",
+    "conditions": "The sample performs environmental checks including computer name verification and local drive enumeration. It often sleeps to evade sandbox detection. It requires internet connectivity to proceed with the C2 communication phase.",
+    "sandbox_recommendations": "Simulate a live internet connection, particularly DNS responses. Allow execution to proceed for at least 5-10 minutes to bypass Sleep calls. Monitor system service creation and registry activity."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SYSTEM\\CurrentControlSet\\Services",
+          "description": "Targeted for service enumeration and manipulation."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "%TEMP%",
+          "description": "Used as a base directory for file operations and staging."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x004010e0",
+      "name": "fcn.004010e0",
+      "description": "Initializes internet connection and C2 communication."
+    },
+    {
+      "address": "0x004028e0",
+      "name": "fcn.004028e0",
+      "description": "Handles process enumeration and potential command execution."
+    },
+    {
+      "address": "0x004026b0",
+      "name": "fcn.004026b0",
+      "description": "Manages process creation and redirection for command execution."
+    },
+    {
+      "address": "0x00401610",
+      "name": "fcn.00401610",
+      "description": "Decrypts obfuscated configuration and string data."
+    }
+  ]
+}

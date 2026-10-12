@@ -1,0 +1,102 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a complex kernel-mode driver installer or controller that uses advanced techniques, including modifying kernel structures, to gain persistence or bypass security controls. It performs dynamic API resolution via custom decryption routines and executes file manipulation and registry operations.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR-based decryption of resources",
+      "Dynamic API resolution (GetProcAddress/LoadLibrary) to hide import footprint",
+      "Kernel structure modification (KeServiceDescriptorTable)"
+    ],
+    "details": "The sample uses a resource-based payload (FindResource/LoadResource) that undergoes a XOR-based decryption (0xcd constant). It manually locates system functions in ntdll.dll and ntkrnlpa.exe."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode service manipulation",
+      "description": "Modifies SSDT (KeServiceDescriptorTable) to intercept kernel function calls."
+    },
+    {
+      "name": "Persistence via Registry",
+      "description": "Sets and modifies registry keys to ensure persistence of the loaded component."
+    },
+    {
+      "name": "Process Injection",
+      "description": "Uses CreateProcessA and potentially modifies file properties to influence system-critical binaries like lsass.exe."
+    },
+    {
+      "name": "Dynamic Code Execution",
+      "description": "Unpacks and executes shellcode or driver code directly from resources in memory."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level hooking (SSDT modification, KeServiceDescriptorTable), dynamic API resolution of sensitive kernel functions (NtQueryObject, NtQuerySystemInformation), and resource-based decryption confirms malicious intent. This is not standard software behavior; the code is designed to subvert OS integrity at the kernel level, which is a hallmark of high-intent malware (e.g., a rootkit or advanced persistent threat).",
+    "general": "High-intent evidence includes SSDT hooking routines in fcn.1000ab6f and fcn.1000a2cd, the use of KeRaiseIrqlToDpcLevel and KeServiceDescriptorTable in fcn.10009d28, and manual parsing of PE files to map kernel modules.",
+    "uncertainties": "The sample contains complex obfuscation loops and conditional branch logic that varies based on the Windows version, making full manual reconstruction time-intensive without a debugger.",
+    "conditions": "The primary execution requires Administrator/System privileges due to kernel-mode operations. It specifically checks for environment variables and specific system paths (e.g., system32, win32k.sys) to determine its path to injection.",
+    "sandbox_recommendations": "Use a kernel-mode debugger (e.g., WinDbg) on a virtualized Windows 7 or 10 machine. Monitor registry write attempts on System services and monitor for SSDT modification events."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "DMWI",
+          "description": "Registry key used for configuration or tracking persistence."
+        },
+        {
+          "value": "DMWH",
+          "description": "Registry key associated with installation parameters."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "_system32",
+          "description": "Target folder for file operations."
+        },
+        {
+          "value": "win32k.sys",
+          "description": "Target kernel file often involved in hooking."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for process synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used by the kernel component."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Handles registry-based setup and identification of system accounts."
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Contains SSDT hooking logic for kernel service redirection."
+    },
+    {
+      "address": "0x10009d28",
+      "name": "fcn.10009d28",
+      "description": "Parses kernel modules and locates specific functions (KeRaiseIrqlToDpcLevel) in memory."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Primary resource loader and process creation handler."
+    }
+  ]
+}

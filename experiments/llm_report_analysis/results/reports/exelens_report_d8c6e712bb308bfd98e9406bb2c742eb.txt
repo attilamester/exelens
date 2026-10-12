@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality consistent with a kernel-mode rootkit installer, including mechanisms to hook system services by modifying the System Service Descriptor Table (SSDT), bypass kernel-mode security checks (e.g., Driver Signature Enforcement), and maintain persistence via registry manipulation.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR obfuscation of embedded resource",
+      "Dynamic API resolution via LdrGetProcedureAddress and GetProcAddress"
+    ],
+    "details": "The file contains a large resource (106KB) that is XOR-encoded (key 0xCD). Entrypoint routines and various helper functions are responsible for runtime decryption of the payload and subsequent execution or injection."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode SSDT hooking",
+      "description": "Uses NtQuerySystemInformation and related techniques to locate and patch the System Service Descriptor Table (SSDT)."
+    },
+    {
+      "name": "Process Injection/Driver Loading",
+      "description": "Utilizes CreateProcessA and potentially kernel-mode APIs to interact with system processes."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies system registry keys (e.g., Run keys, LSA packages) to ensure automatic execution."
+    },
+    {
+      "name": "Environment Evasion",
+      "description": "Checks for debugger presence and specific system environment variables to avoid sandboxes."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent kernel-modifying APIs (SSDT hooking, KeServiceDescriptorTable), mutex enforcement ('prkMtx'), and resource-based payload extraction strongly indicates a malicious rootkit. The functionality is not indicative of legitimate software protectors, as they specifically target the kernel to subvert OS security.",
+    "general": "Functions like fcn.1000b46f and fcn.1000ab6f directly interact with KeServiceDescriptorTable and system calls to override standard OS behavior. The use of lstrcpynA to build file paths and CreateFileA to target system directories further confirms malicious persistence strategies.",
+    "uncertainties": "The exact nature of the decrypted resource remains hidden without a live dynamic analysis; however, the surrounding control logic confirms its hostile intent.",
+    "conditions": "The sample performs environmental checks, requiring specific system configuration and likely administrative privileges to successfully hook the kernel SSDT.",
+    "sandbox_recommendations": "Use a kernel-aware debugger (e.g., WinDbg) in a virtualized environment. Enable monitoring for SSDT changes and registry key modifications. Ensure the system is configured to allow driver loading if necessary to trigger the main payload."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa",
+          "description": "Target for LSA package modification for persistence."
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Used to prevent concurrent execution of the installer."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Kernel-mode mutex for synchronization."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Performs SSDT patching and kernel hooking."
+    },
+    {
+      "address": "0x10009bd3",
+      "name": "fcn.10009bd3",
+      "description": "Handles driver/module loading and system environment initialization."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Main installation routine and registry persistence manager."
+    }
+  ]
+}

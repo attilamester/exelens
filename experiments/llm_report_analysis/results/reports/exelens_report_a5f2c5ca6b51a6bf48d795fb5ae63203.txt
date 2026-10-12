@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to modify system-level drivers or services (e.g., ntoskrnl.exe, win32k.sys) and performs kernel-mode structure manipulations (e.g., hooking KeServiceDescriptorTable). It also installs itself via file copying and registry persistence, and attempts to hide its presence by using seemingly benign filenames (e.g., 'fanny.bmp').",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation",
+      "Resource-based payload loading"
+    ],
+    "details": "The binary uses XOR decryption routines (e.g., fcn.10001697) on resource data (RSRC section) to extract functional code or configuration data at runtime. The .rsrc section exhibits high entropy (6.54), indicating compressed or encrypted contents."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Utilizes internal kernel functions like KeServiceDescriptorTable and NtQuerySystemInformation to inspect or modify system state."
+    },
+    {
+      "name": "Persistence and Evasion",
+      "description": "Copies itself to system paths, modifies registry keys, and sets file attributes to hide files."
+    },
+    {
+      "name": "System modification",
+      "description": "Writes to system files (win32k.sys) and potentially injects code via memory mapping."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level API usage (e.g., KeServiceDescriptorTable, KeAddSystemServiceTable) and the explicit file manipulation of critical system drivers like 'win32k.sys' strongly indicates malicious intent. The binary attempts to hide its operations by using standard system directory names and registry manipulation to achieve persistence, which are clear indicators of rootkit or advanced persistent threat (APT) behavior rather than legitimate software installation.",
+    "general": "The function fcn.1000b369 performs manipulation of the system service descriptor table (KeServiceDescriptorTable), which is a common technique for rootkit-style system call hooking. Function fcn.1000a0fc opens 'system32\\win32k.sys' for low-level modifications. The use of 'fanny.bmp' as a filename and the deployment of LNK files are classic evasion tactics.",
+    "uncertainties": "The exact nature of the encrypted payload remains obscured without full runtime unpacking; however, the observed kernel-level manipulation functions are conclusive enough for this verdict.",
+    "conditions": "The malware checks for specific registry keys ('DMWH') and system configuration ('win32k.sys') and likely requires administrative privileges to perform the kernel-level modifications.",
+    "sandbox_recommendations": "Run in an isolated environment with a kernel debugger attached. Simulate administrative user privileges and ensure system monitoring for registry key changes and file modification to system32 drivers."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "DMWH",
+          "description": "Registry key/value possibly used for tracking or persistence."
+        },
+        {
+          "value": "lsass",
+          "description": "Registry value associated with security manipulation."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "system32\\win32k.sys",
+          "description": "Target file for low-level system modification."
+        },
+        {
+          "value": "fanny.bmp",
+          "description": "Hidden/masqueraded file used by the malware."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Manipulates the System Service Descriptor Table (SSDT), indicative of kernel-mode hooking."
+    },
+    {
+      "address": "0x1000a0fc",
+      "name": "fcn.1000a0fc",
+      "description": "Opens system drivers (win32k.sys) for low-level modification."
+    },
+    {
+      "address": "0x1000b73a",
+      "name": "fcn.1000b73a",
+      "description": "Appears to perform system shutdown or control routines, potentially for reboots after infection."
+    }
+  ]
+}

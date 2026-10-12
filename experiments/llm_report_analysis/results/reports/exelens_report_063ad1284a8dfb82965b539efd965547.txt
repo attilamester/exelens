@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a kernel-mode driver installer/loader that performs process hollowing, code injection into system processes, and hooks kernel functions. It specifically targets security-related registry keys and system drivers to ensure persistence and evasion.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation of resource data",
+      "Dynamic API resolution through GetProcAddress/LoadLibrary"
+    ],
+    "details": "The sample uses a custom resource-based XOR decryption routine (fcn.100015f7) to unpack its primary payloads. The code is not fully packed, allowing for significant analysis of its high-level logic."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "Utilizes CreateProcessA, WriteFile, and SetFileTime to perform file-based injection."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies Windows Registry keys (RegSetValueExA, RegCreateKeyExA) to maintain presence across reboots."
+    },
+    {
+      "name": "Kernel-mode Interaction",
+      "description": "Attempts to interact with ntoskrnl.exe and ntdll.dll, including locating service tables and potential hooking routines."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Checks for debugger presence and attempts to disable security features."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode driver interaction (fcn.100096ce, fcn.1000b46f), registry modification for persistence (fcn.100017a0), and process hollowing (fcn.10001b34) demonstrates clear malicious intent. Legitimate software protectors may utilize similar techniques but do not target specific system binaries like 'win32k.sys' (fcn.1000a0fc) or 'ntoskrnl.exe' in this manner.",
+    "general": "High-intent evidence: The function fcn.1000ab6f attempts to manipulate the 'KeServiceDescriptorTable', a classic indicator of rootkit activity. The function fcn.10001b34 performs process creation and file replacement. Multiple functions use 'Int 2e' (system call) to bypass standard API hooks, indicating advanced evasion.",
+    "uncertainties": "While the kernel-level hooks are highly indicative of a rootkit, the full scope of the payload behavior is dependent on the decrypted resource '102'.",
+    "conditions": "The execution flow is gated by a Mutex check ('GlobalRPCMutex' or similar strings in fcn.10002109) and environmental checks, specifically requiring the presence of certain environment variables or file paths (fcn.10001b34).",
+    "sandbox_recommendations": "Simulate a fully updated Windows environment, as the sample performs version checks (GetVersionExA). The sample should be run with administrative privileges to trigger the driver loading and kernel-access functions."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\",
+          "description": "Targeted for driver installation and persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for single-instance execution and anti-collision."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used in kernel-related operations."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Primary loader function responsible for unpacking resources and spawning the malicious process."
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Kernel-mode hook function interacting with KeServiceDescriptorTable."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Registry manipulation routine used for persistence and configuration."
+    }
+  ]
+}

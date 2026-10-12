@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a modular rootkit installer that attempts to bypass security controls by modifying system service tables (SSDTC) and installing malicious system drivers or hooks, specifically targeting Windows kernel integrity.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based payload decryption",
+      "Dynamic API resolution (GetProcAddress/LoadLibrary)",
+      "Resource-based payload storage"
+    ],
+    "details": "The sample uses a custom resource section to hide its encrypted payload, which is decrypted at runtime using a static XOR key (0xcd) before execution or mapping."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode subversion",
+      "description": "Attempts to locate and modify KeServiceDescriptorTable to hook system calls."
+    },
+    {
+      "name": "Process/Driver injection",
+      "description": "Uses standard API patterns (VirtualAllocEx/WriteProcessMemory equivalent) and manual mapping of driver binaries to the kernel space."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies Windows registry keys (Run keys) and copies itself to the System32 directory under deceptive names."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Includes checks for debugger presence (via timing or exception handling) and attempts to disable monitoring via registry/mutex checks."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode API resolution (KeServiceDescriptorTable, NtQuerySystemInformation, NtQueryObject), direct registry-based persistent hooks (lsass injection), and the systematic disabling of Windows system protection features (disabling FileAttributes, modifying security descriptors) confirms malicious intent. This is not standard administrative or protective software behavior; it is a textbook rootkit installation routine.",
+    "general": "High-intent evidence includes calls to fcn.1000b369 (which accesses KeServiceDescriptorTable), fcn.1000c8af (which maps memory into the kernel), and fcn.1000c492 (which probes and locks pages in non-paged pool memory, indicative of kernel driver injection). Additionally, the use of fcn.1000c755 to find the address of NtShutdownSystem and replace it indicates an attempt to subvert low-level OS operations.",
+    "uncertainties": "While the binary is clearly malicious, the full extent of the rootkit payload remains hidden behind the encrypted resources. My analysis focused on the loader and installation logic, which is sufficiently clear to determine intent.",
+    "conditions": "The primary execution flow requires Administrator privileges and often specific environment variables (like '_system32') to reach its full payload activation state. It also checks for the presence of a mutex 'GlobalRPCMutex' to ensure only one instance is active.",
+    "sandbox_recommendations": "Run in a virtualized Windows environment with full kernel-mode debugging enabled. Monitor registry writes, specifically to 'HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services'. Ensure that the environment has a simulated 'system32' directory."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Persistence and driver installation path."
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used to prevent concurrent infection/execution."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for process synchronization during injection."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Primary function for locating and patching the System Service Descriptor Table (SSDT)."
+    },
+    {
+      "address": "0x1000c492",
+      "name": "fcn.1000c492",
+      "description": "Core function for MDL (Memory Descriptor List) manipulation and memory mapping into kernel space."
+    },
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Handles driver installation and persistence mechanism."
+    }
+  ]
+}

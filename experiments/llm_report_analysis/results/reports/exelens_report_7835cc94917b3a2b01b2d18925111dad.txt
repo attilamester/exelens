@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to perform process injection/hollowing and interact with kernel-level structures. It actively attempts to disable security features or bypass system constraints by interacting with ntdll.dll and ntkrnlpa.exe. It includes capabilities for persistence, anti-debugging, and process hiding using mutexes and registry manipulation.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress"
+    ],
+    "details": "The file uses XOR loops (0xCD) to decode resource-based payloads (e.g., in fcn.10001697) and dynamic import resolution, which are characteristic of dropper or loader behavior."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "Uses VirtualAlloc/WriteProcessMemory/CreateRemoteThread patterns to inject code into other processes."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies Windows registry keys (e.g., Run keys or similar) to ensure execution across reboots."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Contains code that checks for debuggers or specific environmental markers to evade analysis."
+    },
+    {
+      "name": "Kernel-level interaction",
+      "description": "Attempts to interact with kernel-mode structures via NtQuerySystemInformation and access to drivers like win32k.sys."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent indicators—specifically the code to manipulate kernel structures (NtQuerySystemInformation), the use of specific mutexes like 'prkMtx' to prevent multiple infections, and the logic to inject into system processes—strongly indicates malicious intent. While individual API calls are dual-use, the orchestrated flow of these calls constitutes a clear attack chain aimed at system compromise.",
+    "general": "High-intent evidence includes calls to NtQuerySystemInformation (fcn.1000c932), memory protection manipulation for process injection (fcn.100096ce), and registry modification targeting system components (fcn.100017a0).",
+    "uncertainties": "The exact nature of the payload decrypted from resources (e.g., 102/103) could not be fully analyzed without dynamic detonation, but the loader code is unambiguously malicious.",
+    "conditions": "The sample performs environmental checks such as GetComputerNameA, GetUserNameW, and mutex checks ('prkMtx') before detonating the main payload. It may require administrative privileges to successfully interact with the identified kernel-mode components.",
+    "sandbox_recommendations": "Run with administrative privileges. Monitor registry modifications specifically for 'DMWH' or similar keys. Provide access to common system DLLs (win32k.sys, ntdll.dll) to satisfy the dependency checks."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "DMWH",
+          "description": "Registry key/value used for persistence or configuration."
+        },
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used to detect or prevent multiple instances."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "C:\\Windows\\System32\\win32k.sys",
+          "description": "Target file for system interaction."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Handles registry-based persistence and environment configuration."
+    },
+    {
+      "address": "0x100043d2",
+      "name": "fcn.100043d2",
+      "description": "Decrypts and executes hidden payloads."
+    },
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Implements process hollowing or injection routines."
+    }
+  ]
+}

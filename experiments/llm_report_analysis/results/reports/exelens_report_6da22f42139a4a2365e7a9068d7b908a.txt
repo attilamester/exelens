@@ -1,0 +1,75 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This sample is a multi-stage dropper/rootkit installer. It unpacks an embedded resource, creates a mutex for persistence detection, modifies registry keys, and utilizes internal Windows undocumented structures and driver-related imports (`KeServiceDescriptorTable`, `IoAllocateMdl`, `MmProbeAndLockPages`) to hook system components or interact with kernel-mode drivers.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Resource-based unpacking (custom XOR loop)",
+      "Dynamic API resolution via LoadLibraryA/GetProcAddress"
+    ],
+    "details": "The file uses `FindResourceA`, `LoadResource`, `SizeofResource`, and `LockResource` followed by a custom XOR loop (XOR 0xCD) in `fcn.100015f7` to decrypt the primary payload. It also demonstrates dynamic API resolution."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode/Rootkit activity",
+      "description": "Imports and utilizes functions like KeServiceDescriptorTable, MmProbeAndLockPages, and KeRaiseIrqlToDpcLevel to interact with kernel structures."
+    },
+    {
+      "name": "Process Injection/Drop",
+      "description": "Drops an auxiliary driver/file and spawns it using CreateProcessA."
+    },
+    {
+      "name": "Persistence via Registry",
+      "description": "Modifies system registry keys (`RegSetValueExA`) to potentially hook into system startup or driver loading."
+    },
+    {
+      "name": "Mutex Evasion",
+      "description": "Checks for the existence of a global mutex `GlobalRPCMutex` to ensure only one instance runs."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent kernel-mode operations (hooking system services), modification of critical system registry keys, and resource-based decryption is indicative of rootkit/malware behavior. The code specifically targets `win32k.sys` and attempts to interact with system descriptors, which has no legitimate use for a common application.",
+    "general": "High-intent malicious behavior is confirmed by `fcn.1000b369` (accessing `KeServiceDescriptorTable`), `fcn.10009bd3` (accessing `ntoskrnl.exe`/`ntkrnlpa.exe`), and the overall flow of unpacking a binary to a system directory (referenced as `_system32` in the assembly) and executing it.",
+    "uncertainties": "The exact function of the decrypted payload is not fully visible, as it involves dynamic modification of system tables, which depends on the specific OS version target identified at runtime.",
+    "conditions": "Requires administrative privileges to modify registry keys and access system service tables. It likely checks for specific Windows versions via `GetVersionExA` as demonstrated in `fcn.100082ce`.",
+    "sandbox_recommendations": "Run in an environment that allows kernel debugging or monitoring of system calls. Simulate a standard Windows environment, ensuring administrative access is granted to observe registry and file system modifications."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used to prevent concurrent execution"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "win32k.sys",
+          "description": "System driver targeted for modification/hooking"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Primary decryption routine (XOR loop) for embedded resources"
+    },
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Attempts to locate and modify KeServiceDescriptorTable"
+    },
+    {
+      "address": "0x1000c492",
+      "name": "fcn.1000c492",
+      "description": "Driver memory management routine (IoAllocateMdl, MmProbeAndLockPages)"
+    }
+  ]
+}

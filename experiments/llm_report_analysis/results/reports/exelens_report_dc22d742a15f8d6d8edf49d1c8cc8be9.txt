@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains a sophisticated downloader/dropper functionality. It performs environment checks, process injection (via VirtualAllocEx/WriteProcessMemory), and establishes persistence by modifying service registry keys. It uses a custom obfuscation/packing layer to hide its logic.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR/shuffling loop for routine protection",
+      "Dynamic API resolution via GetProcAddress",
+      "Self-modifying code patterns"
+    ],
+    "details": "The file exhibits multiple layers of obfuscation, particularly in the payload loader (fcn.10005400) and communication routines (fcn.10008040). It uses dynamic API loading and custom decryption loops to protect its main malicious routines."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "Uses VirtualAllocEx and WriteProcessMemory to inject code into other processes."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies system services (RegSetValueExA, RegDeleteValueA) to ensure execution across reboots."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Contains IsDebuggerPresent checks and exception-based evasion techniques (RtlVirtualUnwind)."
+    },
+    {
+      "name": "Network Communication",
+      "description": "Utilizes Winsock (ws2_32.dll) imports and implements custom network protocol handlers."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent API sequences (VirtualAllocEx + WriteProcessMemory), explicit registry-based persistence via service manipulation (RegSetValueExA/StartServiceA), and anti-debugging checks provides clear evidence of malicious intent. The dual-use features are used here to facilitate illicit actions, confirming the verdict.",
+    "general": "The function fcn.10006d40 interacts with the Service Control Manager (OpenSCManagerA, OpenServiceA, StartServiceA) to manipulate services for persistence. The function fcn.1000f1c0 performs process memory manipulation using VirtualAllocEx and WriteProcessMemory, indicating a process injection attack.",
+    "uncertainties": "While the binary is clearly malicious, the full extent of the C2 protocol is obscured by the custom obfuscation routines present in the network communication functions.",
+    "conditions": "Execution is triggered by standard system startup or via command-line arguments. The code checks for an existing mutex (Global\\) and specific registry configurations (e.g., SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Internet Settings) to determine if it should activate its payload.",
+    "sandbox_recommendations": "Run in a controlled environment with network monitoring enabled. Simulate a standard Windows environment and ensure that the registry keys for service persistence are monitored for changes during the execution phase."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Internet Settings",
+          "description": "Used to store or query proxy settings and network environment info."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "C:\\Windows\\System32\\",
+          "description": "Base directory for copying payloads."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10006d40",
+      "name": "fcn.10006d40",
+      "description": "Handles service-based persistence via RegSetValueExA and StartServiceA."
+    },
+    {
+      "address": "0x1000f1c0",
+      "name": "fcn.1000f1c0",
+      "description": "Core process injection routine using memory manipulation APIs."
+    },
+    {
+      "address": "0x10008040",
+      "name": "fcn.10008040",
+      "description": "Mutex creation and anti-double-execution check."
+    }
+  ]
+}

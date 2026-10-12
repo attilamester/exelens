@@ -1,0 +1,83 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This file is a password-stealing trojan designed to extract credentials from various FTP, web, and email clients by parsing registry keys and local configuration files. It uses a custom obfuscation/decryption routine to read sensitive data and exfiltrate it via FTP or HTTP.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom compression algorithm (APLib)",
+      "Custom XOR/rolling-key obfuscation"
+    ],
+    "details": "The entrypoint and significant functions (e.g., fcn.00410ffd) implement an APLib decompressor and data decryption loops (e.g., fcn.00401d43) to unpack a payload in memory."
+  },
+  "capabilities": [
+    {
+      "name": "Password Stealing",
+      "description": "Extracts credentials from applications like FileZilla, CuteFTP, The Bat!, and browsers by reading registry settings or local configuration files."
+    },
+    {
+      "name": "Network Communication",
+      "description": "Uses wininet.dll and wsock32.dll to initiate outbound connections for credential exfiltration."
+    },
+    {
+      "name": "Registry Manipulation",
+      "description": "Enumerates registry keys (e.g., SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall) to identify installed software for targeting."
+    },
+    {
+      "name": "Evasion",
+      "description": "Uses Process32First/Next for process enumeration, potentially to inject into or monitor other applications."
+    }
+  ],
+  "details": {
+    "reasoning": "The application exhibits clear malicious intent by targeting sensitive configuration files and registry keys of popular password-storing software (FTP clients, email, browsers). The combination of high-entropy packed content, dynamic API resolution, and functions specifically designed to parse 'wand.dat' (Opera), 'Signons.sqlite' (Firefox), and various FTP configuration files (e.g., fcn.00409030, fcn.004095f7) confirms this is an information-stealer.",
+    "general": "High-intent indicators include functions like fcn.00409030 (sqlite database parsing), fcn.0040556c (parsing FTP configurations), and network-related functions such as fcn.00403baa (HTTP POST generation for exfiltration).",
+    "uncertainties": "The exact C2 (Command & Control) destination URL is dynamically constructed and not present in cleartext, preventing a definitive identification of the target exfiltration server.",
+    "conditions": "Execution likely requires elevated privileges or a user session where the targeted software has cached credentials. The binary also performs environment checks (e.g., fcn.0040422f for IsWow64Process) and may skip activity if specific registry conditions or environment markers are not found.",
+    "sandbox_recommendations": "The sample should be executed in a sandboxed environment populated with dummy configuration files for common FTP clients (e.g., FileZilla, CuteFTP) and browsers (Firefox) to trigger the malicious data-stealing logic. Monitor all outbound TCP traffic on ports 21 and 80."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall",
+          "description": "Targeted registry path to find installed software."
+        },
+        {
+          "value": "Software\\Ghisler\\Windows Commander",
+          "description": "Targeted registry key for Total Commander."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "moz_logins",
+          "description": "Indicates intention to steal Firefox/Mozilla saved passwords."
+        },
+        {
+          "value": "wand.dat",
+          "description": "Indicates intention to steal Opera browser data."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00409030",
+      "name": "fcn.00409030",
+      "description": "SQLite credential extraction function."
+    },
+    {
+      "address": "0x0040556c",
+      "name": "fcn.0040556c",
+      "description": "Parses FTP configuration files for credentials."
+    },
+    {
+      "address": "0x00403baa",
+      "name": "fcn.00403baa",
+      "description": "Builds HTTP POST requests for exfiltration."
+    }
+  ]
+}

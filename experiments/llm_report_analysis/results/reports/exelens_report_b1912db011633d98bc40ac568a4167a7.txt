@@ -1,0 +1,77 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This sample acts as a backdoor/remote administration tool. It connects to a remote C2, supports command-line execution via piped cmd.exe, service manipulation, and file/process listing capabilities.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed; the logic for network communication, service interaction, and process control is clearly visible in the assembly."
+  },
+  "capabilities": [
+    {
+      "name": "Remote Command Execution",
+      "description": "Uses CreateProcessA to launch 'cmd.exe' with redirected standard I/O (CreatePipe) for remote control."
+    },
+    {
+      "name": "Network Communication",
+      "description": "Utilizes WININET.dll (HttpOpenRequestA, HttpSendRequestA) to interact with a C2 server."
+    },
+    {
+      "name": "Service Manipulation",
+      "description": "Enables persistence or control by modifying service registry keys (ServiceDll, Start) and interacting with the Service Control Manager."
+    },
+    {
+      "name": "Process/System Reconnaissance",
+      "description": "Uses CreateToolhelp32Snapshot and Process32First/Next to enumerate running processes."
+    }
+  ],
+  "details": {
+    "reasoning": "The application exhibits high-intent malicious behavior by providing a remote shell mechanism. The combination of WININET for command fetching, CreateProcessA with pipes for stealthy execution, and registry modifications for service manipulation is characteristic of a remote access trojan (RAT). There is no indication of legitimate administrative utility in the provided code.",
+    "general": "High-intent evidence includes fcn.10001fb0 calling CreateProcessA to launch cmd.exe via redirected pipes, and fcn.10002eb0 utilizing CreateProcessAsUserA to execute commands. Functions such as fcn.100031a0 and fcn.10003330 show direct manipulation of 'SYSTEM\\CurrentControlSet\\Services' for persistence.",
+    "uncertainties": "The exact C2 domain or IP address is not explicitly hardcoded in the visible assembly, though it is likely passed via the network request structures. Analysis of the network traffic would be needed to confirm the C2 endpoint.",
+    "conditions": "The malware expects a C2 response and triggers specific actions based on commands like 'shell', 'kill', 'list', and 'start'. It requires service-level privileges to perform its persistence and service manipulation tasks.",
+    "sandbox_recommendations": "Provide an internet-simulated environment (e.g., INetSim) to capture outgoing requests. Monitor registry modifications in HKLM\\SYSTEM\\CurrentControlSet\\Services."
+  },
+  "ioc": [
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "cmd.exe",
+          "description": "Shell process targeted for remote command execution."
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SYSTEM\\CurrentControlSet\\Services\\*\\Parameters",
+          "description": "Registry path modified to set persistence via ServiceDll."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001fb0",
+      "name": "fcn.10001fb0",
+      "description": "Main function responsible for executing 'cmd.exe' and handling I/O redirection."
+    },
+    {
+      "address": "0x10001e90",
+      "name": "fcn.10001e90",
+      "description": "Handles reading/writing data from/to the process pipe for remote shell interaction."
+    },
+    {
+      "address": "0x100031a0",
+      "name": "fcn.100031a0",
+      "description": "Service persistence installation logic."
+    },
+    {
+      "address": "0x10002220",
+      "name": "fcn.10002220",
+      "description": "Enumerates running processes and services."
+    }
+  ]
+}

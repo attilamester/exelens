@@ -1,0 +1,81 @@
+{
+  "verdict": "benign",
+  "confidence": "high",
+  "summary": "The executable is a utility designed to extract and write embedded resource files (icons/data) to the temporary directory. It uses mutexes to ensure single-instance execution and performs basic XOR-based deobfuscation on the extracted data, which is typical for resource-heavy applications or self-extracting installers.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The .rsrc section has high entropy (6.91), which is standard for files containing multiple icon and resource resources (11 resources total), rather than malicious packing."
+  },
+  "capabilities": [
+    {
+      "name": "Resource Extraction",
+      "description": "Uses FindResource/LoadResource/LockResource to extract embedded data and WriteFile to save it to disk."
+    },
+    {
+      "name": "Single-Instance Enforcement",
+      "description": "Uses CreateMutexA with a named mutex 'mark01' to prevent multiple instances."
+    },
+    {
+      "name": "Obfuscation",
+      "description": "Performs a simple XOR operation in fcn.00401650 on resource data, likely for basic protection or format masking."
+    },
+    {
+      "name": "Directory Management",
+      "description": "Attempts to create temporary directories using CreateDirectoryA."
+    }
+  ],
+  "details": {
+    "reasoning": "The file exhibits common behaviors of a legitimate installer or self-extracting tool. All 'suspicious' capabilities (XORing, file creation, resource extraction) are localized to the task of extracting internal assets. There is no evidence of high-intent malicious behavior such as process injection, networking, or persistence mechanisms. The XOR routine (fcn.00401650) is a basic transformation applied to static resources, not code.",
+    "general": "The function fcn.00401210 manages directory creation, and fcn.004016d0 handles resource extraction (via IDR_ICOFILE2) and disk writes. The main entry point ensures single-instance execution via CreateMutexA (RVA: 0x00401b60).",
+    "uncertainties": "No significant uncertainties; the code logic is straightforward and lacks obfuscated control flow or anti-debugging measures.",
+    "conditions": "The application requires write access to the temporary directory. It performs standard startup initialization and executes based on internal resource extraction logic.",
+    "sandbox_recommendations": "No special requirements. Run with standard user privileges in a directory where temporary file creation is permitted."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "mark01",
+          "description": "Mutex name used for single-instance check."
+        },
+        {
+          "value": "DaumCleans.exe",
+          "description": "Target filename string referenced during file operations."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "c:\\temp\\",
+          "description": "Hardcoded path fragments used in directory creation checks."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401b60",
+      "name": "main",
+      "description": "Primary entry point managing mutex creation and application startup."
+    },
+    {
+      "address": "0x004016d0",
+      "name": "fcn.004016d0",
+      "description": "Handles extraction and decryption of resources (IDR_ICOFILE2) to disk."
+    },
+    {
+      "address": "0x00401650",
+      "name": "fcn.00401650",
+      "description": "Implements the data transformation/XOR routine for resources."
+    },
+    {
+      "address": "0x00401210",
+      "name": "fcn.00401210",
+      "description": "Handles verification and creation of temporary working directories."
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains a multi-stage loader that performs kernel-mode structure manipulations, registry persistence, and attempts to inject or hook system components, specifically targeting 'win32k.sys' and kernel object descriptors.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR encoding",
+      "Dynamic API resolution (GetProcAddress/LoadLibrary)",
+      "Resource-based payload hiding"
+    ],
+    "details": "The sample uses a custom XOR-based decryption (0xcd key) for resource data and dynamically resolves API addresses for kernel-level functions, suggesting an attempt to evade static detection."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-Mode Interaction",
+      "description": "Uses APIs to interact with and potentially patch kernel structures (e.g., KeServiceDescriptorTable, KeAddSystemServiceTable)."
+    },
+    {
+      "name": "Persistence",
+      "description": "Writes to the Windows Registry to ensure execution, specifically targeting system-level configuration keys."
+    },
+    {
+      "name": "File System Modification",
+      "description": "Copies, deletes, and modifies file attributes of system components, likely for replacement or hiding purposes."
+    },
+    {
+      "name": "Process/Service Manipulation",
+      "description": "Uses CreateProcessA, CreateThread, and WaitForSingleObject to manage execution flow and potentially run payloads as system services."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel structure modification functions (KeServiceDescriptorTable manipulation), the attempt to resolve system-level exports like 'NtShutdownSystem', and the systematic registry manipulation strongly indicates a rootkit-like or highly privileged malicious actor. While it uses dual-use APIs for memory and process handling, the specific targets (system32/win32k.sys and kernel-mode dispatch tables) confirm malicious intent.",
+    "general": "High-intent indicators include: direct modification of the System Service Descriptor Table (SSDT) via fcn.1000b369, manipulation of kernel function pointers (KeAddSystemServiceTable), and patching of system drivers (win32k.sys) identified through registry enumeration and memory mapping.",
+    "uncertainties": "The exact nature of the decrypted resource payload remains inaccessible without dynamic emulation, but the code structure confirms its purpose as a driver-loader or rootkit installer.",
+    "conditions": "The payload likely requires administrator or SYSTEM privileges to access the registry keys and kernel structures mentioned. It checks for specific environment variables and might require specific OS versions (checked via GetVersionExA).",
+    "sandbox_recommendations": "Run in an isolated environment with kernel debugging enabled. Monitor registry activity for keys under HKLM. The sample performs environment checks (GetComputerName, GetUserNameW), so ensure the sandbox name and user match common production environments."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Registry path where persistence is likely established."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "win32k.sys",
+          "description": "Target of file modification."
+        },
+        {
+          "value": "KeServiceDescriptorTable",
+          "description": "Internal kernel structure targeted for hooking."
+        },
+        {
+          "value": "lsass",
+          "description": "Process name manipulated by registry entries."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Manipulates the System Service Descriptor Table (SSDT) to hook system calls."
+    },
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Performs low-level file and system object manipulations, likely for payload delivery."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Enumerates registry keys and interacts with system tokens."
+    }
+  ]
+}

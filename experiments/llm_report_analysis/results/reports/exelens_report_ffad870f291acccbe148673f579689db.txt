@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple complex evasion and system-interaction capabilities. It attempts to load kernel-related components, modifies system registry keys, and uses technique-heavy approaches for process-memory interactions and kernel-level service manipulation. It contains string-based obfuscation to hide its intent.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR decryption loop",
+      "Resource-based hidden payload"
+    ],
+    "details": "The file uses routines like fcn.100015f7 to extract and decrypt resources (e.g., using a 0xcd XOR key) and transfer execution, which is a classic loader pattern. Multiple functions (e.g., 0x1000b46f) show direct interaction with system-critical data structures (KeServiceDescriptorTable)."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Attempts to modify KeServiceDescriptorTable (SSDT) to hook system calls."
+    },
+    {
+      "name": "Process Injection/Hooking",
+      "description": "Uses APIs like NtQuerySystemInformation, NtQueryObject, and memory-mapping techniques to interact with or inject into other processes."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies system registry keys (e.g., 'lsass') for persistence."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Checks environment variables and uses mutexes (e.g., 'prkMtx') to prevent multiple instances or sandbox detection."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level SSDT hooking (fcn.1000b369), registry-based persistence (lsass), and the use of obfuscated, dynamically loaded APIs strongly indicates malicious intent. This is not standard software protection; it is characteristic of rootkits and sophisticated persistence mechanisms.",
+    "general": "High-intent evidence includes fcn.1000b369 (SSDT hooking via KeServiceDescriptorTable), the presence of routines for patching system functions (fcn.1000755), and registry operations targeting system services like 'lsass'.",
+    "uncertainties": "The exact nature of the payload inside the resources is obscured by the custom XOR decryption, but the loader code is fully visible and functionally indicative of malicious payload deployment.",
+    "conditions": "Requires execution with administrative privileges to perform registry modifications and kernel-level hooks. It also checks for the existence of specific environment variables and mutexes (e.g., 'GlobalRPCMutex').",
+    "sandbox_recommendations": "Run in an environment that monitors both user-mode and kernel-mode API calls. Use a debugger to bypass the mutex/environment checks or simply emulate the environment variables it expects."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\lsass",
+          "description": "Registry path modified for persistence."
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used to ensure single instance."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for synchronization."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Core function for SSDT hooking/patching."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Loader routine for extracting and decrypting embedded resources."
+    },
+    {
+      "address": "0x10006f75",
+      "name": "fcn.10006f75",
+      "description": "Version check and security descriptor initialization routine."
+    }
+  ]
+}

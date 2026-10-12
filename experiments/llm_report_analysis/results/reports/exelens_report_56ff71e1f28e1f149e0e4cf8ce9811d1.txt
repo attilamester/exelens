@@ -1,0 +1,75 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample exhibits capabilities to modify system integrity by disabling critical security mechanisms (via registry modifications for 'lsass'), creating global mutexes for persistence/instance control, and manipulating kernel-level structures or drivers (e.g., KeServiceDescriptorTable, NtQuerySystemInformation). It appears to be a sophisticated installer or toolkit that deploys hidden payloads.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom encryption/obfuscation of resources (XOR 0xcd loop)",
+      "Resource-based payload loading (LoadResource, LockResource, UpdateResourceA)"
+    ],
+    "details": "The file contains encrypted/packed data in resources. Several functions (e.g., fcn.100015f7, fcn.10001723) perform XOR operations with 0xcd and write content to disk or memory. It uses UpdateResourceA to potentially modify itself or another file on disk."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence / Evasion",
+      "description": "Modifies registry keys to alter system behavior (RegSetValueExA, RegCreateKeyExA) and uses mutexes (CreateMutexA) to avoid duplicate execution."
+    },
+    {
+      "name": "Privilege Escalation / System Modification",
+      "description": "Attempts to interact with kernel-level tables (KeServiceDescriptorTable) and performs operations typical of rootkits or low-level system patchers."
+    },
+    {
+      "name": "Process Injection / Execution",
+      "description": "Uses CreateProcessA, FindFirstFile, and file attribute manipulation to deploy or manage malicious binaries."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode API interaction (KeServiceDescriptorTable), modification of sensitive security settings (lsass registry value manipulation), and the presence of obfuscated resource-based payloads provides strong evidence of malicious intent. These actions are not characteristic of legitimate software protectors or installers.",
+    "general": "Evidence includes fcn.100017a0 (modifying registry values for lsass), fcn.1000b46f (modifying system service tables), and fcn.1000b369 (interacting with KeServiceDescriptorTable). The use of fcn.10001723 to update resources with XOR-obfuscated content indicates a high likelihood of payload deployment.",
+    "uncertainties": "The exact nature of the payload inside the resources is not fully viewable, and some functionalities might be version-dependent on the OS (detected via GetVersionExA).",
+    "conditions": "Execution is likely triggered upon finding specific environment variables or files on the system. It checks for the existence of mutexes (GlobalRPCMutex) and specific paths (system32) before initiating payload deployment.",
+    "sandbox_recommendations": "Simulate a standard Windows environment, ensure administrative privileges are available to the process, and monitor for changes to HKLM\\SYSTEM\\CurrentControlSet\\Services or modification of system drivers."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "lsass",
+          "description": "Registry key/value modification target often associated with credential dumping or security hardening bypass."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for synchronization."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Handles registry key creation and value setting, likely for persistence or evasion."
+    },
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Performs low-level system calls related to registry and file manipulation, potentially hooking or modifying system drivers."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Writes resource data to a file on disk, typically used for dropping the main payload."
+    }
+  ]
+}

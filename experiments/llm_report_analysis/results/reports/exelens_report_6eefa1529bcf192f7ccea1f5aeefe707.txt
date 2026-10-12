@@ -1,0 +1,82 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a dropper. It checks for a mutex 'mark01' to ensure single-instance execution, extracts two embedded resources (IDR_ICOFILE1 and IDR_ICOFILE2) from the .rsrc section, and writes them to the disk. IDR_ICOFILE2 is decrypted using a custom XOR-based routine (fcn.00401620) before being written to a temporary directory.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Custom XOR obfuscation of embedded resources"
+    ],
+    "details": "The .rsrc section contains high-entropy data (6.69) typical of embedded, encrypted or compressed payloads. The routine fcn.00401620 implements a XOR-based decryption mechanism used to prepare the resource data before writing it to a file."
+  },
+  "capabilities": [
+    {
+      "name": "Mutex Creation",
+      "description": "Uses CreateMutexA to ensure only one instance of the malware is running."
+    },
+    {
+      "name": "Resource Extraction",
+      "description": "Extracts embedded data from the .rsrc section using FindResourceA, LoadResource, and LockResource."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Writes extracted and decrypted data to disk using CreateFileA and WriteFile."
+    },
+    {
+      "name": "Custom Decryption",
+      "description": "Implements an XOR-based routine to decrypt embedded resources at runtime."
+    }
+  ],
+  "details": {
+    "reasoning": "While resource extraction and file writing are dual-use (often used by installers), the combination of mutex-based instance control, hardcoded resource identifiers, a custom decryption routine applied to an embedded payload, and the subsequent dropping of files into a temporary directory strongly indicates a malicious dropper capability. The code lacks any legitimate application interface or functionality, confirming the malicious intent.",
+    "general": "The function fcn.00401620 performs an XOR operation on resource data. The main execution flow involves calling fcn.004016a0, which uses FindResourceA for 'IDR_ICOFILE2' and then calls the decryption routine before writing the resulting binary to a file created via CreateFileA.",
+    "uncertainties": "The exact nature of the dropped payload is unknown as it remains encrypted in the .rsrc section; however, the dropper logic itself is confirmed.",
+    "conditions": "The file requires no specific command-line arguments but checks for the existence of a mutex named 'mark01'. If the mutex exists, the process terminates.",
+    "sandbox_recommendations": "Monitor file system activity in the temporary directory. The sample should be executed in a sandbox that allows file creation, as it will drop files to disk. No specific arguments are required."
+  },
+  "ioc": [
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "mark01",
+          "description": "Mutex used to ensure single-instance execution"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "c:\\tmp\\",
+          "description": "Directory checked/created for file operations"
+        },
+        {
+          "value": "c:\\temp\\",
+          "description": "Directory checked/created for file operations"
+        },
+        {
+          "value": "c:\\intel\\",
+          "description": "Directory checked/created for file operations"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401620",
+      "name": "fcn.00401620",
+      "description": "Implements custom XOR decryption for resource data."
+    },
+    {
+      "address": "0x004016a0",
+      "name": "fcn.004016a0",
+      "description": "Coordinates extraction, decryption, and dropping of the IDR_ICOFILE2 resource."
+    },
+    {
+      "address": "0x00401b30",
+      "name": "main",
+      "description": "Main application entry point; initializes mutex and triggers dropper logic."
+    }
+  ]
+}

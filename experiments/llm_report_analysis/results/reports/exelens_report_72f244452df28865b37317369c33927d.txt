@@ -1,0 +1,98 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains complex anti-analysis and rootkit-like capabilities, including direct memory manipulation (kernel structures), process hollowing, and persistence mechanisms via registry manipulation. It uses custom resource decryption and dynamic API resolution to conceal its true behavior.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Custom XOR-based decryption of resources",
+      "Dynamic API resolution through GetProcAddress/LoadLibrary",
+      "Memory section manipulation (VirtualAlloc/VirtualFree/MapViewOfFile)"
+    ],
+    "details": "The file contains highly entropy-rich sections (0x102 resource). Functions like fcn.100015f7 perform custom XOR-based decryption (0xcd) on resource data, which is then mapped into memory for execution."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Hollowing",
+      "description": "Uses CreateProcessA, WriteProcessMemory, and potentially manual mapping to inject code into other processes."
+    },
+    {
+      "name": "Persistence",
+      "description": "Manipulates registry keys (RegCreateKeyExA, RegSetValueExA) to ensure execution across reboots, targeting system-level components."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Implements checks for debugger/sandbox environments and uses anti-debugging techniques, including direct kernel structure manipulation (fcn.1000b369 targeting KeServiceDescriptorTable)."
+    },
+    {
+      "name": "System Modification",
+      "description": "Modifies system files and registry entries related to core OS components (e.g., win32k.sys, lsass)."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode structures access (SSDT hooking), modifying core system files (win32k.sys), and process creation with file time stomping points to clear malicious intent rather than a legitimate installer or protector. The sample uses highly specific registry keys (e.g., 'cnFormSyncExFBC') typically associated with advanced modular malware.",
+    "general": "High-intent indicators include fcn.1000b369 (direct modification of KeServiceDescriptorTable), fcn.100017a0 (modifying registry values for system-critical processes like lsass), and fcn.100043d2 (registry manipulation and process creation). Use of KERNEL32.dll_SetFileTime after operations suggests evasion/stomping.",
+    "uncertainties": "The exact nature of the payload inside the resource '102' is obscured by custom XOR decryption, but the loader logic clearly demonstrates malicious behavior.",
+    "conditions": "The payload activation requires the presence of certain environment variables (checked via fcn.10001a54) and relies on registry keys to determine execution flow. It likely requires administrative privileges to modify kernel structures.",
+    "sandbox_recommendations": "Run in an environment with kernel-mode debugging enabled. Monitor registry activity specifically for keys under HKLM\\SYSTEM\\CurrentControlSet. Use tools to detect SSDT hooking or integrity changes to ntoskrnl.exe/win32k.sys."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet",
+          "description": "Targeted for persistence and system modification."
+        },
+        {
+          "value": "cnFormSyncExFBC",
+          "description": "Registry-based communication or configuration key."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "win32k.sys",
+          "description": "System file targeted for modification."
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for synchronization, found as string literal in fcn.10002109."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex for inter-process communication."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Modifies kernel structures (KeServiceDescriptorTable), characteristic of a rootkit."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Resource decryption routine (XOR 0xcd)."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Registry modification for persistence targeting lsass."
+    },
+    {
+      "address": "0x100043d2",
+      "name": "fcn.100043d2",
+      "description": "Performs system-wide registry modifications and environment checks."
+    }
+  ]
+}

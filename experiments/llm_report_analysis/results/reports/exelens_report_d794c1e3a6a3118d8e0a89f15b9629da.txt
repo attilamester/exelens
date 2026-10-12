@@ -1,0 +1,89 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a kernel-mode driver installer/loader. It contains logic to decrypt and load an embedded payload, interacts with kernel interfaces (NtQuerySystemInformation, KeServiceDescriptorTable modifications), and performs process injection/hooking or monitoring routines via registry manipulation and system service registration.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation of embedded resources",
+      "Custom routine to resolve APIs at runtime",
+      "Resource modification/update"
+    ],
+    "details": "The sample uses a custom XOR-based obfuscation (0xcd) for embedded resources (e.g., in fcn.10001697 and fcn.10001723). It uses KERNEL32!UpdateResourceA and FindResourceA, suggesting a self-modifying or multi-stage dropper capability."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode interaction",
+      "description": "Attempts to locate and modify the KeServiceDescriptorTable (SSDT) and uses NtQuerySystemInformation."
+    },
+    {
+      "name": "Process/Driver injection",
+      "description": "Uses CreateProcessA and modifies system files/registry keys to achieve persistence and potentially execute code in system context."
+    },
+    {
+      "name": "Persistence",
+      "description": "Manipulates registry keys (Run keys or system service configuration) and uses SetFileAttributesA to hide files."
+    },
+    {
+      "name": "Mutex synchronization",
+      "description": "Creates global mutexes (GlobalRPCMutex, prkMtx) to prevent multiple instances or manage state."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent kernel-mode operations (SSDT hooking/modification via KeServiceDescriptorTable, NtQuerySystemInformation) alongside explicit file manipulation of system files (system32/win32k.sys) and the registration of system services proves malicious intent beyond standard protector behavior. The file actively attempts to bypass system protections and execute in the kernel context.",
+    "general": "High-intent evidence includes direct modification of the SSDT in fcn.1000b369 (KeServiceDescriptorTable), use of Undocumented APIs (NtQuerySystemInformation, NtShutdownSystem), and process hollowing/injection patterns via CreateProcessA combined with resource extraction and file time manipulation (SetFileTime).",
+    "uncertainties": "While the binary is clearly a kernel-mode driver dropper/loader, the exact nature of the final decrypted payload could not be fully analyzed as it is extracted at runtime from resources.",
+    "conditions": "The primary execution flow requires the environment to not be under active analysis (anti-debugging/VM checks are present) and likely requires administrative privileges to perform registry and kernel-level modifications.",
+    "sandbox_recommendations": "Run in an environment that allows kernel-mode debugging to monitor SSDT modifications. Execute with administrative privileges. Ensure network simulation is active to intercept potential C2 communication during payload deployment."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for synchronization."
+        },
+        {
+          "value": "lsass",
+          "description": "Target process name observed in registry manipulation."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "_system32",
+          "description": "System directory path reference."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Functions related to KeServiceDescriptorTable (SSDT) modification."
+    },
+    {
+      "address": "0x1000d592",
+      "name": "fcn.1000d592",
+      "description": "Wrapper for NtQuerySystemInformation."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "RegKey manipulation and file copying for persistence."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Resource extraction and process creation."
+    }
+  ]
+}

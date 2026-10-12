@@ -1,0 +1,75 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to modify system-level drivers or services (e.g., KeServiceDescriptorTable patching) and registry persistence mechanisms, likely acting as a kernel-level rootkit or driver installer.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based payload decryption",
+      "Dynamic API resolution via GetProcAddress"
+    ],
+    "details": "The entry point and multiple functions contain loops performing XOR operations (e.g., 0xcd) on resource data, indicating decryption of a secondary payload. The binary also dynamically loads functions from ntdll and ntoskrnl."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Uses RegCreateKeyExA and RegSetValueExA to modify system registry keys."
+    },
+    {
+      "name": "System Modification",
+      "description": "Attempts to patch KeServiceDescriptorTable (SSDT) to hook system calls."
+    },
+    {
+      "name": "Process Injection/Hollowing",
+      "description": "Contains code to manipulate process memory and modify kernel structures."
+    },
+    {
+      "name": "Resource Modification",
+      "description": "Uses BeginUpdateResourceA and UpdateResourceA to modify its own binary or external files."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent malicious capabilities—specifically the targeted patching of kernel structures (SSDT), manipulation of service-related registry keys, and dynamic resource modification—confirms malicious intent. While individual APIs like VirtualAlloc are dual-use, their use in conjunction with ntoskrnl exports and SSDT hook patterns is typical of sophisticated rootkit behavior.",
+    "general": "High-intent evidence includes fcn.1000b46f (direct SSDT patching patterns via KeServiceDescriptorTable), fcn.10001723 (resource modification), and fcn.1000a2cd (registry-based persistence). The instruction sequences involving 'int 0x2e' (system call interface) in fcn.1000b46f and others point to deliberate kernel-mode interaction.",
+    "uncertainties": "The exact nature of the decrypted payload is not fully visible, as it is dynamically reconstructed at runtime. However, the observed functions are consistent with a malicious driver installer or bootloader rootkit.",
+    "conditions": "Execution requires the file to be run with sufficient privileges (Admin/System) to interact with the registry and perform driver/kernel-level modifications. It likely requires a specific environment (e.g., Windows kernel-mode context) to trigger the SSDT patching logic.",
+    "sandbox_recommendations": "Use a fully instrumented Windows sandbox with kernel-mode monitoring enabled. Monitor for registry changes to 'Services' keys and modifications to ntoskrnl.exe memory segments."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used to ensure single-instance execution."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "_system32",
+          "description": "Target directory path frequently used for persistence."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Implements SSDT hooking mechanisms."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Performs registry key manipulation and persistence logic."
+    },
+    {
+      "address": "0x10001723",
+      "name": "fcn.10001723",
+      "description": "Modifies internal resources using UpdateResourceA."
+    }
+  ]
+}

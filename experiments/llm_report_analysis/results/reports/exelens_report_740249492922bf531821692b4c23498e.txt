@@ -1,0 +1,74 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable acts as a remote file downloader and transmitter. It establishes persistence by adding an entry to the Windows Registry 'Run' key, then connects to a remote server via sockets to either upload or download files based on the server's instructions.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Custom XOR decryption loop in section .text"
+    ],
+    "details": "The function at 0x401000 implements a simple XOR decryption loop (XORing with 5). The overlay (size 6304 bytes, entropy 7.39) suggests encrypted or compressed data, which likely contains the configuration or the actual payload to be processed."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Writes to the Windows Registry 'Software\\Microsoft\\Windows\\CurrentVersion\\Run' to ensure execution on system startup."
+    },
+    {
+      "name": "Network Communication",
+      "description": "Uses Winsock (WS2_32.dll) to create sockets, connect to hosts, and perform send/recv operations."
+    },
+    {
+      "name": "File I/O",
+      "description": "Reads and writes files, and dynamically resolves 'WriteFile' via LoadLibrary/GetProcAddress."
+    }
+  ],
+  "details": {
+    "reasoning": "While registry modification and networking can be legitimate, the specific combination of setting a 'Google_Update' persistence key, dynamically loading 'WriteFile' to perform remote-directed file system changes, and the presence of a high-entropy overlay strongly indicates a remote access tool (RAT) or malware dropper. The intent is clearly not that of standard legitimate software.",
+    "general": "High-intent malicious behavior is confirmed by fcn.00401b90, which combines socket communication with KERNEL32.dll_CreateFileA and dynamic resolution of WriteFile. fcn.00402170 explicitly targets the 'Software\\Microsoft\\Windows\\CurrentVersion\\Run' registry path to add 'Google_Update'.",
+    "uncertainties": "The exact nature of the data in the 6304-byte overlay is not fully determined, but its high entropy indicates it is likely obfuscated or compressed malicious content.",
+    "conditions": "The code relies on successful socket connection (WS2_32.dll_connect) to a remote server and appropriate permissions to modify the registry's Run key.",
+    "sandbox_recommendations": "Monitor registry activity specifically for 'Google_Update'. Use a network simulator (e.g., INetSim) to capture the initial C2 handshake and potential subsequent file transfer requests."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Registry key modified for persistence."
+        },
+        {
+          "value": "Google_Update",
+          "description": "Value name used in the Run key for persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "WriteFile",
+          "description": "Dynamically resolved API used for writing downloaded data."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00402170",
+      "name": "fcn.00402170",
+      "description": "Handles registry persistence by modifying the Run key."
+    },
+    {
+      "address": "0x00401b90",
+      "name": "fcn.00401b90",
+      "description": "Primary network-to-file communication handler; resolves APIs dynamically."
+    },
+    {
+      "address": "0x00401000",
+      "name": "section..text",
+      "description": "XOR-based decryption routine."
+    }
+  ]
+}

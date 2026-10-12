@@ -1,0 +1,88 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a downloader and information stealer, capable of process hollowing, file deletion, registry manipulation for persistence, and capturing browser data (Firefox/Chrome).",
+  "packed": {
+    "status": "false",
+    "techniques": [
+      "None obvious",
+      "Dynamic API resolution (GetProcAddress)"
+    ],
+    "details": "The file does not appear packed; however, it heavily utilizes dynamic API resolution and C++ standard library structures to hide its primary logic flow."
+  },
+  "capabilities": [
+    {
+      "name": "Process Hollowing",
+      "description": "Utilizes VirtualAllocEx, WriteProcessMemory, SetThreadContext, and ResumeThread to inject malicious code into spawned processes."
+    },
+    {
+      "name": "Browser Data Theft",
+      "description": "Searches for Firefox and Chrome cookies and login data files (logins.json, Cookies) and exfiltrates them."
+    },
+    {
+      "name": "Persistence",
+      "description": "Manipulates the Windows Registry 'Run' keys and potentially creates services for persistence."
+    },
+    {
+      "name": "Command and Control",
+      "description": "Uses WinINet and Winsock APIs to communicate, download files, and potentially receive remote commands."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of process hollowing (fcn.0040e5af), browser credential theft (fcn.0040619e, fcn.004064e3), and persistent registry modifications (fcn.00407697, fcn.0040a9b0) provides conclusive evidence of malicious intent. These are not common traits of legitimate software, and their presence indicates a classic information-stealer/downloader Trojan behavior.",
+    "general": "High-intent malicious behavior is confirmed by fcn.0040e5af, which performs process hollowing by writing to external processes (ReadProcessMemory, VirtualAllocEx, SetThreadContext). Functions like fcn.0040619e and fcn.004064e3 explicitly target Firefox and Chrome data directories, showing clear intent to steal credentials. Persistence is managed via fcn.00407697 which interacts with Software\\Microsoft\\Windows\\CurrentVersion\\Run.",
+    "uncertainties": "While the core logic is clearly malicious, the full extent of the network communication (e.g., C2 C2 URL/IP) depends on the data retrieved from the RCDATA 'SETTINGS' resource, which was not decoded here.",
+    "conditions": "The malware requires an active internet connection to execute download functions, and specific registry keys or environment files must be present on the system for successful data collection.",
+    "sandbox_recommendations": "Ensure internet connectivity is available. Simulate common user environment paths (e.g., AppData, browser profiles) to trigger the stealer components."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Registry key used for persistence."
+        },
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\\Run",
+          "description": "Alternative persistence path."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "AppData\\Roaming\\Mozilla\\Firefox\\Profiles",
+          "description": "Target path for Firefox credential theft."
+        },
+        {
+          "value": "AppData\\Local\\Google\\Chrome\\User_Data\\Default\\Cookies",
+          "description": "Target path for Chrome cookie theft."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x0040e5af",
+      "name": "fcn.0040e5af",
+      "description": "Implements process hollowing using VirtualAllocEx and SetThreadContext."
+    },
+    {
+      "address": "0x0040619e",
+      "name": "fcn.0040619e",
+      "description": "Targets Firefox login and cookie files."
+    },
+    {
+      "address": "0x00407697",
+      "name": "fcn.00407697",
+      "description": "Modifies Registry Run keys for persistence."
+    },
+    {
+      "address": "0x0041087e",
+      "name": "fcn.0041087e",
+      "description": "Handles remote file downloads via WinINet."
+    }
+  ]
+}

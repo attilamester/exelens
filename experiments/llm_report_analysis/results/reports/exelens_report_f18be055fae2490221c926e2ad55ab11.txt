@@ -1,0 +1,65 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This executable acts as a self-replicating worm or file infector. It scans for removable drives, attempts to hide files by modifying system registry keys ('Hidden', 'HideFileExt'), and creates a copy of itself in directories. It also uses anti-analysis techniques such as mutex checks and environment/file attributes checks to evade sandboxes.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom heap-based packing/unpacking"
+    ],
+    "details": "The binary exhibits standard unpacking behavior: `HeapCreate`/`HeapAlloc`, followed by `VirtualAlloc` for memory allocation, and `HeapReAlloc` / `HeapFree` routines. Execution flow is hijacked from the initial `entry0` entrypoint, eventually transferring control to a newly allocated memory region containing the payload."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence/System Modification",
+      "description": "Uses RegSetValueExA to modify Explorer settings (Hidden, HideFileExt, CheckedValue) to facilitate stealthy infection."
+    },
+    {
+      "name": "Removable Drive Infection",
+      "description": "Iterates over system drives, checks for removable media via GetDriveTypeA, and uses CopyFileA to infect directories."
+    },
+    {
+      "name": "Anti-Analysis/Evasion",
+      "description": "Utilizes CreateMutexA to ensure single-instance execution and checks environment/attributes to detect if it is being analyzed."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of file system traversal (GetLogicalDriveStringsA/FindFirstFileA), registry modification for stealth (hiding file extensions), and propagation through drive infection confirms malicious intent. While individual APIs are dual-use, their functional integration as a worm behavior is not indicative of any legitimate software utility.",
+    "general": "High-intent malicious patterns include `RegCreateKeyExA` modifying 'CheckedValue' (RVA 0x00401520), `CopyFileA` usage for spreading (RVA 0x00402e00), and `GetDiskFreeSpaceExA` used to selectively infect drives based on free space metrics.",
+    "uncertainties": "The packed nature hides the decrypted strings for the C2 or specific command-line arguments, but the file propagation logic is clearly observable.",
+    "conditions": "The sample requires detection of removable media (drives of type 2) to trigger its primary propagation logic. It also requires specific registry permissions to disable folder options visibility features.",
+    "sandbox_recommendations": "Run with at least two virtual drives mapped (e.g., C: and D: where D: is removable). Monitor registry changes on 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced'."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced\\Hidden",
+          "description": "Registry key used to hide files"
+        },
+        {
+          "value": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced\\HideFileExt",
+          "description": "Registry key used to hide extensions"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x004018e0",
+      "name": "fcn.004018e0",
+      "description": "Primary drive infection logic and directory traversal."
+    },
+    {
+      "address": "0x004014b0",
+      "name": "fcn.004014b0",
+      "description": "Modifies system registry settings for persistence and stealth."
+    },
+    {
+      "address": "0x00402e80",
+      "name": "fcn.00402e80",
+      "description": "Main routine for file copying and directory manipulation."
+    }
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a packed AutoIt script containing significant obfuscation and high-intent malicious capabilities, including process injection, process hollowing, system persistence, and credential/information harvesting functionality.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "AutoIt executable wrapper",
+      "Resource-based obfuscation",
+      "Dynamic API resolution (GetProcAddress/LoadLibrary)"
+    ],
+    "details": "The entrypoint points to an AutoIt-specific wrapper architecture. High-entropy sections and a massive 182KB overlay (entropy 8.0) suggest a heavily compressed or encrypted payload, likely containing the obfuscated AutoIt script code."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Hollowing",
+      "description": "Utilizes VirtualAllocEx, WriteProcessMemory, and CreateRemoteThread to execute code in other process spaces."
+    },
+    {
+      "name": "System Persistence",
+      "description": "Accesses registry keys (RegOpenKeyExW) to ensure auto-execution."
+    },
+    {
+      "name": "Networking (C2)",
+      "description": "Imports WinInet functions (InternetOpenW, HttpSendRequestW, FtpOpenFileW) for potential command and control communication."
+    },
+    {
+      "name": "Evasion/Anti-Analysis",
+      "description": "Explicit checks for IsDebuggerPresent and use of anti-analysis timing loops."
+    },
+    {
+      "name": "Credential/System Harvesting",
+      "description": "Accesses Token/Security descriptors (OpenProcessToken, LookupPrivilegeValueW) and logs keystrokes (SetWindowsHookEx-like patterns observed in fcn.004447e0)."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of AutoIt wrapper, high-entropy overlays, and explicitly malicious imports (CreateRemoteThread, WriteProcessMemory, Internet functions) demonstrates clear malicious intent. The code contains standard AutoIt boilerplate, but the specific calls to thread injection and network communication to non-standard locations confirm it is not just an installer or protector. The classification is malicious due to the combination of capabilities and the high-intent nature of the injection/C2 APIs.",
+    "general": "Evidence is found in the import table and function structure: KERNEL32!VirtualAllocEx/WriteProcessMemory/CreateRemoteThread (fcn.004096a0, 0x4096a0) strongly indicates process hollowing. fcn.004447e0 contains keyboard hook logic typically used for keylogging. The presence of numerous WinInet/WSOCK32 imports confirms active network communication.",
+    "uncertainties": "While the binary is packed, the core malicious logic (AutoIt bytecode) remains obfuscated. The specific C2 IP or URL could not be extracted statically from the packed overlay.",
+    "conditions": "The payload likely requires a successful check of environment variables or registry flags to bypass anti-analysis gates. It may require specific command line arguments (GetCommandLineW) that are checked early in the main entry process.",
+    "sandbox_recommendations": "Ensure internet access is simulated and the system time is set to an active date. Observe network traffic specifically on ports 80 and 443 to capture C2 communication. Monitor for spawned child processes, especially common Windows system processes being hollowed."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SOFTWARE\\Classes",
+          "description": "Registry key targeted during persistence or configuration setup."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "winsta0\\default",
+          "description": "Windows interactive desktop object often targeted by malware for capture or manipulation."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x004096a0",
+      "name": "fcn.004096a0",
+      "description": "Likely contains the core unpacking logic and process injection sequence."
+    },
+    {
+      "address": "0x004447e0",
+      "name": "fcn.004447e0",
+      "description": "Contains keyboard state monitoring and event processing logic."
+    },
+    {
+      "address": "0x00437262",
+      "name": "fcn.00437262",
+      "description": "Large function likely responsible for script decryption or data transformation."
+    }
+  ]
+}

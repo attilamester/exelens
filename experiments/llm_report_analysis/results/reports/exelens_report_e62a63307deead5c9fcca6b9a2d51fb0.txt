@@ -1,0 +1,97 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a backdoor/RAT, performing network communication (HTTP), persistent file infection/management via service installation (USBTest.sys), and system environment enumeration. It uses dynamic API resolution and custom encryption loops to obfuscate its operations.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Custom XOR loops",
+      "Dynamic API resolution",
+      "Dynamic code loading"
+    ],
+    "details": "The sample employs custom XOR loops (e.g., in fcn.00405820) to decrypt strings and internal resources. It dynamically resolves symbols using GetProcAddress to evade simple static import analysis."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Installs a service ('USBTest') and modifies registry run keys to maintain execution across reboots."
+    },
+    {
+      "name": "Network Communication",
+      "description": "Implements custom HTTP client logic to perform GET/POST requests, likely for C2 communications."
+    },
+    {
+      "name": "Process Injection/System Manipulation",
+      "description": "Enumerates running processes via Toolhelp32 snapshots and interacts with external files/directories."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Checks for debugger presence and specific environment conditions."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistence mechanisms (service installation, registry modification), direct socket communication for C2, and hidden payload extraction (writing 'USBTest.sys' to system drivers) provides clear evidence of malicious intent that exceeds any potential dual-use utility.",
+    "general": "The function fcn.00405820 and fcn.00405a90 demonstrate the service installation flow. The networking capabilities are evident in fcn.004018d0 and fcn.00402570, which manually craft HTTP headers for C2. Persistence is managed in fcn.00401500 through registry modification.",
+    "uncertainties": "While the binary is clearly a backdoor, the exact nature of the C2 server interaction and the full breadth of the payload functionality rely on dynamic execution that was simulated statically. The logic for some C2 commands is complex and truncated.",
+    "conditions": "Execution is gated by the presence of certain environment files and system settings (e.g., proxy configurations, registry keys).",
+    "sandbox_recommendations": "Simulate a live network environment with intercepting proxies (Burp/Fiddler). Use a Windows sandbox that allows registry and service creation. Monitor file system activity in the system directory."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Persistence mechanism"
+        },
+        {
+          "value": "Software\\Microsoft\\CurrentNetInf",
+          "description": "Configuration storage"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "%SYSTEMROOT%\\drivers\\USBTest.sys",
+          "description": "Infected driver path"
+        },
+        {
+          "value": "netsvc.exe",
+          "description": "Associated malicious process"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "MicrosoftZj",
+          "description": "Mutex name"
+        },
+        {
+          "value": "USBTest",
+          "description": "Service name"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00405820",
+      "name": "fcn.00405820",
+      "description": "Drops and installs the malicious driver 'USBTest.sys'"
+    },
+    {
+      "address": "0x004018d0",
+      "name": "fcn.004018d0",
+      "description": "Core HTTP network communication routine"
+    },
+    {
+      "address": "0x00401500",
+      "name": "fcn.00401500",
+      "description": "Handles persistence via registry modification"
+    }
+  ]
+}

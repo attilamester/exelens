@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to inject code into system processes (e.g., lsass.exe), uses anti-analysis techniques (e.g., Mutex checks, environment variable checks), and attempts to modify system drivers or kernel-level objects through kernel mode API calls, indicating high-intent malicious behavior.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource-based payload hiding",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress",
+      "Custom XOR decryption loop in fcn.10001697"
+    ],
+    "details": "The file uses RCDATA resources (102) to store an encrypted payload, which is decrypted at runtime using a XOR 0xcd loop in fcn.10001697 and then likely injected or executed."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "Utilizes CreateProcessA, CopyFileA, and registry manipulation to inject/replace system files, specifically targeting lsass.exe."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Uses CreateMutexA/W to ensure single instance execution and checks for environment variables/system conditions to evade sandboxes."
+    },
+    {
+      "name": "Kernel-Level Manipulation",
+      "description": "Imports and calls undocumented/kernel-related functions such as NtQuerySystemInformation, NtQueryObject, and attempts to modify the System Service Descriptor Table (SSDT)."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies Windows Registry keys (e.g., Run keys) to ensure it executes automatically upon system startup."
+    }
+  ],
+  "details": {
+    "reasoning": "While the binary contains some dual-use capabilities (packing, registry modification), the presence of clear, high-intent malicious operations—specifically the targeted manipulation of lsass.exe, efforts to bypass kernel-mode security structures (SSDT), and the use of kernel-level APIs to hide its activity—strongly confirms malicious intent. It is not a legitimate tool.",
+    "general": "High-intent evidence is seen in fcn.100017a0 (lsass.exe registry manipulation), fcn.1000ab6f (SSDT modification), and fcn.1000b46f (System-level persistence). The code at 0x10003b6d (fcn.10003c04) explicitly attempts to write to a system file, suggesting potential rootkit or file-replacement behavior.",
+    "uncertainties": "The truncated nature of the analysis means the exact decrypted payload contents are inferred from the loader behavior, though the intent remains clear.",
+    "conditions": "The sample performs environment checks (GetEnvironmentVariable, GetSystemDirectoryA). It likely requires elevated (administrator/system) privileges to successfully modify system files and registry keys.",
+    "sandbox_recommendations": "The sample should be detonated in a full Windows environment with network simulation. It may require a specific environment variable or file presence to proceed, though its primary persistence logic will likely trigger without them."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for single-instance checks"
+        },
+        {
+          "value": "lsass",
+          "description": "Targeted process for injection/manipulation"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used in system-level operations"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "_system32",
+          "description": "Path component used during file manipulation"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Performs registry manipulation to hook/infect system processes like lsass.exe."
+    },
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Performs critical system modifications using kernel-mode-like APIs."
+    },
+    {
+      "address": "0x10003c04",
+      "name": "fcn.10003c04",
+      "description": "Performs file system operations to drop or overwrite system files."
+    }
+  ]
+}

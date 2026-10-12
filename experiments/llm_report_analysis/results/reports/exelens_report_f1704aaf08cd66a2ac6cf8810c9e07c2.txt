@@ -1,0 +1,62 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains a complex unpacking/loader mechanism that resolves APIs dynamically, performs registry manipulation (persistence), and attempts to load an external service.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Dynamic API resolution",
+      "Custom unpacking routine"
+    ],
+    "details": "The file uses a custom loader (RVA 0x10001c00, 0x10004b13) to unpack a secondary payload into memory, utilizing VirtualAlloc/VirtualFree and manual resource reconstruction."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Uses ADVAPI32.dll_StartServiceA and registry manipulation to establish persistence."
+    },
+    {
+      "name": "Process Injection/Hollowing",
+      "description": "Utilizes VirtualAlloc and VirtualFree to manipulate memory, often associated with process hollowing or injection."
+    },
+    {
+      "name": "Dynamic API Resolution",
+      "description": "Resolves functions via GetProcAddress and LoadLibraryA to evade static import analysis."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistence mechanisms (StartServiceA, registry access at 0x1000238c), custom obfuscated resource loading (0x10001c00), and the presence of a large high-entropy overlay (7.75) strongly indicates a malicious payload designed to survive system reboots.",
+    "general": "High-intent indicators include the call to ADVAPI32.dll_StartServiceA (0x100026c9) and registry operations in fcn.100021e0, which are standard for malware persistence. The code also contains logic for unpacking encrypted resources in memory, which are then executed.",
+    "uncertainties": "The exact nature of the unpacked payload is unknown as it resides in the encrypted overlay, but the loader logic is definitively malicious in its implementation.",
+    "conditions": "The payload is triggered by standard execution; however, the service registration logic suggests it is designed to run as a background task.",
+    "sandbox_recommendations": "Use a full-system monitoring sandbox. Monitor registry changes under HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services and track file system activity after the initial execution delay."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Registry path manipulated to install service"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100021e0",
+      "name": "fcn.100021e0",
+      "description": "Registry manipulation and service installation logic."
+    },
+    {
+      "address": "0x10001c00",
+      "name": "fcn.10001c00",
+      "description": "Main loader and unpacking routine."
+    },
+    {
+      "address": "0x100026c9",
+      "name": "ADVAPI32.dll_StartServiceA",
+      "description": "Initiates service execution for persistence."
+    }
+  ]
+}

@@ -1,0 +1,87 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a downloader/dropper that persists in the environment by creating hidden directories in APPDATA, setting registry run keys, and copying itself as multiple masqueraded files. It performs system profiling, communicates with a command-and-control server via HTTP POST, and executes downloaded payloads using CreateProcess.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "High-entropy overlay",
+      "Dynamic API resolution (inferred)"
+    ],
+    "details": "The overlay section has an entropy of 7.21, suggesting encrypted or compressed data. The code performs custom XOR decryption (e.g., in fcn.00402050 and fcn.00402ef0) on data strings and network-related content."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Registers its path in HKLM/Software/Microsoft/Windows/CurrentVersion/Run to ensure execution on system startup."
+    },
+    {
+      "name": "Process Execution",
+      "description": "Uses CreateProcessA to launch downloaded files and potentially secondary components."
+    },
+    {
+      "name": "HTTP Communication",
+      "description": "Uses WinInet APIs (HttpOpenRequestA, HttpSendRequestA) to perform C2 communication, including POST requests."
+    },
+    {
+      "name": "System Profiling",
+      "description": "Collects system information such as computer name, username, and network adapter details to send to the C2 server."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistence, C2 communication, masquerading (creating files like 'winmsgr.exe'), and the use of obfuscation/encryption for C2 URLs and system data indicates malicious intent. The dual-use nature of WinInet or registry keys is overridden by the specific context of downloading and executing code, alongside the masquerading of files within APPDATA.",
+    "general": "The function fcn.00402ef0 initiates network communication. fcn.00401fd0 establishes persistence. The code utilizes encrypted string constants (e.g., 'apKCCBBCtWJadSCGGReFWRBGeqqFVFVV') for obfuscating network interaction and configuration.",
+    "uncertainties": "The exact C2 domain or IP is not directly visible as a plain string, as it is likely constructed or decrypted at runtime.",
+    "conditions": "The malware uses Mutexes (e.g., 'sfmntcr.exe') to prevent multiple instances. It checks for specific registry keys (like processor information) and environment variables (Appdata paths) to determine its execution path.",
+    "sandbox_recommendations": "Provide internet access to the sandbox to allow the malware to reach its C2. Monitor file system changes in APPDATA and registry changes in the 'Run' key. Use a faked DNS or local web server to capture POST requests."
+  },
+  "ioc": [
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "_APPDATA_MicrosoftIME",
+          "description": "Base directory for dropped files"
+        },
+        {
+          "value": "_APPDATA_MicrosoftIMEV2005",
+          "description": "Directory for malicious payload files"
+        },
+        {
+          "value": "smcnmgr.exe",
+          "description": "Masqueraded file name"
+        },
+        {
+          "value": "winmsgr.exe",
+          "description": "Masqueraded file name"
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Persistence key for auto-run"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401fd0",
+      "name": "Persistence Routine",
+      "description": "Adds the executable to the Windows Run key for persistence."
+    },
+    {
+      "address": "0x00402ef0",
+      "name": "Network Communication",
+      "description": "Main C2 communication logic using WinInet APIs."
+    },
+    {
+      "address": "0x00402e60",
+      "name": "Process Dropper",
+      "description": "Wrapper for CreateProcessA to launch payloads."
+    }
+  ]
+}

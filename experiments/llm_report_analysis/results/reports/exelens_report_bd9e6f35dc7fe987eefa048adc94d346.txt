@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality consistent with a kernel-mode rootkit, including driver loading, system service descriptor table (SSDT) hooking, and persistence through registry modifications. It unpacks hidden resources and actively manipulates system integrity.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Resource-based packing",
+      "Dynamic API resolution"
+    ],
+    "details": "The file uses FindResource/LoadResource/LockResource to extract data, which is then decrypted using simple XOR loops (0xCD) and transferred to memory for execution."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Attempts to interact with ntoskrnl.exe, ntkrnlpa.exe, and hook system service tables."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies Windows Registry keys (e.g., Run keys, system services) to ensure execution across reboots."
+    },
+    {
+      "name": "Process/Service Injection",
+      "description": "Uses CreateProcess and potentially injection techniques to hide or persist in the system."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Checks for debugger presence and uses timing loops."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level API calls (NtQuerySystemInformation, KeServiceDescriptorTable manipulation) and the explicit targeting of system files (ntoskrnl.exe) definitively places this outside the realm of dual-use. The sample goes beyond standard installation behavior by performing low-level system patching, which is highly characteristic of rootkit-class malware.",
+    "general": "High-intent evidence includes SSDT hooking observed in fcn.1000ab6f and fcn.1000a2cd, and the use of kernel-specific APIs (KeAddSystemServiceTable) via dynamic resolution (fcn.1000b369). The presence of XOR decryption loops and resource manipulation confirms a malicious payload loader.",
+    "uncertainties": "The exact nature of the final payload remains slightly obscured due to the multi-stage packing, but the loader's behavior confirms malicious intent.",
+    "conditions": "The file requires administrative privileges and an environment where kernel-mode driver loading is not blocked by signature enforcement (or is bypassed).",
+    "sandbox_recommendations": "Run in an environment with kernel-mode debugging enabled. Monitor registry write activity on HKLM/SYSTEM/CurrentControlSet and watch for unexpected driver loading attempts."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\",
+          "description": "Targeted for persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for synchronization."
+        },
+        {
+          "value": "KeServiceDescriptorTable",
+          "description": "Targeted for kernel hooking."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Performs system sid manipulation and security descriptor operations."
+    },
+    {
+      "address": "0x100043d2",
+      "name": "fcn.100043d2",
+      "description": "Main loader function handling registry interaction and file writes."
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Contains SSDT hooking logic."
+    }
+  ]
+}

@@ -1,0 +1,90 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains a multi-stage loader that performs kernel-mode service descriptor table (SSDT) manipulation and system service hooking, which is characteristic of a rootkit. It also exhibits persistence through registry modification, anti-analysis via environment checks, and dynamic API resolution for sensitive system functions.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom encryption/obfuscation of resources",
+      "Dynamic API resolution (GetProcAddress, LoadLibrary)",
+      "SSDT hooking (KeServiceDescriptorTable)"
+    ],
+    "details": "The file uses resources (102, 103) as encrypted payloads, which are decrypted at runtime (e.g., fcn.100015f7 using XOR 0xcd). The file also resolves and calls sensitive kernel-level functions like NtQuerySystemInformation and NtQueryObject dynamically."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-Mode Hooking",
+      "description": "Uses SSDT manipulation (KeServiceDescriptorTable) to intercept system calls."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies system registry keys (Run keys) to maintain presence across reboots."
+    },
+    {
+      "name": "Process Injection/System manipulation",
+      "description": "Uses CreateProcessA to launch system binaries (e.g., lsass, system32)."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Checks for debugger presence and specific system environment variables to evade analysis."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of SSDT hooking (fcn.10003c04, fcn.1000b369), the use of undocumented kernel structures (KeServiceDescriptorTable), and the manual modification of system files/registry keys (fcn.100017a0, fcn.100028d6) strongly indicates malicious rootkit behavior rather than any legitimate installation or protection functionality.",
+    "general": "High-intent evidence includes fcn.1000b369 targeting 'KeServiceDescriptorTable', fcn.1000c492/fcn.1000c454 manipulating memory structures, and fcn.100017a0 attempting to modify/replace system file paths. These sequences are not consistent with benign software functionality.",
+    "uncertainties": "While the binary behavior is clearly malicious, the full payload content is dynamically decrypted at runtime, meaning secondary modules downloaded or unpacked from the network/registry remain hidden. The verdict is based on the visible loader and rootkit functionality.",
+    "conditions": "The sample performs environment checks (GetEnvironmentVariableA for 'system32') and requires specific registry keys/values to be present to avoid crashing or terminating early. It also checks for the presence of a mutex 'GlobalRPCMutex'.",
+    "sandbox_recommendations": "Run in an isolated kernel-mode-enabled sandbox. Ensure the system environment simulates a standard Windows installation with common system directories. Monitor registry hive 'HKLM\\SYSTEM\\CurrentControlSet\\Services'."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Registry path target for rootkit persistence and service modification"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "system32",
+          "description": "Target directory for file copying and system modification"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for process synchronization"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for kernel-mode synchronization"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10003c04",
+      "name": "fcn.10003c04",
+      "description": "Main routine involving registry enumeration and system path manipulation"
+    },
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "SSDT hooking routine targeting KeServiceDescriptorTable"
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Handles file persistence and registry value setting for system modification"
+    }
+  ]
+}
+}

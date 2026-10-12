@@ -1,0 +1,71 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains a dropper component that decrypts and extracts a payload from its overlay (entropy 7.39). It performs environment-aware staging, registry-based path discovery to identify 'wordpad.exe', and uses a process hollowing/injection pattern to launch the decoy application.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Overlay storage of encrypted payload",
+      "XOR-based obfuscation routine"
+    ],
+    "details": "The executable contains a significant overlay (3952 bytes, entropy 7.39) which is processed by function fcn.004018c0. This function implements a custom XOR cipher (using key bytes and an index-based algorithm) to decrypt data. The decrypted data is then written to a temporary file via fcn.00401d40 and executed."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Hollowing",
+      "description": "Utilizes CreateProcessA and registry manipulation to load external binaries and likely perform environment-specific execution."
+    },
+    {
+      "name": "Data Obfuscation",
+      "description": "Implements an XOR-based decryption routine in fcn.004018c0 to extract content from the file overlay."
+    },
+    {
+      "name": "Environment Discovery",
+      "description": "Queries the Windows Registry for common application paths (e.g., Wordpad) to potentially disguise its execution flow."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-entropy overlay data, a custom XOR decryption loop (fcn.004018c0), and the use of 'CreateProcessA' to launch files derived from registry paths indicates clear malicious intent. The binary does not perform standard software installation tasks but rather dynamically reconstructs an executable and attempts to blend it into system environments.",
+    "general": "The function fcn.00401260 performs registry lookups on 'HKEY_LOCAL_MACHINE' to find command handlers, and fcn.00401a40 uses MoveFileExA with MOVEFILE_REPLACE_EXISTING to manipulate files. The call to CreateProcessA is preceded by building path strings dynamically, typical of process hollowing or side-loading payloads.",
+    "uncertainties": "The exact nature of the encrypted payload in the overlay cannot be determined without runtime decryption, though the structure strongly implies an executable.",
+    "conditions": "The sample performs environment checks (GetInputState) and registry queries. It specifically targets 'wordpad.exe' paths in the registry.",
+    "sandbox_recommendations": "Ensure internet connectivity is simulated, set the system environment to resemble a standard Windows workstation, and monitor file system operations in %TEMP% and registry accesses to HKLM."
+  },
+  "ioc": [
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "%TEMP%\\~[random].tmp",
+          "description": "Temporary file used for staging decrypted payloads."
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\wordpad.exe",
+          "description": "Registry key queried to find the location of the legitimate Wordpad executable."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x004018c0",
+      "name": "fcn.004018c0",
+      "description": "Main decryption routine utilizing a XOR-based algorithm to process the overlay data."
+    },
+    {
+      "address": "0x00401260",
+      "name": "fcn.00401260",
+      "description": "Performs registry queries to locate system binaries for execution."
+    },
+    {
+      "address": "0x00401a40",
+      "name": "fcn.00401a40",
+      "description": "Handles file system operations, specifically temp file creation and movement."
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The file implements a custom, multi-stage loader designed to manually resolve Windows APIs from kernel32.dll using PE structure parsing, and subsequently allocates memory to execute a hidden payload.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom Loader",
+      "API Obfuscation/Manual Resolution",
+      "Dynamic Memory Allocation"
+    ],
+    "details": "The entry point and subsequent functions form a highly obfuscated chain that iterates through the export tables of kernel32.dll to resolve function addresses at runtime, avoiding standard Import Address Table (IAT) structures. High entropy in .rdata (7.61) suggests an encrypted or compressed payload."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Execution",
+      "description": "The binary manually parses the PE header of modules to resolve APIs like VirtualAlloc, which are used to prepare memory for an external payload."
+    },
+    {
+      "name": "Manual API Resolution",
+      "description": "The binary traverses the Export Address Table (EAT) of system modules to find addresses for function calls rather than relying on the loader's IAT."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of manual PE header parsing (e.g., checking for 0x5a4d, 0x4550) and runtime API resolution from memory is highly characteristic of malware loaders. The lack of standard imports and the presence of complex loops resolving DLL exports confirm malicious intent to hide the execution flow.",
+    "general": "Functions like unk.0x11003102, unk.0x11003195, and unk.0x110033d6 demonstrate manual traversal of the Export Address Table. The sequence at unk.0x110034d6 uses VirtualAlloc-like constants (0x40, 0x4abf) to allocate memory for execution.",
+    "uncertainties": "The exact nature of the payload is unknown as the shellcode it eventually executes is encrypted in the .rdata section.",
+    "conditions": "The file expects to run in a standard Windows environment where kernel32.dll is loaded at a predictable memory offset. The shellcode execution is likely triggered upon the completion of the API resolution loop.",
+    "sandbox_recommendations": "Run in a debugger with memory break-points on VirtualAlloc and VirtualProtect to intercept the payload when it is decrypted and placed into the heap."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "kernel32.dll",
+          "description": "Primary target for API resolution"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x11003102",
+      "name": "unk.0x11003102",
+      "description": "Core loader function performing API address resolution by traversing PE headers."
+    },
+    {
+      "address": "0x110033d6",
+      "name": "unk.0x110033d6",
+      "description": "Secondary resolution and setup function leading to memory allocation."
+    },
+    {
+      "address": "0x11003511",
+      "name": "unk.0x11003511",
+      "description": "Final stage function that likely invokes the allocated shellcode."
+    }
+  ]
+}

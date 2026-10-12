@@ -1,0 +1,85 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample is a modular remote administration tool (RAT) designed to run as a Windows service. It establishes command-and-control communication over HTTP, supports process enumeration, service management, arbitrary command execution via 'cmd.exe', and provides remote shell functionality.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is unpacked and displays typical logic for a service-based implant. Section entropy values are within expected ranges for non-packed code."
+  },
+  "capabilities": [
+    {
+      "name": "Remote Command Execution",
+      "description": "Uses CreateProcessA to spawn cmd.exe and pipes its I/O back to the C2."
+    },
+    {
+      "name": "C2 Communication",
+      "description": "Utilizes WinINet (HttpOpenRequestA, HttpSendRequestA) to beacon to a hardcoded or configured host."
+    },
+    {
+      "name": "Persistence",
+      "description": "Installs itself as a Windows service by modifying registry keys under HKLM\\SYSTEM\\CurrentControlSet\\Services."
+    },
+    {
+      "name": "Process and Service Management",
+      "description": "Enumerates processes (Toolhelp32Snapshot) and services (EnumServicesStatusExA), and can terminate processes or stop/start services."
+    }
+  ],
+  "details": {
+    "reasoning": "The application exhibits clear malicious intent. It implements a fully functional reverse shell and backdoor capability disguised as a system service. It includes commands for 'kill', 'start', 'list', and 'GetUrl' (for downloading additional payloads), which are characteristic of remote access trojans. The use of ADVAPI32 service management APIs combined with HTTP-based C2 communication is a definitive indicator of an implant rather than a legitimate administration tool.",
+    "general": "The function fcn.10001570 acts as the main command processor. It uses HttpSendRequestA (RVA: 0x100013c0) to beacon and fcn.10001e50 (CreateProcessA) to execute shell commands. Persistence logic is contained in fcn.100031a0 (RegSetValueExA to modify ServiceDll paths).",
+    "uncertainties": "While the C2 address/URL is dynamically resolved or configured, the specific command-and-control server is not visible in the static binary data, likely fetched or decrypted at runtime.",
+    "conditions": "The malware expects to be run as a service, as indicated by the 'ServiceMain' entry point and logic for 'install' and 'uninstall' routines (referenced in imported NTLMSVC.dll).",
+    "sandbox_recommendations": "Run in a controlled environment with network redirection to capture HTTP C2 traffic. Monitor registry modifications for HKLM\\SYSTEM\\CurrentControlSet\\Services to identify the service name used for persistence."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\*\\Parameters",
+          "description": "Registry path used to store service configuration and ServiceDll paths."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "cmd.exe",
+          "description": "Target binary for remote shell execution."
+        },
+        {
+          "value": "ServiceDll",
+          "description": "Registry value name used for service persistence."
+        },
+        {
+          "value": "Shell_started_successfully",
+          "description": "C2 command status message."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001570",
+      "name": "fcn.10001570",
+      "description": "Main execution loop; parses C2 commands and dispatches to sub-routines."
+    },
+    {
+      "address": "0x10001e50",
+      "name": "fcn.10001e50",
+      "description": "Spawns a shell using cmd.exe and CreateProcessA for remote execution."
+    },
+    {
+      "address": "0x100031a0",
+      "name": "fcn.100031a0",
+      "description": "Installs the binary as a Windows service by modifying registry entries."
+    },
+    {
+      "address": "0x10002220",
+      "name": "fcn.10002220",
+      "description": "Enumerates system processes via Toolhelp32Snapshot."
+    }
+  ]
+}

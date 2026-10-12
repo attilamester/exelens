@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a downloader/dropper. It uses network communication via WININET to retrieve a remote file, performs a multi-stage decoding process (including XOR obfuscation and a Base64-like custom transform), and saves the resulting binary as an executable in the temporary directory before attempting to execute it.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Custom XOR-based transformation",
+      "Dynamic API resolution",
+      "Custom Base64-style encoding"
+    ],
+    "details": "The sample uses a custom decoding routine (fcn.0040155b) to transform data blobs, likely containing encrypted configuration or stage-2 payloads. Function calls like 'LoadLibrary'/'GetProcAddress' suggest dynamic API loading, which is a common obfuscation technique to hide actual imports."
+  },
+  "capabilities": [
+    {
+      "name": "Downloader",
+      "description": "Uses WININET.dll (HttpOpenRequestA, HttpSendRequestA) to download files from a remote server."
+    },
+    {
+      "name": "Process Execution",
+      "description": "Utilizes ShellExecuteExA to launch downloaded files."
+    },
+    {
+      "name": "File System Operations",
+      "description": "Retrieves temporary paths and writes binary data to disk."
+    },
+    {
+      "name": "Evasion / Obfuscation",
+      "description": "Includes complex XOR and custom Base64-style decoding routines to hide payload content."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of downloading a file from a hard-coded URL ('send.issnbgkit.net'), decoding it via custom XOR routines, saving it to a temp path, and executing it via 'ShellExecuteExA' confirms high-intent malicious behavior typical of a dropper. The presence of 'fcn.0040155b' (a custom XOR/decryption cipher) is a clear indicator of malicious intent to evade static detection.",
+    "general": "High-intent indicators include the call chain in 'fcn.0040499d' leading to 'InternetReadFile' and the subsequent 'CreateFileA'/'WriteFile' sequence. The use of 'fcn.0040155b' to decrypt data before writing confirms malicious payload handling. The function 'fcn.00404e7f' specifically uses 'ShellExecuteExA' to launch the resulting file.",
+    "uncertainties": "The exact content of the downloaded payload is unknown as it is fetched at runtime, but the framework for execution is clear.",
+    "conditions": "The sample performs internet communication and expects a valid HTTP response (specifically HTTP 200/201 series or specific status checks). It must be run in an environment with external network access to the domain 'send.issnbgkit.net'.",
+    "sandbox_recommendations": "Provide an environment with network simulation (faking the response from 'send.issnbgkit.net') or full internet access. Monitor file creation in the Windows Temp directory."
+  },
+  "ioc": [
+    {
+      "type": "url",
+      "values": [
+        {
+          "value": "send.issnbgkit.net",
+          "description": "C2 server for downloading malicious payload"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "_Default.aspx_INDEX",
+          "description": "Request resource path"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x0040499d",
+      "name": "fcn.0040499d",
+      "description": "Main downloader routine: handles network connection, file reading, and disk writing."
+    },
+    {
+      "address": "0x00404e7f",
+      "name": "fcn.00404e7f",
+      "description": "Execution routine: uses ShellExecuteExA to launch the dropped file."
+    },
+    {
+      "address": "0x0040155b",
+      "name": "fcn.0040155b",
+      "description": "Custom XOR-based decoding/decryption algorithm for data obfuscation."
+    }
+  ]
+}

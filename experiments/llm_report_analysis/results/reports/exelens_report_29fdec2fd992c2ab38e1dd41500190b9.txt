@@ -1,0 +1,75 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample is a sophisticated installer that performs kernel-level operations, likely to install a rootkit or driver. It uses process hollowing or resource modification techniques to hide its persistence and interacts with kernel structures (`KeServiceDescriptorTable`, `NtQuerySystemInformation`) to bypass security measures.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based payload decryption (e.g., 0xcd XOR)",
+      "Dynamic API resolution through GetProcAddress and LdrGetProcedureAddress"
+    ],
+    "details": "The file uses simple XOR loops (0xcd) to obfuscate resources (e.g., in fcn.100015f7). Core API logic is resolved dynamically at runtime, indicating an attempt to thwart static analysis and hide its true capabilities."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection / Kernel Interaction",
+      "description": "Manipulates kernel structures and performs memory mapping to inject code or interact with the operating system at a low level."
+    },
+    {
+      "name": "Persistence",
+      "description": "Uses registry keys (RegSetValueExA) and copies files to system directories (CopyFileA, SetFileAttributesA) to ensure survival across reboots."
+    },
+    {
+      "name": "Evasion",
+      "description": "Checks for debugger presence and uses mutexes (GlobalRPCMutex) to prevent multiple instances or sandbox analysis."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode API imports (KeServiceDescriptorTable, KeGetCurrentIrql, NtQuerySystemInformation), resource manipulation for payload delivery, and registry-based persistence strongly points to a malicious rootkit-installer. The code is structured to modify system files and kernel dispatch tables, which has no legitimate use for standard applications.",
+    "general": "High-intent evidence is seen in fcn.1000b369 (manipulation of KeServiceDescriptorTable), fcn.1000c492 (mapping memory and probing/locking pages for kernel access), and fcn.100017a0 (modifying the file's own resources to hide/persist). The use of these functions to redirect system calls is a clear marker of rootkit-like behavior.",
+    "uncertainties": "The truncated nature of some large functions makes it difficult to trace every final destination of the injected payload, but the setup code is sufficient to determine malicious intent.",
+    "conditions": "The sample requires specific system environments (e.g., checking Windows version/environment variables like 'temp') and likely needs to run with administrative or SYSTEM privileges to perform kernel-level hooking.",
+    "sandbox_recommendations": "Run in an environment that allows kernel-mode debugging (e.g., WinDbg hooked to a VM). Monitor registry changes to 'Run' keys and file system changes to the Windows directory. Observe the creation of system-level services or driver loading."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Registry path where persistence is likely established."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for synchronization or anti-sandbox check."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for synchronization."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Manipulates KeServiceDescriptorTable to hook system calls."
+    },
+    {
+      "address": "0x1000c492",
+      "name": "fcn.1000c492",
+      "description": "Performs memory manipulation and probing for kernel-mode access."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Modifies system resources and registry entries for persistence."
+    }
+  ]
+}

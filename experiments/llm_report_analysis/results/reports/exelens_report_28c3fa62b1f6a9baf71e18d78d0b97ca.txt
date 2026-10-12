@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable extracts embedded binary resources (IDR_ICOFILE1 and IDR_ICOFILE2) to the local filesystem and performs file-based operations. It utilizes a custom XOR-based decryption routine (fcn.00401420) on the second resource before writing it to a temporary directory, indicating a dropper or downloader behavior, likely meant to execute 'DaumCleans.exe'.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource-based embedding",
+      "Custom XOR obfuscation"
+    ],
+    "details": "The .rsrc section has high entropy (6.91), and code is designed to load, decrypt (via fcn.00401420), and write these resources to disk."
+  },
+  "capabilities": [
+    {
+      "name": "Resource Extraction",
+      "description": "Loads and writes embedded resources (IDR_ICOFILE1, IDR_ICOFILE2) to the filesystem."
+    },
+    {
+      "name": "Custom Obfuscation",
+      "description": "Implements a byte-wise XOR routine (fcn.00401420) to process embedded data."
+    },
+    {
+      "name": "Process Execution",
+      "description": "Uses ShellExecuteA to trigger external files."
+    },
+    {
+      "name": "Persistence/Mutex Check",
+      "description": "Uses a mutex ('mark01') to prevent multiple instances from running."
+    }
+  ],
+  "details": {
+    "reasoning": "While resource extraction and mutex usage are common in installers, the combination of manual resource decryption via XOR, writing files to temp directories, and immediately attempting to launch a specific executable ('DaumCleans.exe') aligns with classic dropper behavior. The lack of standard installer signatures and the use of obfuscation suggest malicious intent rather than standard software installation.",
+    "general": "The function fcn.00401420 applies a XOR cipher to resource data before writing it to a file, which is a common technique to evade static signature detection. The use of ShellExecuteA in fcn.004013a0 to run 'DaumCleans.exe' confirms the intention to execute a secondary, extracted payload.",
+    "uncertainties": "The exact contents of IDR_ICOFILE2 are not visible, only its role as an encrypted payload source. The behavior of 'DaumCleans.exe' cannot be verified without detonation.",
+    "conditions": "The program checks for the existence of the mutex 'mark01' (fcn.main); if present, it will exit. It also creates specific directories like 'C:\\temp' or 'C:\\intel' using fcn.00401300.",
+    "sandbox_recommendations": "Monitor file system writes in the temporary directory. Use a process monitor to capture the arguments passed to ShellExecuteA. Rename the file to ensure environment compatibility if required by the path construction logic."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "mark01",
+          "description": "Mutex name used to prevent multiple instances."
+        },
+        {
+          "value": "DaumCleans.exe",
+          "description": "The executable name targeted for execution."
+        },
+        {
+          "value": "C:\\tmp\\",
+          "description": "Directory path attempted for staging."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x004014a0",
+      "name": "fcn.004014a0",
+      "description": "Main routine for decrypting and dropping the secondary payload (IDR_ICOFILE2)."
+    },
+    {
+      "address": "0x00401420",
+      "name": "fcn.00401420",
+      "description": "XOR decryption engine used on embedded resources."
+    },
+    {
+      "address": "0x004013a0",
+      "name": "fcn.004013a0",
+      "description": "Executes the dropped payload using ShellExecuteA."
+    },
+    {
+      "address": "0x00401000",
+      "name": "main",
+      "description": "Entrypoint; initializes mutex and triggers the primary logic chain."
+    }
+  ]
+}
+}

@@ -1,0 +1,89 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality typical of a kernel-mode driver dropper or rootkit installer, capable of modifying system security descriptors, manipulating system services, and interacting with kernel structures like the Service Descriptor Table (SSDT).",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based payload obfuscation",
+      "Dynamic API resolution (GetProcAddress)",
+      "Resource encryption"
+    ],
+    "details": "Several functions (e.g., fcn.10001697, fcn.10001723) perform XOR operations with 0xCD on resource data, indicating that the executable carries an encrypted payload, likely a kernel driver, which is decrypted and dropped to disk."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Uses SSDT patching and kernel function hooking (KeServiceDescriptorTable, KeAddSystemServiceTable)."
+    },
+    {
+      "name": "Persistence/System modification",
+      "description": "Modifies registry keys for service persistence (RegCreateKeyExA, RegSetValueExA) and manipulates file system attributes."
+    },
+    {
+      "name": "Process/Service hiding",
+      "description": "Attempts to interact with 'lsass.exe' and uses internal Windows object manager functions (NtQueryObject) to potentially hide resources."
+    },
+    {
+      "name": "Evasion",
+      "description": "Checks for debugger presence and system environment to avoid analysis."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent malicious actions—specifically hooking the system service descriptor table (SSDT) via fcn.1000b369 and fcn.1000ab6f, modifying kernel security descriptors, and dynamically loading system drivers—confirms malicious intent beyond a simple installer. The code is clearly designed to perform deep system-level modifications.",
+    "general": "Evidence is found in fcn.1000b369 (SSDT modification), fcn.1000ab6f (kernel memory writing), and fcn.100017a0 (modifying registry values for lsass.exe protection).",
+    "uncertainties": "The exact function of the encrypted kernel driver payload is unknown as it is only decrypted at runtime.",
+    "conditions": "Execution likely requires elevated administrative privileges to perform registry modifications and access kernel structures. The presence of 'GlobalRPCMutex' and a 'prkMtx' mutex suggests the malware checks for existing instances to avoid conflicts.",
+    "sandbox_recommendations": "Run in an environment that allows kernel-mode debugging (e.g., WinDbg connected to a target VM). Monitor registry keys under HKLM\\SYSTEM\\CurrentControlSet for new services."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\lsass",
+          "description": "Possible persistence mechanism or service modification"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "C:\\Windows\\System32\\",
+          "description": "Target directory for dropped drivers or system modifications"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for synchronization"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name related to kernel-level synchronization"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Manipulates the System Service Descriptor Table (SSDT)."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Registers system service modifications."
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Implements kernel-mode hooking logic."
+    }
+  ]
+}

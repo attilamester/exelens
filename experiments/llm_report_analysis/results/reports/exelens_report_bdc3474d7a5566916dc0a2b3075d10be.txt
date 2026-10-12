@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains a kernel-mode driver dropper/loader. It extracts a resource, writes it to the system directory, creates a service or process to execute it, and employs anti-analysis techniques including anti-debugging and API obfuscation.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR decryption",
+      "Dynamic API resolution",
+      "Resource obfuscation"
+    ],
+    "details": "Multiple routines perform XOR operations on data structures or resources. The binary uses dynamically loaded imports and custom lookup routines (fcn.10002f79) to resolve system functions, typical of malware attempting to hide its true capabilities."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence / Driver Loading",
+      "description": "Writes files to system directories and uses CopyFileA, CreateProcessA, and potentially modifies registry keys."
+    },
+    {
+      "name": "Process Injection / Evasion",
+      "description": "Contains routines attempting to locate kernel structures (e.g., KeRaiseIrqlToDpcLevel) and performs environment-specific checks (OS version/architecture)."
+    },
+    {
+      "name": "Resource Decryption",
+      "description": "Decrypts obfuscated resources (102, 101) in memory using XOR operations."
+    },
+    {
+      "name": "Mutex / Synchronization",
+      "description": "Uses global mutexes (GlobalRPCMutex, prkMtx) to ensure single-instance execution or prevent re-infection."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-specific string references (KeRaiseIrqlToDpcLevel, PsGetCurrentProcess), dynamic resolution of sensitive APIs, and the act of dropping/executing files into the system directory identifies this as a high-intent malicious loader. The Dual-Use Rule is satisfied by the aggregation of these behaviors; benign installers do not typically search for kernel structures or use XOR-decryption on system-level binary resources.",
+    "general": "High-intent indicators include fcn.10009d28 which attempts to resolve kernel functions, and fcn.100022a2/fcn.10001c3f which manage file system operations in critical paths. The use of FindResourceA, LoadResource, and VirtualAlloc/VirtualFree to map a decrypted driver into memory is a classic malicious pattern.",
+    "uncertainties": "The obfuscation of the decryption routines and dynamic API resolution makes it difficult to definitively map the exact payload without dynamic debugging, but the overall architecture is consistent with a malicious rootkit-style loader.",
+    "conditions": "The malware checks for a specific OS version and architecture (fcn.100096ce). It likely requires administrative privileges to write into system32 and install a driver.",
+    "sandbox_recommendations": "Run in a controlled environment with kernel-level monitoring enabled (e.g., Procmon for registry/file activity). Monitor for attempts to load .sys files in the system directory."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for kernel process synchronization."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "C:\\Windows\\System32\\",
+          "description": "Target directory for dropped payloads."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10003c04",
+      "name": "fcn.10003c04",
+      "description": "Primary dropper/loader function managing file creation and process initiation."
+    },
+    {
+      "address": "0x10009d28",
+      "name": "fcn.10009d28",
+      "description": "Kernel-mode structure discovery and driver loader utility."
+    },
+    {
+      "address": "0x10002f79",
+      "name": "fcn.10002f79",
+      "description": "Dynamic API resolution routine used to bypass static analysis."
+    }
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to manipulate system kernel structures (KeServiceDescriptorTable), perform process memory access, and registry modifications. It displays capabilities consistent with a rootkit or kernel-level persistent threat, including hiding files/registry keys and patching kernel functions.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation of resources",
+      "Dynamic API resolution through GetProcAddress",
+      "Custom string obfuscation routines"
+    ],
+    "details": "Resources are XOR-decrypted at runtime using a static key (0xcd) in fcn.100015f7. Several kernel-level symbols (NtQuerySystemInformation, KeServiceDescriptorTable) are resolved dynamically."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-Level Manipulation",
+      "description": "Attempts to locate and hook KeServiceDescriptorTable and associated system call dispatchers to hide objects."
+    },
+    {
+      "name": "Process Injection/Hooking",
+      "description": "Uses WriteProcessMemory and ReadProcessMemory patterns to manipulate memory of other processes and drivers."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies system registry keys (e.g., Services) and copies files into system directories to ensure execution."
+    },
+    {
+      "name": "Evasion",
+      "description": "Detects debuggers, checks system versions, and implements mutual exclusion (Mutex) to prevent concurrent execution."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode symbol resolution (NtQuerySystemInformation, KeServiceDescriptorTable), the attempt to hook system calls, and the manipulation of system drivers (HAL.dll, ntoskrnl.exe) indicates malicious intent far beyond legitimate software protection.",
+    "general": "High-intent indicators include the dynamic resolution of 'KeServiceDescriptorTable' (fcn.1000b369), modifications to system services via registry (fcn.100017a0), and direct kernel-memory patching routines found in fcn.1000b369, fcn.1000ab6f, and fcn.1000a2cd.",
+    "uncertainties": "While the binary shows high-intent, the specific payload decrypted from resource 102 could not be fully analyzed without runtime execution; however, the surrounding loader code is clearly malicious.",
+    "conditions": "The malware checks for a specific Mutex 'GlobalRPCMutex' (fcn.10002109) and performs environment-specific path construction using 'SystemDirectory' and 'TempPath'.",
+    "sandbox_recommendations": "Deploy in a kernel-aware sandbox; monitor registry access (HKLM\\SYSTEM\\CurrentControlSet\\Services) and look for kernel-mode code integrity violations or unauthorized hooks."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Persistence mechanism for kernel drivers/services."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for process synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Alternative mutex name identified in kernel-level routines."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Kernel-mode hook function targeting KeServiceDescriptorTable."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Resource decryption and extraction routine."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Registry-based persistence installer."
+    }
+  ]
+}

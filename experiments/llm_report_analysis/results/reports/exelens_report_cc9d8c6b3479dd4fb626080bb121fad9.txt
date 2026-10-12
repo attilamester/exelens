@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to manipulate system security descriptors and kernel-mode services (NtShutdownSystem, KeServiceDescriptorTable), indicative of rootkit-like behavior. It performs file copying and attribute modification to hide system components, specifically targeting the 'lsass' process and other system files, likely for persistence or evasion.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation (0xcd)",
+      "Resource-based payload hiding"
+    ],
+    "details": "The file uses a custom XOR-based obfuscation routine (0xcd) to hide resource content, which is decrypted into memory or temporary files at runtime. Some functions use dynamic API loading from ntdll.dll and ntoskrnl.exe."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence/System Modification",
+      "description": "Modifies security descriptors of system keys and files (ADVAPI32.dll_SetSecurityDescriptorDacl, SetSecurityDescriptorOwner)."
+    },
+    {
+      "name": "Process/Service Manipulation",
+      "description": "Imports and uses functions related to NtQuerySystemInformation, KeServiceDescriptorTable, and NtShutdownSystem, suggesting attempts to manipulate kernel objects or bypass security monitoring."
+    },
+    {
+      "name": "File Evasion",
+      "description": "Uses KERNEL32.dll_CopyFileA and KERNEL32.dll_SetFileAttributesA to manipulate file system attributes, often used to hide malicious files from users."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent kernel-mode operations (hooking the SSDT/KeServiceDescriptorTable), modification of security descriptors on system files/registry keys, and specifically targeting 'lsass' process interaction confirms malicious intent rather than dual-use protection mechanisms.",
+    "general": "Functions like fcn.1000b46f and fcn.1000ab6f demonstrate clear intent to manipulate the system service table (KeServiceDescriptorTable) and shutdown system procedures (NtShutdownSystem). The code at RVA 0x1000788e specifically interacts with security descriptors, and the use of hardcoded strings like 'lsass' combined with registry manipulation on Run keys confirms persistence mechanisms.",
+    "uncertainties": "While the binary is clearly malicious, the full payload unpacked from resources (106 KB) was not fully observable, potentially hiding secondary stages.",
+    "conditions": "The sample performs environmental checks, including checking for specific system versions and file names (e.g., 'fanny.bmp'), and likely requires standard administrator or system-level privileges to perform its modifications.",
+    "sandbox_recommendations": "Detonate in a sandbox with kernel-mode monitoring (e.g., ProcMon with driver logs), simulate a standard user environment, and monitor for changes to HKLM\\SYSTEM\\CurrentControlSet keys."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "lsass",
+          "description": "Target process name"
+        },
+        {
+          "value": "fanny.bmp",
+          "description": "File checked for presence or modification"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for synchronization"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "system32",
+          "description": "Path segment for system manipulation"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Handles service descriptor table and system shutdown manipulation."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Security descriptor and account modification logic."
+    },
+    {
+      "address": "0x100043d2",
+      "name": "fcn.100043d2",
+      "description": "Primary payload decryption and system environment check routine."
+    }
+  ]
+}

@@ -1,0 +1,83 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality consistent with a kernel-mode rootkit or driver installer, including dynamic resolution of kernel structures (KeServiceDescriptorTable), modification of kernel memory to hook system calls, and the ability to drop and execute files in system directories, often under the guise of an installer utility.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Custom XOR-based deobfuscation",
+      "Dynamic API resolution"
+    ],
+    "details": "Resource sections are encrypted with a simple XOR 0xCD loop during execution. Functions like fcn.100015f7 and fcn.10001697 manage resource decryption. Several system APIs are resolved dynamically using strings constructed at runtime or by XOR-decoding existing buffers."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel Memory Modification",
+      "description": "Locates KeServiceDescriptorTable (SSDT) in kernel memory and patches it to redirect system calls (fcn.1000b369)."
+    },
+    {
+      "name": "Persistence and Evasion",
+      "description": "Modifies system registry keys, drops files into %System32%, and registers services/drivers to ensure re-execution."
+    },
+    {
+      "name": "Dynamic API Resolution",
+      "description": "Uses GetProcAddress/LoadLibrary to resolve sensitive APIs at runtime, avoiding static analysis of imports."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Checks for debugger/VM environments through timing checks and environment variable manipulation."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level memory patching (fcn.1000b369, patching SSDT), resource decryption, and the use of hardcoded strings related to kernel functions (KeRaiseIrqlToDpcLevel) confirms malicious intent to subvert OS security mechanisms. While dual-use APIs exist, their application here is clearly for rootkit-like persistence and stealth rather than standard software installation.",
+    "general": "The function fcn.1000b369 performs a signature-based search in memory for the 'KeServiceDescriptorTable' and then patches the syscall dispatcher. Other high-intent actions include calling NtShutdownSystem, creating kernel threads (fcn.1000b73a), and setting file attributes to SYSTEM/HIDDEN to evade detection.",
+    "uncertainties": "The exact nature of the decrypted resource (a driver or shellcode) is unknown, as the decryption is done dynamically at runtime. The analysis assumes the decrypted payload is the rootkit component.",
+    "conditions": "Execution likely requires elevated (administrator/SYSTEM) privileges to access and patch kernel memory structures. It checks for specific environments and may fail if certain mutexes exist.",
+    "sandbox_recommendations": "Ensure the sandbox is running an older Windows version (as implied by some checks) and simulate administrator privileges. Monitor registry keys in HKLM and kernel-mode API hooks using a kernel-level debugger."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "KeServiceDescriptorTable",
+          "description": "Target for kernel hooking"
+        },
+        {
+          "value": "DMWI",
+          "description": "Mutex or registry key prefix"
+        },
+        {
+          "value": "lsass",
+          "description": "Potential process hollowing target"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "%System32%\\win32k.sys",
+          "description": "Injected file path"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "SSDT hooking function"
+    },
+    {
+      "address": "0x1000b73a",
+      "name": "fcn.1000b73a",
+      "description": "Kernel-mode service/driver interaction"
+    },
+    {
+      "address": "0x10001697",
+      "name": "fcn.10001697",
+      "description": "Payload deployment and resource unpacking"
+    }
+  ]
+}

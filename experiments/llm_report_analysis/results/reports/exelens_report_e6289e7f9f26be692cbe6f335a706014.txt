@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a persistent backdoor and downloader. It performs environment information gathering (computer name, OS version, memory status), monitors registry 'Run' keys, downloads files, and executes them. It also has capabilities for screen capturing and exfiltrating data, and exhibits persistence by attempting to modify startup registry keys.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code structure is not packed, and standard MFC application entry points are clearly visible."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Monitors and modifies system startup registry keys (Run keys) to maintain execution."
+    },
+    {
+      "name": "Downloader/Dropper",
+      "description": "Downloads and executes remote content, likely using HTTP."
+    },
+    {
+      "name": "Data Exfiltration",
+      "description": "Gathers user/system information and screen data to transmit over the network."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Checks for debugger/monitoring presence, though primarily through common API calls."
+    }
+  ],
+  "details": {
+    "reasoning": "While the executable makes extensive use of the MFC framework (which explains many of the capabilities), the combination of registry manipulation in 'Run' keys, screen capturing routines, and network communication (HTTP/socket) to download and execute arbitrary files clearly indicates malicious intent. The function fcn.0040aa30 is directly involved in monitoring registry persistence, and fcn.0040bc20 performs screen-related operations typical for spyware.",
+    "general": "High-intent indicators include: the use of 'RegSetValueExA' on Run keys in fcn.00408be0, use of 'ShellExecuteA' to launch downloaded files, and extensive HTTP communication via CInternetSession in fcn.00402430 and fcn.00402ac0.",
+    "uncertainties": "While the code structure is clear, exact C2 URLs or specific configuration files are obfuscated or dynamically constructed in memory (as seen in string handling routines), limiting visibility into the final C2 infrastructure.",
+    "conditions": "Requires network connectivity to contact C2 infrastructure for payload delivery and successful registry key modification for persistence.",
+    "sandbox_recommendations": "Provide an environment with active internet access. Monitor registry modifications in HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run and HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run. Simulate common user activity and ensure the environment has browser history/file artifacts to mimic a real system."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Persistence mechanism monitored/modified by the malware."
+        },
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings",
+          "description": "Accessed to check/modify proxy configurations."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "System.dat",
+          "description": "Temporary file path identified in code."
+        },
+        {
+          "value": "System.exe",
+          "description": "Binary dropped for persistence."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x0040aa30",
+      "name": "fcn.0040aa30",
+      "description": "Registry-based persistence and monitoring logic."
+    },
+    {
+      "address": "0x0040bc20",
+      "name": "fcn.0040bc20",
+      "description": "Implements screen capturing and data collection via GDI calls."
+    },
+    {
+      "address": "0x00402430",
+      "name": "fcn.00402430",
+      "description": "Manages network communication, specifically HTTP connection initialization."
+    }
+  ]
+}

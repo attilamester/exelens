@@ -1,0 +1,71 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a sophisticated kernel-mode installer or rootkit component. It uses mutexes to check for infection, dynamically resolves APIs, and performs kernel-mode memory manipulation (via IOCTLs like 0x222020) and memory descriptor list (MDL) locking, indicating it attempts to bypass Windows PatchGuard or perform kernel-mode code modification.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR encoding for strings",
+      "Dynamic API resolution via GetProcAddress",
+      "Resource-based payload hiding"
+    ],
+    "details": "Routines like fcn.100015f7 and fcn.10001697 handle the extraction and decryption of resources (type 232) using a 0xcd XOR key, which is then loaded into memory."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode communication",
+      "description": "Utilizes IOCTLs (0x222020) and MDL manipulation (IoAllocateMdl, MmBuildMdlForNonPagedPool) to read/write system memory."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies Registry Run keys and performs file system operations to ensure survival across reboots."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Uses mutexes (GlobalRPCMutex, prkMtx) and environment checks to avoid sandbox detonation."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode memory access functions (MmMapLockedPages, MmProbeAndLockPages), manipulation of system structures (KeServiceDescriptorTable), and the use of hardcoded device paths ('\\\\.\\' and 'win32k.sys') confirms malicious intent related to kernel-level rootkit activities rather than standard administrative tools.",
+    "general": "High-intent evidence includes calls to fcn.1000b369 (manipulating KeServiceDescriptorTable), fcn.1000b46f, and fcn.1000ab6f which perform direct kernel-mode memory patching.",
+    "uncertainties": "The exact nature of the decrypted resource payload is unknown, as the decryption process occurs at runtime.",
+    "conditions": "Requires administrative privileges and potential access to specific system services or hardware states (implied by the kernel-mode driver interaction).",
+    "sandbox_recommendations": "Use a kernel-mode debugger (e.g., WinDbg) and ensure the sandbox is configured for kernel-mode instrumentation. Monitor all Registry and file system changes."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for synchronization/check"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for kernel-mode communication"
+        },
+        {
+          "value": "win32k.sys",
+          "description": "System file targeted for modification"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Manipulates SSDT (System Service Descriptor Table)"
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Primary kernel memory patching logic"
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Resource extraction and XOR decryption routine"
+    }
+  ]
+}

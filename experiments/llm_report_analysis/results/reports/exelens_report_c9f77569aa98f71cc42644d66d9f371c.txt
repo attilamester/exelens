@@ -1,0 +1,93 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable acts as a downloader/dropper that communicates with hardcoded C2 servers. It implements persistence via the Windows Run registry key and uses a custom XOR-based decoding routine to hide its network configuration. It monitors environment variables and system state to initiate callbacks.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based decoding of configuration data",
+      "Dynamic API resolution (partially observed via function wrappers)"
+    ],
+    "details": "The binary does not appear to be compressed with a standard packer like UPX, but it uses custom loops (e.g., in fcn.00402668) to decode configuration data and URLs from encrypted/obfuscated memory blocks."
+  },
+  "capabilities": [
+    {
+      "name": "Command and Control (C2)",
+      "description": "Establishes HTTP/HTTPS connections to remote domains using WININET.dll."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies the Windows Registry Run key (Software\\Microsoft\\Windows\\CurrentVersion\\Run) to ensure execution at system startup."
+    },
+    {
+      "name": "Process Injection/Execution",
+      "description": "Utilizes CreateProcessA and ShellExecuteW to launch secondary processes, including potentially dropped files."
+    },
+    {
+      "name": "Evasion",
+      "description": "Uses Mutexes (LETUSHAVEAGOODTIMEZRMMGOGOGO2011) to ensure single-instance execution and avoid detection by redundant activity."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistent registry modifications, hardcoded C2 URLs, and custom network communication logic (POST requests with multi-part form data) strongly indicates malicious intent rather than legitimate software behavior. The explicit use of WININET functions to fetch data and store it in local files, paired with registry persistence, confirms this is a downloader/backdoor.",
+    "general": "The function fcn.00402842 directly writes to the 'Software\\Microsoft\\Windows\\CurrentVersion\\Run' registry key. The network logic in fcn.00401081, fcn.00401365, and fcn.004015a1 uses WININET to send POST requests containing encoded form data to specific domains like 'thalescomminc.us.to' and 'thales.uk.to'.",
+    "uncertainties": "The exact nature of the payload fetched from the C2 is not visible; it is likely delivered at runtime, making its post-download behavior subject to the C2's current instructions.",
+    "conditions": "The file requires execution with standard user or administrator privileges to modify the registry. It checks for a Mutex ('LETUSHAVEAGOODTIMEZRMMGOGOGO2011') and will terminate if already running.",
+    "sandbox_recommendations": "Provide internet access to the sample, monitor registry access to the Run key, and intercept HTTP/HTTPS traffic to the identified domains. The sample may require an environment with network connectivity to trigger the secondary payload download."
+  },
+  "ioc": [
+    {
+      "type": "url",
+      "values": [
+        {
+          "value": "http://thalescomminc.us.to/index.html",
+          "description": "C2 download URL"
+        },
+        {
+          "value": "http://thales.uk.to",
+          "description": "Secondary C2 URL"
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Registry path for persistence"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "LETUSHAVEAGOODTIMEZRMMGOGOGO2011",
+          "description": "Mutex name used for execution protection"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00402842",
+      "name": "fcn.00402842",
+      "description": "Implements registry persistence via Run key."
+    },
+    {
+      "address": "0x00401081",
+      "name": "fcn.00401081",
+      "description": "Initializes internet connection via WININET."
+    },
+    {
+      "address": "0x004015a1",
+      "name": "fcn.004015a1",
+      "description": "Constructs and sends multipart POST requests to C2."
+    },
+    {
+      "address": "0x00402668",
+      "name": "fcn.00402668",
+      "description": "Decodes or decrypts configuration strings."
+    }
+  ]
+}

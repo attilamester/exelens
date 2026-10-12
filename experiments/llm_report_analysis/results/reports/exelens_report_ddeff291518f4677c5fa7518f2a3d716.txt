@@ -1,0 +1,83 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains code intended to manipulate kernel structures (e.g., KeServiceDescriptorTable) and bypass OS security restrictions, likely to achieve persistence or perform stealthy modifications. It uses a resource-based packing method for its payload and demonstrates clear high-intent indicators of system-level hooking.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Resource-based payload hiding",
+      "Dynamic API resolution"
+    ],
+    "details": "The file uses FindResourceA, LoadResource, and LockResource to retrieve a payload (possibly an encrypted binary), which is then decrypted in memory via XOR loops (fcn.100015f7). The entry point initiates the unpacking process, indicating that the main functionality is not present in the statically analyzable code."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-level hooking",
+      "description": "Attempts to locate and modify system descriptor tables (KeServiceDescriptorTable)."
+    },
+    {
+      "name": "Persistence",
+      "description": "Creates registry keys (RegCreateKeyExA) to potentially load at boot/login."
+    },
+    {
+      "name": "Process manipulation",
+      "description": "Uses CreateProcessA to launch secondary processes, likely the unpacked payload."
+    },
+    {
+      "name": "Anti-debugging/System checks",
+      "description": "Checks system versions and environment variables to tailor execution (GetVersionExA)."
+    }
+  ],
+  "details": {
+    "reasoning": "While the executable contains many dual-use APIs for system management, the presence of code explicitly targeting the kernel's service descriptor table (fcn.1000b369, fcn.1000aa69) alongside hidden payloads (resource-based packing) confirms malicious intent. This functionality is consistent with rootkits and unauthorized system modifications, which cannot be justified as standard software protection.",
+    "general": "High-intent evidence includes the manipulation of the SSDT (System Service Descriptor Table) in fcn.1000b369 and fcn.1000aa69, and the use of hardcoded strings and XOR-decryption routines in fcn.100015f7. The file also attempts to copy files to system directories and modify registry keys associated with system services, which is a classic behavior of persistence mechanisms.",
+    "uncertainties": "The exact nature of the unpacked binary is not fully visible, meaning specific C2 communication protocols or unique file-drop locations might be missed without full emulation of the decryption process.",
+    "conditions": "The malware checks for environment variables and specific registry keys (e.g., related to system versioning) to verify the target environment. It also uses mutexes (e.g., 'prkMtx') to prevent multiple instances from running.",
+    "sandbox_recommendations": "Run in a virtualized Windows environment with kernel-mode debugging enabled. Use Procmon to monitor registry changes, especially keys under HKLM\\SYSTEM\\CurrentControlSet. Ensure network traffic is captured to identify potential C2 beacons."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used to detect or prevent multiple instances."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used to synchronize or check for sandbox environments."
+        },
+        {
+          "value": "KeServiceDescriptorTable",
+          "description": "Target of kernel-level hooking."
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet",
+          "description": "Registry hive targeted for persistence or modification."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Resource decryption and extraction function."
+    },
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Function that locates and manipulates the System Service Descriptor Table (SSDT)."
+    },
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Performs system-level modification involving file copying and registry changes."
+    }
+  ]
+}

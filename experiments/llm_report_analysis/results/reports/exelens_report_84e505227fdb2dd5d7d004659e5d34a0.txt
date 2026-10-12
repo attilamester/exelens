@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a modular installer-like downloader that performs complex environment checks, including searching for 'system32' and 'win32k.sys', and attempts to modify system security descriptors and kernel-mode structures via IOCTLs. It uses obfuscated resource loading and dynamic API resolution.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based payload decryption",
+      "Dynamic API resolution",
+      "Dynamic shellcode-style function pointer calls"
+    ],
+    "details": "The file contains a significant RSRC section with entropy 6.54, suggesting embedded encrypted payloads. Decryption logic is present in functions like fcn.10001697 and fcn.100015f7, which load and XOR-decrypt resources (0xcd XOR key) before potential execution or extraction."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence via Registry",
+      "description": "Uses RegCreateKeyExA and RegSetValueExA to potentially maintain system presence."
+    },
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Attempts to interact with kernel-level structures like KeServiceDescriptorTable and performs IOCTL-like operations (0x25a, 0x25b)."
+    },
+    {
+      "name": "Process Injection/System modification",
+      "description": "Checks for system files like win32k.sys and attempts to modify system security descriptors, suggesting potential rootkit or advanced evasion capabilities."
+    },
+    {
+      "name": "Mutex-based synchronization",
+      "description": "Uses Mutexes (e.g., 'GlobalRPCMutex', 'prkMtx') to ensure single execution or check environment conditions."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistent registry modification, intentional searches for core system files (win32k.sys, ntoskrnl.exe), and the use of undocumented kernel function calls (KeServiceDescriptorTable) in fcn.1000ab6f and fcn.1000a2cd reveals clear malicious intent beyond mere installation or protection. These capabilities are consistent with a rootkit or sophisticated malware downloader.",
+    "general": "High-intent evidence includes the use of fcn.1000b369 (KeServiceDescriptorTable manipulation), the presence of fcn.1000c492 (which maps kernel memory pages via MmMapLockedPagesSpecifyCache), and the attempt to copy files to lsass-related paths (RVA 0x10001915).",
+    "uncertainties": "The exact nature of the decrypted resource payloads could not be fully determined due to the high number of obfuscated function calls and dynamic resolving of system APIs.",
+    "conditions": "Execution is gated by Mutex checks ('GlobalRPCMutex', 'prkMtx') and environment-specific file checks (e.g., presence of win32k.sys). It likely requires elevated privileges to successfully execute the kernel-mode interactions.",
+    "sandbox_recommendations": "Use a sandbox that supports kernel-level API hooking, simulate an environment with a full Windows installation (including system32/win32k.sys), and monitor registry keys related to system services."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for execution synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for execution synchronization."
+        },
+        {
+          "value": "lsass",
+          "description": "Targeted filename string for potential process masquerading."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "system32\\win32k.sys",
+          "description": "Targeted system file for environment checks."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Contains code for hooking the System Service Descriptor Table (SSDT)."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Resource loader responsible for loading and decrypting embedded payload data."
+    },
+    {
+      "address": "0x1000c492",
+      "name": "fcn.1000c492",
+      "description": "Memory manipulation routine using kernel-related APIs (MmMapLockedPages)."
+    }
+  ]
+}

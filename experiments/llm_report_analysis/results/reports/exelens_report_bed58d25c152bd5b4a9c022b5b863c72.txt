@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This executable acts as a complex installer or loader that drops files to the system directory, modifies registry values, and utilizes low-level techniques, including potential rootkit-like kernel manipulations, to maintain persistence or control.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation in resource loading",
+      "Dynamic API resolution through GetProcAddress",
+      "Self-deleting or file-replacement behavior"
+    ],
+    "details": "The file uses FindResourceA/LoadResource and a simple XOR (0xcd) loop to unpack critical data. Several functions import and resolve functions from kernel drivers dynamically, indicative of advanced post-exploitation or protection mechanisms."
+  },
+  "capabilities": [
+    {
+      "name": "Process Hollowing/Injection",
+      "description": "Utilizes CreateProcessA, CopyFileA, and SetFileAttributesA to manipulate and potentially replace system files."
+    },
+    {
+      "name": "Persistence Mechanism",
+      "description": "Uses RegCreateKeyExA and RegSetValueExA to persist, likely modifying system startup or service registry keys."
+    },
+    {
+      "name": "Kernel/Low-Level Access",
+      "description": "Attempts to interact with ntoskrnl.exe and win32k.sys, and implements hooks or object manipulation using IoAllocateMdl and related kernel functions."
+    },
+    {
+      "name": "Evasion",
+      "description": "Uses Mutexes (e.g., 'GlobalRPCMutex', 'prkMtx') to prevent multiple instances and to check for existing analysis environments."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent indicators—specifically the modification of system files, manipulation of kernel objects (Mdls), and the use of registry keys to overwrite or hijack legitimate system components—moves this beyond a simple installer. The code explicitly attempts to interact with drivers like win32k.sys and ntoskrnl.exe, which is not typical for standard user-mode applications.",
+    "general": "High-intent is confirmed by fcn.1000b46f (registry interaction, system file manipulation) and fcn.1000ab6f/fcn.1000a2cd (kernel service descriptor table manipulation using IoAllocateMdl and MmBuildMdlForNonPagedPool).",
+    "uncertainties": "The exact nature of the payload being dropped from the resources (102, 101) remains unclear without further decryption; however, the surrounding logic is clearly malicious.",
+    "conditions": "The execution flow is gated by environment checks (GetSystemDirectoryA, GetComputerNameA) and the presence of specific mutexes (e.g., 'prkMtx'). It may require elevated privileges to execute the identified kernel-level hooks successfully.",
+    "sandbox_recommendations": "Run with administrative privileges. Monitor registry operations specifically on HKLM\\System\\CurrentControlSet. The sandbox must be able to handle potential system reboots, as the file performs registry-based persistence."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\System\\CurrentControlSet",
+          "description": "Target registry hive for persistence."
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used to ensure single-instance execution."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for synchronization."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Orchestrates registry modification and system file overwrites."
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Kernel-mode service table manipulation and hooking."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Payload creation, file attributes modification, and process spawning."
+    }
+  ]
+}

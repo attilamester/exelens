@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample is a sophisticated dropper that installs a kernel-mode driver, performs system-level modifications, uses obfuscated resources to hide payloads, and employs techniques to bypass security controls by interacting with kernel structures (e.g., KeServiceDescriptorTable).",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR obfuscation of resources",
+      "Dynamic API resolution (GetProcAddress)",
+      "PE header manipulation"
+    ],
+    "details": "The sample contains encrypted/encoded resources and dynamically loads functions at runtime. Routine fcn.100015f7 performs an XOR operation (0xcd) on resource data, a common technique for hiding payloads or configuration data."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-Level Interaction",
+      "description": "Attempts to interact with the system service table (KeServiceDescriptorTable) and load drivers."
+    },
+    {
+      "name": "Persistence",
+      "description": "Manipulates registry keys and copies files to system directories (system32) to ensure execution."
+    },
+    {
+      "name": "Evasion/Anti-Analysis",
+      "description": "Uses mutexes and registry keys to prevent multiple instances and likely performs environment checks."
+    },
+    {
+      "name": "Privilege Escalation",
+      "description": "Uses GetTokenInformation, OpenProcessToken, and related functions to manipulate security tokens."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent malicious capabilities—specifically the attempts to hook kernel structures like the Service Descriptor Table (SDT), the use of undocumented system calls (e.g., int 0x2e), and the persistence mechanisms hidden within registry manipulation—proves malicious intent. These are not traits of legitimate software and align perfectly with rootkit-style behavior.",
+    "general": "High-intent evidence includes fcn.1000b369 which accesses KeServiceDescriptorTable, fcn.10003c04 which performs file system operations targeting 'system32', and fcn.1000b46f which uses the 'int 0x2e' instruction to bypass standard Windows API usage for system interaction.",
+    "uncertainties": "While the high-level logic is clear, specific external C2 IP addresses or URLs were not explicitly present in the visible assembly, likely because they are retrieved dynamically or are part of the encrypted payload.",
+    "conditions": "The main malicious execution flow requires the executable to have sufficient permissions (administrative/system) to interact with kernel-mode structures and registry keys.",
+    "sandbox_recommendations": "Run in an environment with kernel debugging enabled (e.g., WinDbg connected to a target VM). Monitor registry keys associated with persistence and any file system activity in C:\\Windows\\System32."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for instance control"
+        },
+        {
+          "value": "DMWH",
+          "description": "Registry/File path component"
+        },
+        {
+          "value": "KeServiceDescriptorTable",
+          "description": "Kernel structure target"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "C:\\Windows\\System32",
+          "description": "Target directory for dropped files"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Manipulates kernel service tables (SSDT hooking)."
+    },
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Executes system calls using int 0x2e."
+    },
+    {
+      "address": "0x10003c04",
+      "name": "fcn.10003c04",
+      "description": "Handles file system persistence in the system directory."
+    }
+  ]
+}

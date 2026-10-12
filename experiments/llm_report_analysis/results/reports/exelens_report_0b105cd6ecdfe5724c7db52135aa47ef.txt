@@ -1,0 +1,66 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The file is a kernel-mode driver that performs manual mapping and process injection. It resolves internal system APIs to locate the PEB, injects code into target processes by allocating memory, writing to it, and using APCs (Asynchronous Procedure Calls) to hijack execution, primarily targeting system processes.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Manual API resolution",
+      "Dynamic shellcode-style execution patterns"
+    ],
+    "details": "The overlay entropy is high (7.19), suggesting compressed or encrypted payloads. The code structure indicates manual parsing of PE headers (`0x4550` check) and relocation, commonly used in manual mappers and reflective loaders."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "Uses ZwAllocateVirtualMemory and KeInsertQueueApc to execute arbitrary code in target processes."
+    },
+    {
+      "name": "Manual Kernel Loading",
+      "description": "Parses PE headers and performs manual section mapping in kernel-mode."
+    },
+    {
+      "name": "Evasion",
+      "description": "Hides activity using custom synchronization events and manual system service dispatching."
+    },
+    {
+      "name": "Kernel-mode Debugging",
+      "description": "Utilizes DbgPrint to output status or debugging messages, often used for stealthy monitoring."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode APIs like KeInsertQueueApc, ZwAllocateVirtualMemory, and KeStackAttachProcess (in fcn.00011a3e) constitutes a classic pattern for malicious kernel-mode process injection. These capabilities are not standard for legitimate software installation or protection, confirming malicious intent.",
+    "general": "The function fcn.00011a3e performs injection via APC queueing (`KeInsertQueueApc`). The function fcn.00011306 performs manual PE mapping by parsing the header at `0x4550` and resolving imports dynamically, which is a hallmark of sophisticated malware.",
+    "uncertainties": "The exact target of the injection is determined at runtime based on environment checks (RtlGetVersion and system information), which limits static visibility of the final payload.",
+    "conditions": "The driver expects specific OS versions or system configurations as checked by RtlGetVersion and PsLookupProcessByProcessId loops.",
+    "sandbox_recommendations": "Deploy in a kernel-debuggable VM. Monitor kernel API calls, specifically KeInsertQueueApc and ZwAllocateVirtualMemory. Avoid using automated analysis tools that trigger standard anti-debugging flags."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\",
+          "description": "Typical path for persistent driver installation"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00011a3e",
+      "name": "fcn.00011a3e",
+      "description": "Core injection routine utilizing APCs"
+    },
+    {
+      "address": "0x00011306",
+      "name": "fcn.00011306",
+      "description": "Manual PE mapper"
+    },
+    {
+      "address": "0x00012f68",
+      "name": "fcn.00012f68",
+      "description": "Driver entry and initialization"
+    }
+  ]
+}

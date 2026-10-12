@@ -1,0 +1,88 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple high-intent malicious indicators, including rootkit-like functionality to manipulate system service descriptor tables (SSDT) and process/thread token management. It uses anti-analysis techniques, resource decryption, and interacts with low-level kernel interfaces.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR decryption",
+      "Dynamic API resolution via GetProcAddress",
+      "Resource-based payload hiding"
+    ],
+    "details": "The file uses FindResourceA/LoadResource to access hidden data in RCDATA (resource 102), which is then decrypted using a simple XOR routine (0xcd key) in fcn.100015f7 and fcn.10001723. The binary also resolves APIs dynamically to evade static import analysis."
+  },
+  "capabilities": [
+    {
+      "name": "SSDT Manipulation",
+      "description": "Modifies system service tables, likely to hide processes or intercept system calls (fcn.1000b369)."
+    },
+    {
+      "name": "Kernel-mode Interaction",
+      "description": "Attempts to interact with ntoskrnl.exe and ntkrnlpa.exe, suggesting deep system-level control (fcn.10009bd3)."
+    },
+    {
+      "name": "Process Injection/Hollowing",
+      "description": "Uses CreateProcessA to launch subprocesses with potential hollowing/injection intent."
+    },
+    {
+      "name": "Persistence via Registry",
+      "description": "Modifies registry keys (Run keys) to maintain execution (fcn.1000202a)."
+    },
+    {
+      "name": "Mutex-based Anti-Analysis",
+      "description": "Uses mutexes like 'GlobalRPCMutex' and 'prkMtx' to prevent multiple instances or signal activity status."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode API resolution (NtQuerySystemInformation, NtQueryObject, KeServiceDescriptorTable), modification of the system service descriptor table, and persistent registry manipulation confirms malicious intent. While individual functions like VirtualAlloc or LoadLibrary might be dual-use, their use to unpack code that specifically targets kernel structures like SSDT defines the malicious nature of the sample.",
+    "general": "The function fcn.1000b369 performs SSDT hooking by resolving KeServiceDescriptorTable and modifying it. fcn.10009bd3 searches for kernel image exports. Persistence is achieved via RegSetValueExA using registry keys like 'DMWI' and 'DMWH' (fcn.1000202a).",
+    "uncertainties": "While the kernel-level interaction is clear, the exact nature of the payload after the final stage is not fully visible due to dynamic decryption and the complexity of the kernel API calls.",
+    "conditions": "The payload requires specific registry keys or environment variables to be present or manipulated during execution, likely interacting with the system's security descriptor settings.",
+    "sandbox_recommendations": "Run in a kernel-debuggable VM. Monitor registry access to HKLM\\Software and system service table modifications. Simulate a Windows environment with high-privilege access."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "DMWI",
+          "description": "Registry value used for persistence."
+        },
+        {
+          "value": "DMWH",
+          "description": "Registry value used for persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name to detect or block existing infection."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used in kernel-mode signaling."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Core hook function for SSDT modification."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Resource decryption routine (XOR 0xcd)."
+    },
+    {
+      "address": "0x1000202a",
+      "name": "fcn.1000202a",
+      "description": "Registry-based persistence and configuration setup."
+    }
+  ]
+}

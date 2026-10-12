@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This executable acts as a rootkit installer that attempts to perform kernel-mode system modifications, specifically targeting system service tables or device drivers.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR decryption",
+      "Resource-based payload extraction"
+    ],
+    "details": "The sample uses a custom XOR routine (XOR 0xCD) triggered within fcn.10001723 and fcn.10001697 to decrypt embedded resources, likely kernel-mode drivers, before writing them to the system directory."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode service manipulation",
+      "description": "Uses APIs like NtQuerySystemInformation, NtQueryObject, and attempts to modify the Service Descriptor Table."
+    },
+    {
+      "name": "System file replacement",
+      "description": "Attempts to overwrite or copy files into system directories using fcn.100010a1."
+    },
+    {
+      "name": "Persistence via Registry",
+      "description": "Modifies Run keys and service registry values to ensure execution on reboot."
+    },
+    {
+      "name": "Privilege Escalation",
+      "description": "Enables SeDebugPrivilege and manipulates access tokens (OpenProcessToken, DuplicateTokenEx)."
+    }
+  ],
+  "details": {
+    "reasoning": "The file contains high-intent malicious indicators: functions specifically named after kernel structures ('KeServiceDescriptorTable', 'NtQuerySystemInformation') and explicit efforts to patch kernel memory (fcn.1000b369). The combination of resource decryption followed by system file operations and registry persistence is a hallmark of a rootkit installer.",
+    "general": "High-intent evidence includes calls to 'NtQuerySystemInformation' (fcn.1000d4f0), 'KeServiceDescriptorTable' (fcn.1000b369), and code patterns consistent with patching kernel function pointers. The use of 'UpdateResourceA' to modify itself or other binaries while hiding in the system directory is a definitive indicator of malicious rootkit behavior.",
+    "uncertainties": "While the kernel-level patching mechanism is clear, the exact payload being dropped in fcn.10003c04 might depend on the specific environment (system version check), which could not be dynamically verified.",
+    "conditions": "Execution flow is heavily dependent on environment checks, specifically Windows version checks ('GetVersionExA') to target specific kernel structures. It also uses a mutex named 'GlobalRPCMutex' to ensure only one instance is running.",
+    "sandbox_recommendations": "Run in a hardened Windows 7/XP virtual machine with kernel debugging enabled. Monitor registry operations on 'HKLM\\SYSTEM\\CurrentControlSet\\Services' and file system changes in the 'System32' directory."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Persistence registry key"
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Single-instance enforcement mutex"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for synchronization"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Kernel service descriptor table patching routine."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Account SID lookup and privilege escalation setup."
+    },
+    {
+      "address": "0x100010a1",
+      "name": "fcn.100010a1",
+      "description": "File system installation routine."
+    }
+  ]
+}

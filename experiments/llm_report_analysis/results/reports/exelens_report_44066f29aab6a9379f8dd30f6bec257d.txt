@@ -1,0 +1,72 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a downloader/dropper that persists in the registry, downloads remote content via WinInet, decrypts it using custom XOR routines, and executes or writes the payload to disk.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed; the logic for downloading, decrypting, and executing is visible."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Writes to the Windows Run key (Software\\Microsoft\\Windows\\CurrentVersion\\Run) using RegSetValueExA."
+    },
+    {
+      "name": "Downloader",
+      "description": "Uses InternetOpenA and InternetOpenUrlA to connect to remote resources."
+    },
+    {
+      "name": "Payload Obfuscation",
+      "description": "Uses XOR decryption loops on downloaded data."
+    },
+    {
+      "name": "File Execution",
+      "description": "Manipulates and creates temporary files, and interacts with registry keys indicating potential payload execution."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistence via registry, dynamic downloading of remote data, and decryption/decoding of that data strongly indicates malicious intent rather than a legitimate installer, which would not typically hide its download sources and decrypt payloads in this manner.",
+    "general": "The function 'main' (0x4019a0) performs registry key manipulation (ADVAPI32!RegSetValueExA) targeting the Run key. 'fcn.00401d90' and 'fcn.004015a0' use WININET to pull data, followed by XOR-based decryption logic visible in 'fcn.00402050' (NOT operation at 0x40218c) and 'fcn.004017e0'.",
+    "uncertainties": "The exact C2 URL or source location is obfuscated or dynamically resolved and not visible in plaintext strings, limiting attribution.",
+    "conditions": "Execution is likely triggered on startup via registry. The malware uses 'Sleep' calls (0x401b51, 0x401c93) to delay activity, suggesting it expects to run over a period of time.",
+    "sandbox_recommendations": "Simulate network access to resolve the HTTP requests initiated by WinInet. Monitor registry changes at HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run. Expect the malware to create temporary files in the system's temp directory."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Persistence key used to ensure the executable runs on system startup."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "*.tmp",
+          "description": "Temporary file extension used for staging downloaded payloads."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x4019a0",
+      "name": "main",
+      "description": "Initializes persistence by writing to the Run registry key."
+    },
+    {
+      "address": "0x401d90",
+      "name": "fcn.00401d90",
+      "description": "Manages network connections and initial file staging."
+    },
+    {
+      "address": "0x402050",
+      "name": "fcn.00402050",
+      "description": "Contains XOR decryption routines for processing downloaded payload data."
+    }
+  ]
+}

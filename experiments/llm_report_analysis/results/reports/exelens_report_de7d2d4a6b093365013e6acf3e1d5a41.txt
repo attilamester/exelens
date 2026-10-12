@@ -1,0 +1,85 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample is a rootkit-like driver that performs process injection, persistent kernel-level hooking (via KeServiceDescriptorTable), and establishes a back-door connection. It employs significant obfuscation and anti-analysis techniques.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom packer/protector",
+      "Control flow flattening",
+      "Dynamic API resolution"
+    ],
+    "details": "The entry point and multiple functions (e.g., fcn.000271f2) contain highly obfuscated control flow, including pusal/popal sequences, arithmetic mangling, and dynamic resolution of system routine addresses."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode execution",
+      "description": "Imports numerous ntoskrnl.exe routines (e.g., CmRegisterCallback, PsSetLoadImageNotifyRoutine, KeServiceDescriptorTable)."
+    },
+    {
+      "name": "Kernel Hooking/Modification",
+      "description": "Direct access to KeServiceDescriptorTable and various NotifyRoutines (Process, Image load) for system monitoring/tampering."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies registry keys (e.g., CurrentControlSet/Services) to ensure execution across reboots."
+    },
+    {
+      "name": "In-memory Execution",
+      "description": "Uses ZwAllocateVirtualMemory and ZwMapViewOfSection to map and execute hidden payloads."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level imports, registry manipulation for service persistence, and the presence of anti-analysis 'gates' (such as timing loops and RDTSC checks) clearly establishes malicious intent. The function fcn.0005b99f and those related (unk.0x5b...) demonstrate code patterns associated with patching system tables, a hallmark of sophisticated rootkits.",
+    "general": "The use of 'KeServiceDescriptorTable' in multiple locations and references to 'NtSetContextThread' inside obfuscated code strongly indicate intended tampering with system execution flow. Function fcn.00012910 directly manipulates registry values, confirming persistence mechanisms.",
+    "uncertainties": "Due to high-level packing and extensive control flow flattening, specific C2 domain names or precise decryption keys for the embedded payload are not explicitly readable in the provided static disassembly.",
+    "conditions": "The driver requires being loaded as a system service. It likely checks for the presence of specific registry keys (e.g., in HKLM\\SYSTEM\\CurrentControlSet\\Services) or waits for a particular system event (indicated by KeWaitForSingleObject loops) before activating main functionality.",
+    "sandbox_recommendations": "Deploy in a kernel-mode debugger (e.g., WinDbg) environment. Monitor registry operations specifically under CurrentControlSet\\Services. Ensure the system is configured to allow unsigned driver loading if necessary for debugging."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "REGISTRY\\MACHINE\\SYSTEM\\CurrentControlSet\\Control\\Session Manager",
+          "description": "Key accessed for system configuration/session management."
+        },
+        {
+          "value": "REGISTRY\\MACHINE\\SYSTEM\\CurrentControlSet\\Services\\",
+          "description": "Base path for service persistence modification."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "NtSetContextThread",
+          "description": "Used for process injection or thread manipulation."
+        },
+        {
+          "value": "DeviceGpeNetSafe",
+          "description": "Potentially a custom device name used by the rootkit for communication."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00013580",
+      "name": "fcn.00013580",
+      "description": "Performs object creation using ObCreateObject, likely part of the driver's device initialization."
+    },
+    {
+      "address": "0x00012910",
+      "name": "fcn.00012910",
+      "description": "Performs registry key deletion/setting, indicating persistence or system configuration tampering."
+    },
+    {
+      "address": "0x0005b99f",
+      "name": "fcn.0005b99f",
+      "description": "Part of the heavily obfuscated main malicious logic, likely the primary routine for patching or hooking."
+    }
+  ]
+}
+}

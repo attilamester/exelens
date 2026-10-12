@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The file is a sophisticated modular installer that performs system-wide configuration, registry persistence, and attempts to load a kernel-mode driver (`win32k.sys` manipulation). It checks for virtualization, utilizes mutexes for anti-debugging/synchronization, and uses dynamic API resolution and resource decryption to evade static analysis.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR decryption of resource data",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress",
+      "Resource-based loading (FindResource/LoadResource)"
+    ],
+    "details": "The sample decrypts embedded resources using a fixed XOR key (0xcd, RVA 0x1000167b) and potentially uses self-modifying code or decryption loops before transferring control to the unpacked payload."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode interaction",
+      "description": "Attempts to interact with or load kernel-mode drivers like win32k.sys and ntoskrnl.exe."
+    },
+    {
+      "name": "Registry Persistence",
+      "description": "Modifies system registry keys (e.g., Run keys or service configuration) to ensure execution across reboots."
+    },
+    {
+      "name": "Process Hollowing/Injection",
+      "description": "Contains routines that use CreateProcessA, WriteFile, and related APIs to manipulate external processes."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Uses mutex checks (e.g., 'GlobalRPCMutex', 'prkMtx') to prevent multiple instances and likely detect sandboxes."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level access attempts (manipulating system tables, loading drivers), registry persistence, and the presence of advanced evasion techniques (mutexes, resource decryption, API unhooking) clearly demonstrates malicious intent aimed at deep system compromise rather than legitimate installation functionality.",
+    "general": "High-intent indicators: fcn.1000ab6f and fcn.1000a2cd interact with the Kernel Service Descriptor Table (KeServiceDescriptorTable). fcn.1000b46f uses interrupt 0x2e (system call) to communicate with the kernel. The use of 'win32k.sys' in fcn.1000a0fc and the attempt to unregister classes (fcn.10009835) strongly point to rootkit-like behavior.",
+    "uncertainties": "While the overall intent is clearly malicious, the full payload unpacked from the largest resource is not completely visible in the static assembly provided, meaning some minor secondary functionalities might remain hidden.",
+    "conditions": "The malware requires administrative privileges and likely needs specific environment variables (e.g., 'system32' checks) to be set correctly to proceed with payload detonation.",
+    "sandbox_recommendations": "Use a kernel-mode debugger, perform analysis in an environment where registry modifications can be monitored, and simulate a system that satisfies basic kernel version/architecture checks."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Likely target for persistence via service creation."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for execution synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for kernel-mode synchronization."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Main installation/persistence routine involving registry lookups."
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Kernel-mode service descriptor table modification routine."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Payload creation/process creation handler."
+    }
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains capabilities for persistent installation, registry manipulation, and system-level hooking. It specifically targets 'win32k.sys' and attempts to modify system drivers or kernel-level structures, likely acting as a rootkit or privilege escalation utility.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation of resource data",
+      "Manual API resolution (GetProcAddress)",
+      "Dynamic library loading"
+    ],
+    "details": "The sample uses a custom XOR routine (XOR 0xCD) to decrypt embedded resources (e.g., in fcn.10001697 and fcn.100017a0). It uses dynamic API resolution, specifically referencing internal NT/Kernel structures, which is indicative of advanced malware trying to evade detection."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Modifies Windows registry keys (Run keys) to ensure execution upon boot."
+    },
+    {
+      "name": "Rootkit/Driver Hooking",
+      "description": "Targets kernel-level functions like NtQuerySystemInformation, NtQueryObject, and attempts to manipulate the System Descriptor Table (SSDT) or related drivers."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Checks for specific system files, copies files to system directories (e.g., system32), and sets file attributes to hidden."
+    },
+    {
+      "name": "Process Injection/Hooking",
+      "description": "Includes logic for searching and patching memory in system processes."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent actions—such as direct SSDT hooking (fcn.1000b369), modifications to 'win32k.sys', and persistence via registry manipulation—is incompatible with legitimate software. The code exhibits behavior consistent with a kernel-mode rootkit, moving far beyond dual-use utility.",
+    "general": "The function fcn.1000b369 explicitly attempts to locate 'KeServiceDescriptorTable' and modify it. Functions like fcn.1000b46f and fcn.1000a2cd demonstrate intent to hook system APIs. The presence of hardcoded strings like 'win32k.sys', 'NtShutdownSystem', and 'KeRaiseIrqlToDpcLevel' confirms kernel-level targeting.",
+    "uncertainties": "While the overall intent is clearly malicious, the specific payload functionality beyond the persistence and hooking mechanism is obscured by the custom XOR-based packing.",
+    "conditions": "The sample performs environmental checks, including verifying OS versions and likely requires administrative privileges for the kernel/driver-level operations. It uses a mutex ('prkMtx') to ensure only one instance runs.",
+    "sandbox_recommendations": "Run in an environment with kernel debugging enabled. The sample may require high privileges (administrator/SYSTEM). Monitor registry modifications, especially in 'HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run'."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Persistence key for automatic execution."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "win32k.sys",
+          "description": "Target system driver."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used to detect concurrent execution."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Attempts to locate and hook the System Service Descriptor Table (SSDT)."
+    },
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Driver manipulation/patching routine."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Registry manipulation routine for persistence."
+    }
+  ]
+}

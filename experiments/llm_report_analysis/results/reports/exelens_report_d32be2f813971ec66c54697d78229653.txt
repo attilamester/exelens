@@ -1,0 +1,58 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains a high-entropy overlay, performs self-reading, allocates executable memory, and executes code directly from the read overlay. It then attempts to spawn a process using a file named 'moic.exe' located in the system temporary directory.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Overlay loading",
+      "Dynamic memory execution"
+    ],
+    "details": "The file has a large (219KB) high-entropy (7.56) overlay. It uses VirtualAlloc to allocate executable memory (0x40 flag), reads the overlay into this buffer, and then calls the address of the allocated buffer using 'cal ebx' after a PUSAL/POPAL wrapper."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Execution",
+      "description": "Reads data from its own overlay, executes it in memory, and spawns a new process."
+    },
+    {
+      "name": "Persistence/Dropper",
+      "description": "Uses GetTempPathW and CreateProcessW to potentially drop and execute a secondary payload named 'moic.exe'."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of reading an encrypted/compressed overlay, executing the contents of that overlay in memory via VirtualAlloc, and subsequently attempting to spawn a process in the temp folder is a classic malware dropper pattern. There is no legitimate software requirement to execute raw bytes from a file overlay in this specific manner.",
+    "general": "The sequence at 0x401085 uses VirtualAlloc with 0x40 (PAGE_EXECUTE_READWRITE) and calls the buffer directly ('cal ebx'). This is a clear indicator of malicious intent to run a hidden payload.",
+    "uncertainties": "The exact nature of the payload inside the overlay cannot be determined as it is not statically visible, but the behavior of executing it is sufficient for a malicious classification.",
+    "conditions": "The execution flow requires the file to be a valid PE and relies on the existence of the overlay. It also includes a time-based check (GetSystemTime) that may act as a conditional gate ('cmp eax, 0x13352a3; jl 0x401145').",
+    "sandbox_recommendations": "Ensure internet access is restricted but simulated. Use a tool to capture the process creation of 'moic.exe' and dump the memory region allocated by VirtualAlloc before it is executed."
+  },
+  "ioc": [
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "moic.exe",
+          "description": "The name of the file being created in the system temporary directory."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x401000",
+      "name": "entry0",
+      "description": "Main entry point that manages the extraction, execution, and dropping process."
+    },
+    {
+      "address": "KERNEL32.dll_VirtualAlloc",
+      "name": "VirtualAlloc",
+      "description": "Used to allocate memory for the payload extracted from the overlay."
+    },
+    {
+      "address": "KERNEL32.dll_CreateProcessW",
+      "name": "CreateProcessW",
+      "description": "Used to launch the dropped component."
+    }
+  ]
+}

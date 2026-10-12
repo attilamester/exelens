@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a sophisticated kernel-mode component installer/loader that performs privilege escalation, system service modification, and anti-analysis techniques. It installs a system driver ('win32k.sys' or similar) and modifies system configurations (KeServiceDescriptorTable) to gain kernel-level persistence.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR encoding",
+      "Resource encryption",
+      "Dynamic API resolution (GetProcAddress)"
+    ],
+    "details": "The sample uses a custom XOR routine (fcn.100075ce) to decrypt resource data (RSRC section), which acts as a hidden payload. It resolves APIs dynamically to avoid static detection of its malicious functionality."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Uses 'KeServiceDescriptorTable' and 'KeAddSystemServiceTable' to hook kernel functions."
+    },
+    {
+      "name": "Process Injection",
+      "description": "Utilizes 'CreateProcessA' to spawn child processes, likely for injection or persistence."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies Registry keys and adds system services or drivers."
+    },
+    {
+      "name": "Anti-debugging/Anti-VM",
+      "description": "Uses timing checks and environment environment variable checks to identify sandbox environments."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level hooking (KeServiceDescriptorTable), dynamic resource decryption, and the use of hardcoded system paths and registry keys strongly indicates malicious intent. It is not merely protecting itself; it is actively attempting to modify the OS kernel integrity, which is characteristic of high-end rootkits.",
+    "general": "High-intent evidence includes calls to 'KeServiceDescriptorTable' (fcn.1000b369) for kernel hooking, 'NtShutdownSystem' manipulation (fcn.1000c755), and the use of 'VirtualAlloc' to create executable space in memory for the decrypted payload.",
+    "uncertainties": "The exact nature of the payload inside the encrypted RSRC section could not be fully analyzed, but the loader code confirms a high-intent malicious payload is destined for the kernel.",
+    "conditions": "The malware checks for specific environment variables (e.g., 'temp') and system conditions. It requires specific registry keys (DMWH) and mutexes (GlobalRPCMutex) to be present or absent to proceed.",
+    "sandbox_recommendations": "Ensure the sandbox has high-privilege (SYSTEM) access, as the sample targets low-level system tables. Simulate a realistic OS environment with standard drivers present to avoid simple VM detection."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "DMWH",
+          "description": "Registry key used for tracking state or persistence"
+        },
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used to ensure single-instance execution"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "system32\\win32k.sys",
+          "description": "Target file for system modification"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Handles service registry interaction and persistence."
+    },
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Performs kernel-mode memory manipulation on the Service Descriptor Table."
+    },
+    {
+      "address": "0x100043d2",
+      "name": "fcn.100043d2",
+      "description": "Main logic controller for payload installation and registry configuration."
+    }
+  ]
+}

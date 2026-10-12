@@ -1,0 +1,75 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a malware loader that performs system configuration changes by modifying Windows registry policies related to firewall settings. It also contains functionality to download and execute remote payloads via Wininet and includes obfuscated or encrypted resource data.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom heap-based unpacking",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress"
+    ],
+    "details": "The file uses custom heap allocation (`HeapCreate`, `HeapAlloc`) to unpack a payload in memory, which is then executed using `CreateThread` or similar primitives. It also utilizes dynamic API loading for networking capabilities."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence/Policy Modification",
+      "description": "Uses RegOpenKeyA and RegSetValueExA to modify Windows Firewall policy settings, specifically AuthorizedApplications."
+    },
+    {
+      "name": "Network Communication",
+      "description": "Loads Wininet.dll to perform HTTP requests (InternetOpenA, InternetOpenUrlA, InternetReadFile) to communicate with a remote server."
+    },
+    {
+      "name": "Process Injection/Loading",
+      "description": "Unpacks code into heap memory and executes it, characteristic of a loader or stager."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of modifying sensitive firewall registry keys (`Policies\\StandardProfile\\AuthorizedApplications`) and the presence of network-loading routines (Wininet) indicates clear malicious intent to establish persistence and download secondary payloads. This transcends dual-use scenarios where such actions are typically confined to installer contexts.",
+    "general": "The function fcn.10001fe0 (RVA 0x10001fe0) performs registry operations on 'AuthorizedApplications'. The loader behavior is evident in fcn.10002616, which creates threads to manage external content.",
+    "uncertainties": "While the core malicious intent is clear, the exact nature of the second-stage payload is unknown as it is fetched at runtime from the C2 infrastructure.",
+    "conditions": "The malware checks for a specific environment configuration and potentially expects a system-like process context to avoid detection.",
+    "sandbox_recommendations": "Use a network-simulated environment (e.g., INetSim) to capture the C2 connection. Monitor registry changes under HKLM/Software/Policies."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Policies\\Microsoft\\WindowsFirewall\\StandardProfile\\AuthorizedApplications\\List",
+          "description": "Firewall policy path targeted by the malware for persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "WSDbg.exe",
+          "description": "Target file name often used for checking or persistence."
+        },
+        {
+          "value": "Microsoft Internet Explorer 6.0",
+          "description": "User-Agent string for network communications."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001fe0",
+      "name": "fcn.10001fe0",
+      "description": "Registry manipulation function targeting Firewall settings."
+    },
+    {
+      "address": "0x10002616",
+      "name": "fcn.10002616",
+      "description": "Thread creation and management for payload execution."
+    },
+    {
+      "address": "0x10001ba0",
+      "name": "fcn.10001ba0",
+      "description": "Wininet initialization and network communication setup."
+    }
+  ]
+}

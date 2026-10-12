@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple functionalities typical of a system-level rootkit or driver installer, including persistence via registry modification, mutex-based anti-analysis, and code injection/manipulation (hooking NtQuerySystemInformation, NtQueryObject, and modifying kernel structures).",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation",
+      "Resource-based loading",
+      "Dynamic API resolution"
+    ],
+    "details": "The file uses XOR (0xcd key) for obfuscating embedded resource data and uses custom dynamic API resolution routines (e.g., in fcn.10002f79) to evade static analysis of its import table."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "Uses CreateProcessA to launch processes with hidden attributes or specific execution conditions."
+    },
+    {
+      "name": "Kernel-mode Manipulation",
+      "description": "Attempts to interact with KeServiceDescriptorTable and hook system calls like NtQuerySystemInformation."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies system registry keys, including those related to system services and autorun."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Uses global mutexes (e.g., GlobalRPCMutex, prkMtx) to prevent concurrent execution and detect sandbox environments."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level API hooking (KeServiceDescriptorTable modification), the use of specific mutex names ('prkMtx'), and the code designed to traverse and manipulate internal system processes (NtQuerySystemInformation/NtQueryObject) indicates a clear intent to modify and monitor OS behavior, which is fundamentally malicious in this context.",
+    "general": "High-intent indicators include: hooking of NtQuerySystemInformation (fcn.1000d4f0/unk.0x10010858), modification of the system service descriptor table (fcn.1000ab6f), and registry key manipulation to hijack system binaries (e.g., lsass, as seen in fcn.100017a0).",
+    "uncertainties": "The truncated nature of some functions (e.g., those handling complex kernel objects) means some specific target processes or payload delivery mechanisms may be partially obscured, but the core malicious mechanism is visible.",
+    "conditions": "The main payload activates when run with sufficient privileges to interact with the kernel. It checks for the existence of specific mutexes ('GlobalRPCMutex', 'prkMtx') and may perform environmental checks using GetVersionExA/GetSystemInfo to determine the OS version before attempting installation.",
+    "sandbox_recommendations": "Run in a kernel-debug capable virtual machine with a tool to monitor registry changes and kernel-mode calls. Ensure user-mode processes can be traced during the execution of fcn.10001b34."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\lsass",
+          "description": "Registry key targeted for modification"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for persistence/anti-sandbox"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for internal protection"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Kernel-mode service descriptor table modification"
+    },
+    {
+      "address": "0x10004d5c",
+      "name": "fcn.10004d5c",
+      "description": "Registry manipulation and payload installation routine"
+    },
+    {
+      "address": "0x1000d4f0",
+      "name": "unk.0x10010858",
+      "description": "NtQuerySystemInformation hooking"
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to manipulate system objects and service descriptor tables (SDT), indicative of a rootkit or kernel-mode component. It also contains functionality for registry manipulation and file dropping/renaming, suggesting a persistence or evasion mechanism. The sample includes sophisticated code-obfuscation and self-patching routines to avoid detection.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation",
+      "Dynamic API resolution",
+      "Self-modifying code"
+    ],
+    "details": "The file uses XOR loops (e.g., 0xcd in `fcn.10001697`) to decode strings and resources. It also uses dynamic API resolution (`LoadLibraryA`/`GetProcAddress` in `fcn.10002f79`) to resolve critical system functions."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel/Driver interaction",
+      "description": "Utilizes `NtQuerySystemInformation`, `KeServiceDescriptorTable`, and `MmMapLockedPagesSpecifyCache` to interact with kernel memory and system tables."
+    },
+    {
+      "name": "Persistence",
+      "description": "Manipulates registry keys under `HKLM\\SYSTEM\\CurrentControlSet` (e.g., in `fcn.100017a0` and `fcn.100028d6`)."
+    },
+    {
+      "name": "File Manipulation",
+      "description": "Uses `CopyFileA` and `DeleteFileA` to move/rename files, targeting `lsass` and system paths."
+    },
+    {
+      "name": "Mutex synchronization",
+      "description": "Uses `CreateMutexW` with a hardcoded mutex name (`GlobalRPCMutex` or `prkMtx`) to ensure single-instance execution or inter-process communication."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level access routines (SDT manipulation), file system persistence (targeting `lsass`), and anti-analysis checks (IsBadReadPtr, GetVersionEx) demonstrates clear malicious intent consistent with a rootkit or covert installation component. The dual-use nature of API calls is superseded by the clear target of kernel-mode structures and persistent registry modification.",
+    "general": "The function `fcn.10003c04` and `fcn.100012f0` demonstrate clear intent to modify system files and paths. The kernel interaction via `fcn.1000ab6f` (manipulating `KeServiceDescriptorTable`) is high-intent, typically reserved for malicious drivers or rootkits. String obfuscation sequences and self-patching code are found in functions like `fcn.1000788e`.",
+    "uncertainties": "Truncated input limits full visibility into the final stage of the decrypted payload, but the presence of the `KeServiceDescriptorTable` manipulation functions is definitive.",
+    "conditions": "Execution likely requires elevated administrative privileges to successfully interact with the service descriptor table or kernel memory. It also uses `GetEnvironmentVariableA` to check for system paths, possibly requiring specific OS environments.",
+    "sandbox_recommendations": "Run in an environment that allows kernel-mode debugging/monitoring. Simulate a typical Windows environment (Windows 7 or 10). Do not use a debugger that can be easily detected, as the sample has anti-analysis code paths."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet",
+          "description": "Targeted registry hive for persistence"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for synchronization"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for synchronization"
+        },
+        {
+          "value": "lsass",
+          "description": "System process name frequently targeted for hollowing/masquerading"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Manipulates the Kernel Service Descriptor Table (SDT)"
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Registry manipulation and persistence routine"
+    },
+    {
+      "address": "0x10003c04",
+      "name": "fcn.10003c04",
+      "description": "Performs system file staging and process creation"
+    }
+  ]
+}

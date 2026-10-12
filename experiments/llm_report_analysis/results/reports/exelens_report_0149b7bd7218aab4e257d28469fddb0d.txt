@@ -1,0 +1,89 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The file is a modular backdoor/bot that uses HTTP for C2 communication. It establishes persistence via registry keys, downloads/executes payloads, manages files, executes shell commands via piped cmd.exe, and performs environment reconnaissance.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed; imports, strings, and control flow are clearly visible in the provided analysis."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Modifies registry Run keys using reg.exe to ensure execution on system startup."
+    },
+    {
+      "name": "Process Execution",
+      "description": "Spawns hidden processes, specifically cmd.exe, using pipes for bidirectional communication (Remote Shell)."
+    },
+    {
+      "name": "Command and Control",
+      "description": "Communicates via HTTP (using WININET.dll) with hardcoded URLs (media.jobsadvanced.com, media.acx.org.ru) to receive task commands."
+    },
+    {
+      "name": "Reconnaissance",
+      "description": "Collects system information, including computer name and environment variables (USERPROFILE, windir)."
+    },
+    {
+      "name": "Payload Management",
+      "description": "Downloads and executes arbitrary files, and exfiltrates results from commands executed on the infected host."
+    }
+  ],
+  "details": {
+    "reasoning": "The application exhibits clear malicious intent. It implements a remote command-and-control framework that manages file system operations, arbitrary process execution, and persistence mechanisms. The use of WININET to fetch commands from hardcoded domains and redirecting output via pipes (CreatePipe/CreateProcessA) to an external C2 server characterizes a classic backdoor/RAT (Remote Access Trojan).",
+    "general": "Specific high-intent evidence includes 'fcn.00402a2a' downloading remote files, 'fcn.00401df4' spawning 'cmd.exe' via 'CreatePipe' and 'CreateProcessA' to execute arbitrary commands, and 'fcn.004010b2' registering persistence via registry manipulation ('HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run').",
+    "uncertainties": "The truncated code in some functions does not mask the clear patterns of a C2-driven backdoor.",
+    "conditions": "The malware requires an active internet connection to contact the hardcoded C2 URLs. It expects specific response formats from the server (e.g., 'connect', 'Ready', 'put', 'get') to trigger its internal command handlers.",
+    "sandbox_recommendations": "Use a network simulator (e.g., INetSim) to intercept HTTP traffic to the specified C2 domains. Monitor registry changes and child process creation ('cmd.exe') when the executable is launched."
+  },
+  "ioc": [
+    {
+      "type": "url",
+      "values": [
+        {
+          "value": "http://media.jobsadvanced.com/blog/index3.html",
+          "description": "C2 Command/Control URL"
+        },
+        {
+          "value": "http://media.acx.org.ru/blog/index3.html",
+          "description": "C2 Command/Control URL"
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Persistence key for SysTray"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "letusgozrmmv2011.0.1",
+          "description": "Mutex name used for single-instance execution"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401df4",
+      "name": "fcn.00401df4",
+      "description": "Implements command execution via pipes (cmd.exe)"
+    },
+    {
+      "address": "0x004010b2",
+      "name": "fcn.004010b2",
+      "description": "Sets registry persistence"
+    },
+    {
+      "address": "0x00402a2a",
+      "name": "fcn.00402a2a",
+      "description": "Downloads files from the C2"
+    }
+  ]
+}

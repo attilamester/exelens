@@ -1,0 +1,66 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable performs registry modifications to establish persistence and dynamically resolves Windows API functions. It contains decryption/de-obfuscation logic (fcn.10001000) used to decode internal data and utilizes registry keys (HKEY_LOCAL_MACHINE/SOFTWARE) to store configuration or malicious artifacts, suggesting a persistence-based threat.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Dynamic API Resolution",
+      "Resource-based payload extraction"
+    ],
+    "details": "The file uses LoadLibraryA/GetProcAddress to resolve its API calls dynamically. High entropy in the .rsrc section (7.96) and .data section (7.55) indicates the presence of encrypted or compressed code/data, likely a secondary stage or configuration payload stored in the large unknown resource."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Utilizes registry keys (RegCreateKeyEx, RegSetValueEx via pointers resolved to registry API aliases) to likely maintain system presence."
+    },
+    {
+      "name": "Dynamic API Resolution",
+      "description": "Uses LoadLibraryA and GetProcAddress to hide import dependencies and facilitate shellcode/module loading."
+    },
+    {
+      "name": "Obfuscation",
+      "description": "Contains decryption routines (fcn.10001000) which apply XOR-based operations and mathematical shifts on internal buffers."
+    },
+    {
+      "name": "File/Registry I/O",
+      "description": "Uses a system of function pointers (unk.0x100037a8, etc.) to perform registry operations and potential file modifications."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of dynamic registry manipulation, self-decryption, and the use of 'Start' functionality suggests a malicious dropper or loader. While protectors use these techniques, the combination with Registry persistence (HKLM/SOFTWARE) and the structure of fcn.100018ac, which contains complex registry interaction loops, points to malicious intent rather than simple protection.",
+    "general": "fcn.100018ac implements complex registry interactions (RegCreateKey, RegSetValue). Function 0x10001000 is a custom decryption algorithm using XOR/arithmetic operations to process its internal buffers. The use of 'Start' (sym.dll.dll_Start) and dynamic resolution of registry functions is highly indicative of a loader.",
+    "uncertainties": "The specific payload being written to the registry could not be reconstructed without runtime execution, but the behavioral pattern is characteristic of malware persistence mechanisms.",
+    "conditions": "The malware requires standard administrative privileges to access HKEY_LOCAL_MACHINE/SOFTWARE registry keys and likely expects its internal resources (88) to be intact to proceed with decryption.",
+    "sandbox_recommendations": "Run in a sandbox with registry monitoring enabled (e.g., ProcMon). Observe modifications under HKEY_LOCAL_MACHINE\\SOFTWARE. Ensure the environment is not hardened against registry write operations."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SOFTWARE",
+          "description": "Target path for registry persistence/configuration storage."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100018ac",
+      "name": "fcn.100018ac",
+      "description": "Core function handling registry operations and potential persistence logic."
+    },
+    {
+      "address": "0x10001000",
+      "name": "section..text",
+      "description": "Data decryption/decoding routine using XOR and shifts."
+    },
+    {
+      "address": "0x10001410",
+      "name": "fcn.10001410",
+      "description": "Initializes internal API function pointer table by resolving imports dynamically."
+    }
+  ]
+}

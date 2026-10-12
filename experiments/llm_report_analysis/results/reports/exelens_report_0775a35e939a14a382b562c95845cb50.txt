@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a password and sensitive data stealer targeting web browsers, FTP clients, and email applications. It collects credentials, configuration files, and system information, likely exfiltrating the data to a remote server.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Custom obfuscation",
+      "Dynamic API resolution"
+    ],
+    "details": "The code uses custom de-obfuscation routines (e.g., fcn.00401b89, fcn.00401fa0) and dynamic API loading (e.g., LoadLibrary/GetProcAddress) to hide its activities. Significant entropy in the .text section (6.56) suggests compressed or packed data."
+  },
+  "capabilities": [
+    {
+      "name": "Credential Stealing",
+      "description": "Targets specific software (Skype, WinSCP, Mail.Ru, Firefox, Thunderbird) to extract stored credentials."
+    },
+    {
+      "name": "File System Enumeration",
+      "description": "Scans system directories to find configuration and database files (e.g., config.xml, cookies.sqlite, wand.dat)."
+    },
+    {
+      "name": "Data Exfiltration",
+      "description": "Uses urlmon.dll to download/upload data to an external IP (82.146.51.22)."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Contains checks for VMware and debuggers to evade analysis."
+    }
+  ],
+  "details": {
+    "reasoning": "The application is clearly designed to harvest sensitive user data. It directly accesses registry keys associated with password storage of popular applications (e.g., Software\\Martin Prikryl\\WinSCP 2\\Sessions, Software\\Skype\\ProtectedStorage) and dumps data files from browser/email profiles. The inclusion of network communication capabilities (urlmon.dll) and the hardcoded IP confirm malicious intent, far exceeding any dual-use functionality.",
+    "general": "High-intent malicious activity is observed in fcn.00402559 (targeting WinSCP), fcn.0040a244 (targeting Skype ProtectedStorage), and fcn.00407d34 (targeting MRA logins). The presence of network functionality at fcn.0040db68 referencing 'http://82.146.51.22/dir.php' confirms the exfiltration path.",
+    "uncertainties": "The obfuscation makes it difficult to map every single variable or decrypted string, but the high-level intent to steal specific application data is confirmed by the function call graph and string references.",
+    "conditions": "The malware performs environment checks (fcn.0040b0ce) to detect VM/sandbox environments. It likely requires a standard Windows environment with target applications (Browsers/FTP clients) installed for data to be collected.",
+    "sandbox_recommendations": "Run in a network-isolated environment with dummy data files placed in standard locations like %APPDATA% and browser profile directories to trigger the collection routines. Monitor network traffic for the hardcoded IP."
+  },
+  "ioc": [
+    {
+      "type": "url",
+      "values": [
+        {
+          "value": "http://82.146.51.22/dir.php",
+          "description": "Likely data exfiltration endpoint."
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Martin Prikryl\\WinSCP 2\\Sessions",
+          "description": "Registry key targeted for WinSCP credentials."
+        },
+        {
+          "value": "Software\\Skype\\ProtectedStorage",
+          "description": "Registry key targeted for Skype credentials."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x0040a244",
+      "name": "fcn.0040a244",
+      "description": "Extracts Skype credentials from protected storage."
+    },
+    {
+      "address": "0x00402559",
+      "name": "fcn.00402559",
+      "description": "Handles file system enumeration and extraction of target data files."
+    },
+    {
+      "address": "0x0040db68",
+      "name": "fcn.0040db68",
+      "description": "Implements network exfiltration routines."
+    }
+  ]
+}

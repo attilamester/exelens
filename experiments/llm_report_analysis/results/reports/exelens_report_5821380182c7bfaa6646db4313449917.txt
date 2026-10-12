@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality typical of a kernel-mode rootkit or driver installer, including techniques to modify kernel-mode structures (KeServiceDescriptorTable), hook functions, and manipulate security descriptors for local privilege escalation.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation of internal strings and resource data",
+      "Dynamic API resolution via GetProcAddress and custom API loading"
+    ],
+    "details": "The file uses custom XOR routines (0xcd, 0x65, etc.) to deobfuscate configuration data and resource strings at runtime. Resource loading and dynamic library resolution are used to hide the primary malicious functionality."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Attempts to locate and modify 'KeServiceDescriptorTable' (SSDT) to hook system service calls."
+    },
+    {
+      "name": "Privilege Escalation",
+      "description": "Manipulates access tokens and security descriptors (via ADVAPI32.dll functions) to grant unauthorized privileges."
+    },
+    {
+      "name": "Process Injection/Hollowing",
+      "description": "Uses CreateProcessA followed by memory manipulation to inject code into other processes."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies Windows registry keys to achieve persistence and installs itself in system directories."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level hooking (SSDT), attempts to locate and manipulate ntoskrnl.exe/ntdll.dll symbols (like 'KeServiceDescriptorTable'), and privilege escalation through token manipulation via ADVAPI32.dll (e.g., GetSidSubAuthority, SetSecurityDescriptorDacl) constitutes clear malicious intent. This is not standard behavior for installers or legitimate protectors.",
+    "general": "High-intent indicators include RVA 0x1000b369 (fcn.1000b369) which attempts to hook KeServiceDescriptorTable, RVA 0x10007315 (fcn.10007315) manipulating security descriptors, and the usage of 'ntoskrnl.exe' and 'win32k.sys' path manipulation in function fcn.1000a0fc.",
+    "uncertainties": "The exact nature of the final payload, which appears to be downloaded or unpacked from the resource 102, could not be fully analyzed, but the loader behavior is clearly identified.",
+    "conditions": "Execution is gated by environment checks (GetSystemDirectoryA, GetTempPathA) and mutex existence ('prkMtx' or 'GlobalRPCMutex'). It may require elevated (Administrator) privileges to successfully perform SSDT hooking.",
+    "sandbox_recommendations": "Run in an environment that supports kernel-level analysis, simulate a standard Windows 10/11 environment with internet connectivity restricted, and monitor for registry changes on Run keys and file system changes in System32."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Registry keys targeted for service modification or persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for cross-process synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex indicating rootkit component activity."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Function responsible for locating and hooking the SSDT."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Payload creation and execution function."
+    },
+    {
+      "address": "0x10007315",
+      "name": "fcn.10007315",
+      "description": "Security descriptor manipulation for local privilege escalation."
+    }
+  ]
+}

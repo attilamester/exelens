@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to manipulate system service descriptor tables (SSDT) and perform process-specific registry and file system operations, indicating rootkit-like behavior aimed at hiding or modifying system execution.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR decryption loop",
+      "Resource-based payload storage",
+      "Dynamic API resolution (GetProcAddress)"
+    ],
+    "details": "The entrypoint (entry0) and supporting functions (e.g., fcn.100015f7) demonstrate custom XOR-based decryption (0xcd key) of encrypted resources identified in the .rsrc section. The binary uses dynamic API loading via GetProcAddress for critical functions to avoid static analysis detection."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode service manipulation",
+      "description": "Functions fcn.1000ab6f and fcn.1000b369 perform operations on KeServiceDescriptorTable."
+    },
+    {
+      "name": "System service control",
+      "description": "Uses NtShutdownSystem and interacts with ntoskrnl.exe/ntkrnlpa.exe/win32k.sys."
+    },
+    {
+      "name": "Persistence and Evasion",
+      "description": "Extensive registry manipulation (RegSetValueExA, RegCreateKeyExA) to modify system startup keys and hide files."
+    },
+    {
+      "name": "Process Injection/Hooking",
+      "description": "Attempts to interact with system processes (e.g., lsass, WinStaObj) and uses MmMapLockedPagesSpecifyCache for memory access."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of SSDT modification (KeServiceDescriptorTable), low-level kernel driver interaction, and the use of hardcoded system mutex names (GlobalRPCMutex) signifies high-intent malicious behavior rather than legitimate software protection. The binary actively attempts to hook system functions to conceal its presence, a hallmark of rootkits.",
+    "general": "High-intent evidence includes direct modification of system structures via fcn.1000b369, manipulation of NtShutdownSystem calls, and explicit interactions with ntoskrnl.exe and win32k.sys. These are not dual-use capabilities when combined with the persistence-seeking registry modifications observed in fcn.1000202a.",
+    "uncertainties": "The exact nature of the payload inside the decrypted resource 102 could not be fully determined without runtime memory dumping, but the surrounding code structure confirms its malicious, rootkit-based deployment nature.",
+    "conditions": "The code performs multiple environment checks (GetVersionExA, GetVolumeInformationA) and looks for specific registry keys/values related to system integrity (e.g., v.2055). It requires standard administrative privileges to modify kernel-mode tables.",
+    "sandbox_recommendations": "Ensure the sandbox provides a kernel-mode driver capable of monitoring SSDT hooking. The malware specifically targets system directory files (e.g., system32/win32k.sys), so these should be protected or monitored for writes."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Registry keys targeted for persistence and modification."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used to ensure single instance execution."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name associated with kernel-level activity."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Handles KeServiceDescriptorTable modification."
+    },
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Service descriptor table patching."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Primary registry/file system persistence engine."
+    }
+  ]
+}

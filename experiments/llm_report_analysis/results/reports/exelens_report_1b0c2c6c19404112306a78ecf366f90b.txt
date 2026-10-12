@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a remote administration tool or backdoor. It gathers extensive system and network information, registers its presence via a mutex, exfiltrates this data to a remote command-and-control server via HTTP POST, and performs file operations such as creation, deletion, and attribute modification.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code structure appears to be compiled C/C++ without additional packing or obfuscation."
+  },
+  "capabilities": [
+    {
+      "name": "System Profiling",
+      "description": "Collects computer name, username, OS version, processor information, and adapter MAC addresses."
+    },
+    {
+      "name": "Network Communication",
+      "description": "Uses WinINet to perform HTTP POST requests, indicating command-and-control functionality."
+    },
+    {
+      "name": "File Manipulation",
+      "description": "Performs file enumeration, file read/write, deletion, and file attribute changes (e.g., setting read-only/hidden)."
+    },
+    {
+      "name": "Mutex Persistence",
+      "description": "Uses CreateMutexA to ensure single-instance execution."
+    },
+    {
+      "name": "Registry Interaction",
+      "description": "Reads hardware and Windows version information from registry keys."
+    }
+  ],
+  "details": {
+    "reasoning": "While many capabilities like file I/O or system information gathering are dual-use, their combination within a single binary that performs C2 communication (WININET.dll imports) and file exfiltration/control logic indicates malicious intent. The binary clearly intends to profile the host and report this data back to an external source.",
+    "general": "The function fcn.00402430 performs the C2 communication using InternetOpenA, InternetConnectA, and HttpOpenRequestA. Information gathering is driven by fcn.00401ce0 and fcn.00402250, which interact with ADVAPI32 and IPHLPAPI respectively.",
+    "uncertainties": "While the binary is clear in its malicious intent, the exact nature of the server-side logic remains unknown without observing the C2 traffic.",
+    "conditions": "The execution flow requires active internet connectivity to perform the exfiltration routine. The sample creates a mutex to ensure it does not run multiple times.",
+    "sandbox_recommendations": "Provide an emulated network environment capable of intercepting HTTP requests to observe exfiltrated data. The sample uses Sleep() calls, so adjusting system time or disabling time-based delays is recommended."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0",
+          "description": "CPU processor name"
+        },
+        {
+          "value": "SYSTEM\\CurrentControlSet\\Control\\Nls\\Language",
+          "description": "System language"
+        },
+        {
+          "value": "SOFTWARE\\MICROSOFT\\WINDOWS_NT\\CurrentVersion",
+          "description": "Windows OS identification"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401000",
+      "name": "main",
+      "description": "Entry point that coordinates mutex check, system profiling, and primary C2 loop."
+    },
+    {
+      "address": "0x00402430",
+      "name": "fcn.00402430",
+      "description": "Handles WININET network communication and HTTP POST request logic."
+    },
+    {
+      "address": "0x00401ce0",
+      "name": "fcn.00401ce0",
+      "description": "Coordinates gathering of system hardware and user-specific information."
+    },
+    {
+      "address": "0x004027b0",
+      "name": "fcn.004027b0",
+      "description": "Performs file operations, including setting file attributes and file deletion."
+    }
+  ]
+}

@@ -1,0 +1,74 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable extracts multiple embedded resources (likely compressed) to specific directories and executes a binary, displaying behavior consistent with a dropper or installer of potentially malicious software, specifically mimicking or targeting Norton security components.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource-based payload extraction",
+      "Custom decompression/decryption loop"
+    ],
+    "details": "The file uses FindResource/LoadResource/LockResource to access data in the .rsrc section (entropy 7.25) and utilizes custom decompression/decryption routines (e.g., fcn.00401f80, fcn.00401e40) before writing data to disk via CFile."
+  },
+  "capabilities": [
+    {
+      "name": "Resource Dropper",
+      "description": "Extracts embedded RCDATA/custom resources to disk."
+    },
+    {
+      "name": "Process Execution",
+      "description": "Uses CreateProcessA to launch dropped binaries."
+    },
+    {
+      "name": "Persistence/Environment Setup",
+      "description": "Creates directory structures under 'Program Files' and 'Norton360'."
+    },
+    {
+      "name": "Data Decompression",
+      "description": "Includes logic for decompressing/decoding embedded data blocks."
+    }
+  ],
+  "details": {
+    "reasoning": "The application exhibits high-intent behavior by systematically extracting files to sensitive paths ('Norton360', 'Engine', '5.1.0.29') and launching them. The combination of resource extraction, file writing using MFC classes, and process creation, especially targeting security-related directories, is indicative of a dropper designed to deploy malicious payloads while masquerading as legitimate software.",
+    "general": "High-intent evidence is found in fcn.00401350 and fcn.00401740, which contain sequences for Resource extraction (FindResourceA, LoadResource) followed by file creation (CFile::Open/Write) and process execution (CreateProcessA). The creation of directories like 'Norton360' and the use of 'ccSvcHst.exe' strongly suggest malicious intent to evade detection or plant hooks in existing security software.",
+    "uncertainties": "The exact nature of the payload extracted from the .rsrc section is not fully visible due to the custom decompression logic, but its function as a dropper is clear.",
+    "conditions": "The execution flow requires the existence of resources with specific IDs (e.g., 0x81, 0x84). It performs environment-specific checks such as querying the System Directory and setting up specific directory paths.",
+    "sandbox_recommendations": "Run in an isolated environment with folder monitoring enabled (e.g., Process Monitor). Ensure the sandbox environment has a mock 'Program Files' path to observe directory creation and potential file planting."
+  },
+  "ioc": [
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "Program Files\\Norton360\\Engine\\5.1.0.29\\_readme.lz",
+          "description": "Dropped file path"
+        },
+        {
+          "value": "Program Files\\Norton360\\Engine\\5.1.0.29\\_ashelper.dll",
+          "description": "Dropped library path"
+        },
+        {
+          "value": "Program Files\\Norton360\\Engine\\5.1.0.29\\ccSvcHst.exe",
+          "description": "Target executable path"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401350",
+      "name": "fcn.00401350",
+      "description": "Primary dropper routine; handles resource loading, decompression, and file writing."
+    },
+    {
+      "address": "0x00401740",
+      "name": "fcn.00401740",
+      "description": "Secondary dropper routine; responsible for extracting and executing ccSvcHst.exe."
+    },
+    {
+      "address": "0x00401f80",
+      "name": "fcn.00401f80",
+      "description": "Decompression engine utilized for processing embedded payloads."
+    }
+  ]
+}

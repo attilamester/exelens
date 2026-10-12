@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a loader and installer, likely deploying a malicious driver or rootkit component. It creates persistent registry modifications, uses anti-analysis techniques, and interacts with low-level Windows APIs and kernel structures (e.g., KeServiceDescriptorTable, IoAllocateMdl).",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR decryption loop in fcn.100015f7",
+      "Resource-based payload hiding"
+    ],
+    "details": "The file contains encrypted resources that are decrypted at runtime using a XOR operation with 0xcd. The payload is then loaded into memory or extracted to disk."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Uses Registry Run keys and file copying to ensure execution upon system reboot."
+    },
+    {
+      "name": "Kernel-level manipulation",
+      "description": "Attempts to modify KeServiceDescriptorTable (SSDT) and uses MDL (Memory Descriptor List) manipulation via IoAllocateMdl."
+    },
+    {
+      "name": "Process/Service hiding",
+      "description": "References strings like 'lsass', suggesting potential hollowing or impersonation of critical system processes."
+    },
+    {
+      "name": "Anti-analysis",
+      "description": "Checks for debugger presence and contains environment-specific execution gates."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level hooking capabilities (SSDT modification, MDL manipulation), persistence mechanisms, and process impersonation (lsass strings) strongly indicates malicious intent. While individual calls might be dual-use, the assembly code shows these capabilities being orchestrated to subvert system integrity rather than provide legitimate functionality.",
+    "general": "High-intent evidence includes fcn.1000b369 (SSDT hooking via KeServiceDescriptorTable modification), fcn.1000c492 (MDL manipulation using IoAllocateMdl, MmBuildMdlForNonPagedPool), and string indicators such as 'lsass' found in fcn.100017a0. The code performs active patching of memory/files to bypass security checks.",
+    "uncertainties": "While I have a high degree of confidence due to the presence of specific kernel-hooking APIs and persistence logic, the exact payload being dropped is obfuscated within resources and could not be fully analyzed.",
+    "conditions": "The malware requires an environment with specific registry keys or file paths to be present, and it performs checks for OS version/environment variables before executing the main malicious payload.",
+    "sandbox_recommendations": "Simulate a standard Windows environment, capture all filesystem/registry write attempts, and monitor for unauthorized driver loading or kernel memory modifications."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\",
+          "description": "Attempted modification of system services for persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "lsass",
+          "description": "Potential target for process injection or hollowing."
+        },
+        {
+          "value": "KeServiceDescriptorTable",
+          "description": "Target of kernel-level hooking."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Orchestrates SSDT modification to hook system calls."
+    },
+    {
+      "address": "0x1000c492",
+      "name": "fcn.1000c492",
+      "description": "Performs memory manipulation using MDL (Memory Descriptor List) APIs."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Handles file persistence and registry value manipulation."
+    }
+  ]
+}

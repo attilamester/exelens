@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a kernel-mode driver installer/loader. It performs process injection, registry manipulation to achieve persistence, and uses obfuscated system API calls to potentially modify kernel structures (e.g., KeServiceDescriptorTable). It creates mutexes for anti-debugging and utilizes a custom XOR-based obfuscation to hide its core functionality.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation of resource data",
+      "Dynamic API resolution",
+      "Dynamic shellcode-like code generation"
+    ],
+    "details": "Resource sections (102, 103, 101) contain high entropy data. Core logic for payload execution, registry key manipulation, and file dropping is performed after dynamic de-obfuscation (XOR 0xCD) of resources and dynamic resolution of ntdll.dll and ntoskrnl.exe exports."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "Utilizes CreateProcessA and writes to memory/manipulates handles to execute payload code."
+    },
+    {
+      "name": "Kernel-Mode Modification",
+      "description": "Accesses and attempts to modify the System Service Descriptor Table (SSDT) via KeServiceDescriptorTable."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies Windows Registry keys, specifically adding values to Run/Start folders (e.g., lsass reference)."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Uses Mutexes ('GlobalRPCMutex', 'prkMtx') to ensure single-instance execution and avoid sandbox detection."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel structure manipulation (SSDT hooking), explicit persistence mechanisms via registry keys, and process hollowing/injection techniques across multiple modules indicates clear malicious intent beyond legitimate software protection.",
+    "general": "Functions like fcn.1000ab6f and fcn.1000b369 interact with KeServiceDescriptorTable. fcn.100017a0 modifies registry keys for persistence. The code utilizes specific API sequences (VirtualAlloc, WriteProcessMemory-like behavior, CreateProcess) indicative of process injection.",
+    "uncertainties": "The exact nature of the final injected payload remains obscured by the runtime XOR decryption, but the framework for execution is clearly malicious.",
+    "conditions": "The malware checks for a 'prkMtx' mutex and environmental variables; it also performs specific version checks for Windows OS compatibility, targeting older NT kernel versions.",
+    "sandbox_recommendations": "Simulate a Windows environment with administrator privileges; observe Registry changes, specifically in 'HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services'."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\lsass",
+          "description": "Persistence key for malicious service."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used to detect single execution."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for kernel-mode synchronization."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Main logic controller for registry operations and kernel service interaction."
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Performs SSDT/kernel structure modification."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Handles process creation and payload deployment."
+    }
+  ]
+}

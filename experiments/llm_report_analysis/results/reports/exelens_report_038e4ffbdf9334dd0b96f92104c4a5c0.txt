@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains sophisticated system-level modifications and anti-forensic capabilities, including hooking system services via KeServiceDescriptorTable manipulation, process injection, and potential kernel-level interaction using driver-like techniques (e.g., KeGetCurrentIrql, KeRaiseIrql). It also performs registry persistence and file system obfuscation.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation (0xcd, 0x3d)",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress",
+      "Resource-based loading of obfuscated data"
+    ],
+    "details": "The sample uses XOR routines (seen in fcn.10001697) to decrypt data at runtime and dynamically resolves API addresses to hide its functionality from static import analysis."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode service manipulation",
+      "description": "Uses undocumented functions (KeServiceDescriptorTable, KeGetCurrentIrql, KeRaiseIrqlToDpcLevel) to hook or modify kernel-level system tables."
+    },
+    {
+      "name": "Persistence and Evasion",
+      "description": "Writes to registry (Run keys), sets file attributes to hidden/system, and uses Mutex-based execution control (GlobalRPCMutex)."
+    },
+    {
+      "name": "System modification",
+      "description": "Modifies system files and potentially injects into system processes (e.g., referenced strings like 'lsass' in registry operations)."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of dual-use capabilities (loading DLLs, registry keys) with high-intent malicious indicators—specifically the modification of the system call table via KeServiceDescriptorTable and the inclusion of kernel-level IRQL management functions—demonstrates clear intent to compromise the operating system kernel. These actions are not typical for benign software.",
+    "general": "Evidence is found in fcn.1000b369 (manipulating KeServiceDescriptorTable) and fcn.10009d28 (accessing KeGetCurrentIrql). These are signature behaviors of rootkits and malicious system-level implants.",
+    "uncertainties": "While the binary is clearly malicious, its exact payload functionality (data exfiltration, ransomware, etc.) remains partially obscured by the dynamic API resolution, but its intent to gain deep system control is unequivocal.",
+    "conditions": "The payload requires execution in an environment where it can interact with system drivers. Some code paths check for specific system environment variables (fcn.1000103b) and mutex existence (GlobalRPCMutex) to manage single-instance execution.",
+    "sandbox_recommendations": "The sample should be analyzed in an isolated kernel-level debugger (e.g., WinDbg) on a virtualized Windows machine. Do not use standard user-mode debuggers as the sample performs environment checks. Monitor all registry and system service table modification attempts."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for single-instance execution."
+        },
+        {
+          "value": "lsass",
+          "description": "Registry key/value reference potentially used for persistence or process masquerading."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "_system32",
+          "description": "Directory path targeted by system modification routines."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Manipulates the System Service Descriptor Table (SSDT), a hallmark of rootkit activity."
+    },
+    {
+      "address": "0x10009d28",
+      "name": "fcn.10009d28",
+      "description": "Performs kernel-mode API resolution and IRQL-related operations."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Main logic for security descriptor manipulation and registry persistence."
+    }
+  ]
+}

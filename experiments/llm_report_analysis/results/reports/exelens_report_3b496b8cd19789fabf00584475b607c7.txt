@@ -1,0 +1,89 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple components designed to interact with system internals, including potentially malicious kernel-level modifications. It unpacks hidden resources and utilizes dynamic API resolution to facilitate persistence and stealth, specifically interacting with system files and registries related to security (e.g., win32k.sys, lssas.exe).",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Resource-based packing",
+      "Dynamic API resolution (GetProcAddress)",
+      "XOR-based obfuscation"
+    ],
+    "details": "The file uses FindResourceA/LoadResource to extract a payload from resources (102, 101), which is then decrypted via a XOR operation (0xcd) in fcn.100015f7 and fcn.10001723. It further resolves kernel functions dynamically via LoadLibrary and GetProcAddress to perform privileged operations."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Hooking",
+      "description": "Uses NtQuerySystemInformation and attempts to manipulate system tables or hooks, suggestive of rootkit or persistence behavior."
+    },
+    {
+      "name": "Persistence",
+      "description": "Registry modification and system file copying (e.g., lssas.exe, win32k.sys) to ensure execution across reboots."
+    },
+    {
+      "name": "Dynamic API Resolution",
+      "description": "Resolves functions at runtime from system DLLs to evade static analysis."
+    },
+    {
+      "name": "Anti-Debugging/Analysis",
+      "description": "Includes checks for existing mutexes (prkMtx, GlobalRPCMutex) to prevent multiple instances or sandbox detection."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-entropy resources, manual XOR decryption, and the targeting of sensitive OS components (ntoskrnl.exe, ntdll.dll, win32k.sys) clearly distinguishes this from a benign installer. The intent is confirmed by the use of low-level system call hooking (fcn.1000b369) and the manipulation of system registry values for persistence, which lack a legitimate application-specific justification.",
+    "general": "High-intent indicators include fcn.1000b369 (modifying System Service Descriptor Table - SSDT), fcn.10001723 (updating resources), and fcn.100017a0 (registry persistence targeting lssas.exe).",
+    "uncertainties": "While the binary is clearly malicious, the full scope of the payload's external communication (C2) is not fully visible, likely because it is further fetched or configured via the registry at runtime.",
+    "conditions": "The malware requires administrative privileges to modify kernel-level structures and system directories. It employs mutex checks (prkMtx, GlobalRPCMutex) as gates for execution.",
+    "sandbox_recommendations": "Run in a kernel-aware sandbox environment (e.g., Cuckoo with rootkit detection). Use a system image that permits registry modifications and monitor for kernel-level hook installation."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Targeted registry keys for persistence."
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for process synchronization and detection."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for kernel-level instance control."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "%SYSTEM32%\\win32k.sys",
+          "description": "System file targeted for modification."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Resource extraction and XOR-decryption routine."
+    },
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Attempts to hook the System Service Descriptor Table (SSDT)."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Persistence mechanism via registry manipulation of lssas.exe."
+    }
+  ]
+}

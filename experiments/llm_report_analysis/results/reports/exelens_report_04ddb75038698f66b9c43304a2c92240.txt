@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains sophisticated driver-level manipulation and obfuscated API resolution. It attempts to load and interact with system drivers ('win32k.sys', 'ntkrnlpa.exe', 'ntoskrnl.exe'), modify kernel-mode dispatch tables ('KeServiceDescriptorTable'), and perform process hollowing/injection by communicating with kernel services via IOCTL-like structures and direct memory access.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Custom XOR obfuscation",
+      "API hashing/Dynamic resolution",
+      "Encrypted resources"
+    ],
+    "details": "The sample uses a custom loader routine (fcn.100015f7) to decrypt and extract data from the .rsrc section. It also resolves imported functions dynamically using custom hashing functions (fcn.100075ee). Important logic resides within obfuscated buffers that are decrypted at runtime."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-Mode Interaction",
+      "description": "Utilizes kernel-related APIs and structures like KeServiceDescriptorTable, NtQuerySystemInformation, and attempts to modify system dispatch tables."
+    },
+    {
+      "name": "Process Injection/Driver Manipulation",
+      "description": "The presence of code handling MDLs (Memory Descriptor Lists) and mapping memory indicates low-level driver or kernel interaction commonly used for rootkit-like persistence or stealth injection."
+    },
+    {
+      "name": "Persistence via Registry",
+      "description": "Extensive use of RegCreateKeyExA and RegSetValueExA to modify Windows run keys or system configuration."
+    },
+    {
+      "name": "Mutex-based Anti-Analysis",
+      "description": "Uses global mutexes (e.g., 'GlobalRPCMutex', 'prkMtx') to ensure single-instance execution and avoid multiple infection attempts."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level hooking (KeServiceDescriptorTable), low-level driver interaction (MmBuildMdlForNonPagedPool), and sophisticated process hiding/injection techniques indicates high malicious intent. The code is structured to perform driver-side operations that legitimate user-mode applications never require, placing it firmly in the category of a rootkit or advanced kernel-mode malware.",
+    "general": "The function fcn.1000b369 performs direct modification of the KeServiceDescriptorTable (SSDT) pointer by checking for specific function offsets. Additionally, fcn.1000c492 uses MDLs to map physical/kernel memory addresses, which is a classic technique for kernel-mode code injection and bypassing security protections.",
+    "uncertainties": "While the code path involving 'win32k.sys' is complex, the dynamic resolution makes it impossible to fully map the communication path with the target drivers without a full sandbox environment. The exact nature of the encrypted payload in the .rsrc section remains hidden until runtime.",
+    "conditions": "The malware requires an environment where it can interact with system drivers and likely requires elevated privileges (Administrator/SYSTEM) to successfully hook the SSDT or interact with protected system files.",
+    "sandbox_recommendations": "Use a sandboxed environment with kernel-debugging enabled (e.g., WinDbg). Monitor registry modifications on 'HKLM\\SYSTEM\\CurrentControlSet' and watch for IOCTL requests sent to 'win32k.sys'."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet",
+          "description": "Registry path manipulated for potential persistence or driver registration."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for process synchronization."
+        },
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for process synchronization."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Hooks the SSDT (System Service Descriptor Table) by resolving KeServiceDescriptorTable."
+    },
+    {
+      "address": "0x1000c492",
+      "name": "fcn.1000c492",
+      "description": "Uses IoAllocateMdl and MmBuildMdlForNonPagedPool to map and potentially modify kernel memory."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Resource decryption loader; decrypts the main payload from the .rsrc section."
+    }
+  ]
+}

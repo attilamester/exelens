@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a kernel-mode driver installer/loader. It performs advanced environment checks, creates a persistence mechanism by modifying system registry keys, and utilizes process hollowing or resource patching techniques to inject code into system processes like 'lsass'.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Resource-based packing/encryption",
+      "Dynamic API resolution (GetProcAddress/LoadLibrary)"
+    ],
+    "details": "The sample uses a custom XOR-based decryption routine (RVA: 0x10001607) to unpack data from the .rsrc section (resource ID 102). It then uses dynamic API resolution and memory allocation to execute the unpacked code."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Modifies system registry keys (Run keys or similar) to ensure execution on system startup."
+    },
+    {
+      "name": "Process Injection",
+      "description": "Injects code into 'lsass.exe' via Registry modification and potential memory patching."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Uses mutex checks (GlobalRPCMutex, prkMtx) to prevent multiple instances and detect sandboxes."
+    },
+    {
+      "name": "Kernel-mode interaction",
+      "description": "Attempts to interact with kernel structures like KeServiceDescriptorTable (SSDT) via specific function RVAs."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level hooking capabilities (SSDT modifications), persistence through registry manipulation, and the deliberate targeting of the Local Security Authority Subsystem Service (LSASS) clearly indicates malicious intent designed to gain high-level privileges and evade security controls.",
+    "general": "High-intent evidence includes calls to 'ADVAPI32.dll_RegSetValueExA' to modify registry keys for persistence, the injection targeting 'lsass' (visible in 'fcn.100017a0'), and the explicit attempt to modify kernel-mode tables (SSDT) via 'fcn.1000ab6f'.",
+    "uncertainties": "The exact nature of the final payload injected into LSASS is partially hidden due to the custom XOR encryption, but the surrounding setup code strongly confirms a malicious loader behavior.",
+    "conditions": "The file requires specific environment variables to be set, likely acting as a guardrail against sandbox detection. It also checks for the existence of specific mutexes ('GlobalRPCMutex') to ensure single-instance execution.",
+    "sandbox_recommendations": "Use a fully instrumented kernel-mode sandbox. Monitor registry changes under HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet. Ensure the sandbox emulates a standard Windows NT environment with multiple CPU cores to bypass potential hardware-based environment checks."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Key modified for persistence/service installation."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for process synchronization."
+        },
+        {
+          "value": "lsass",
+          "description": "Target process for injection."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Core installer/registry modification function."
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Performs system-level hooking/SSDT modification."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Handles registry-based persistence and LSASS targeting."
+    }
+  ]
+}

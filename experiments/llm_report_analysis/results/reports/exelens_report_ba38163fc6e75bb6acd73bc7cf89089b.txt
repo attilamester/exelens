@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample exhibits self-replication, system file modification (lsass.exe), and registry persistence techniques. It contains multiple functions that suggest rootkit-like behavior, including manual modification of the KeServiceDescriptorTable (SSDT) to intercept system calls, and utilizes dynamic code loading via resource decryption.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource decryption",
+      "XOR-based obfuscation",
+      "Dynamic API resolution"
+    ],
+    "details": "The sample uses a XOR key (0xcd) to decrypt payloads found in its resources (102, 103). Function fcn.10001697 and others resolve APIs dynamically at runtime to hinder static analysis."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Uses RegCreateKeyExA and RegSetValueExA to modify registry keys for persistence."
+    },
+    {
+      "name": "System Modification",
+      "description": "Copies files into system directories and modifies existing system binaries or configurations (e.g., lsass.exe context in registry)."
+    },
+    {
+      "name": "Kernel-mode Rootkit potential",
+      "description": "Contains functions (fcn.1000ab6f, fcn.1000b46f) that attempt to modify the System Service Descriptor Table (SSDT), a classic rootkit capability."
+    },
+    {
+      "name": "Process Injection/Hollowing",
+      "description": "Utilizes CreateProcessA and related memory mapping functions to potentially inject code into other processes."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of SSDT modification (fcn.1000ab6f), registry manipulation to hook system processes, and the decryption of embedded resources demonstrates clear malicious intent. The benign features, such as basic file I/O, are part of a larger, high-intent framework designed for system-wide compromise.",
+    "general": "The function fcn.1000ab6f specifically targets the SSDT by resolving 'KeServiceDescriptorTable'. fcn.100017a0 modifies registry keys and points to 'lsass.exe', indicative of malicious hooking. The code uses 'int 2e' (system call interface) in various functions, further supporting low-level system subversion.",
+    "uncertainties": "The exact nature of the decrypted resource payload is unknown, but the presence of SSDT-hooking code strongly confirms the malicious intent of the overall binary.",
+    "conditions": "The execution flow requires the environment to have registry access to HKLM\\SYSTEM\\CurrentControlSet, and likely requires being run with administrative/system privileges for SSDT modification.",
+    "sandbox_recommendations": "Run in an environment with kernel debugging enabled to monitor SSDT modifications. Monitor registry operations specifically targeting the CurrentControlSet. Simulate a system environment where 'lsass.exe' is a primary target process."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet",
+          "description": "Registry hive targeted for persistence and system modification."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "lsass",
+          "description": "String used to target the Local Security Authority Subsystem Service."
+        },
+        {
+          "value": "KeServiceDescriptorTable",
+          "description": "Kernel symbol targeted for hooking."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Primary function for SSDT modification."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Modifies system registry keys related to system services."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Resource decryption and process creation (injection/hollowing)."
+    }
+  ]
+}

@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a kernel-mode driver installer or dropper. It checks for system environment variables, copies itself to system folders, sets persistence via registry keys (e.g., Run keys), uses custom resource encryption (XOR with 0xCD), and performs kernel-mode memory operations, including attempting to modify kernel structures like the Service Descriptor Table (SSDT) to hide or protect its components.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR encoding",
+      "Resource encryption"
+    ],
+    "details": "The file uses a custom XOR routine (XOR key 0xCD) to decode data stored in resources. Sections exhibit varying entropy, with RSRC at 6.54, suggesting potential embedded payloads or configuration data."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Uses NtQuerySystemInformation and attempts to locate/modify KeServiceDescriptorTable to hook system calls."
+    },
+    {
+      "name": "Persistence",
+      "description": "Writes to registry keys and uses CopyFileA to move binaries to system directories."
+    },
+    {
+      "name": "Resource Decryption",
+      "description": "Decrypts internal resources using XOR 0xCD during runtime."
+    },
+    {
+      "name": "Process Injection/Creation",
+      "description": "Uses CreateProcessA to launch dropped binaries."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode API usage (SSDT hooking, modifying system descriptors), persistence mechanisms through registry manipulation, and the deliberate obfuscation of resources strongly indicates malicious intent rather than legitimate software functionality.",
+    "general": "High-intent indicators: fcn.1000b369 (SSDT hooking), fcn.10009bd3 (system kernel checks), fcn.100017a0 (registry persistence), and fcn.10001b34 (process creation with file time modification).",
+    "uncertainties": "While the kernel-level behavior is clearly intended for stealth and persistence, the exact nature of the payload (the encrypted resource) is not fully reconstructible without dynamic execution.",
+    "conditions": "The file relies on Windows system environment variables (e.g., 'system32') and specific registry keys (e.g., 'DMWI') to proceed with its installation and detonation steps.",
+    "sandbox_recommendations": "Use a Windows kernel-aware sandbox. Monitor registry writes to HKLM and attempts to modify system drivers. Observe the file system for dropped files in System32."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\lsass",
+          "description": "Persistence registry key"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for synchronization"
+        },
+        {
+          "value": "DMWI",
+          "description": "Registry key/value string"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "SSDT hooking/patching function"
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Payload execution/process creation"
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Persistence via Registry"
+    }
+  ]
+}

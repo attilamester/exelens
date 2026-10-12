@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains sophisticated anti-analysis techniques, resource-based payload injection, and kernel-mode driver interaction. It uses a custom XOR-based decryption for its resources and attempts to perform process hollowing and kernel-mode service manipulation, likely for persistent control and stealth.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR-based resource decryption",
+      "Dynamic API resolution (GetProcAddress/LoadLibrary)"
+    ],
+    "details": "The file contains decrypted RCDATA resources that are transferred to memory-mapped sections. Functions like fcn.100015f7 show a XOR loop (XOR 0xcd) used to de-obfuscate payload segments before execution or modification."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "Uses CreateProcessA and potentially internal memory mapping to manipulate target processes."
+    },
+    {
+      "name": "Persistence",
+      "description": "Manipulates registry keys via RegCreateKeyExA and RegSetValueExA, indicating persistent infection."
+    },
+    {
+      "name": "Kernel-mode Interaction",
+      "description": "Contains code to locate and manipulate 'KeServiceDescriptorTable' and 'KeAddSystemServiceTable', indicating Rootkit behavior."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Checks for debugger presence and system environment variables to evade sandboxes."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent malicious actions (Kernel Service Descriptor Table manipulation, resource-based payload decryption, and process injection) confirms malicious intent. The dual-use nature of APIs like CreateProcess is overruled by their usage in conjunction with kernel-mode modifications and anti-forensic registry key manipulation, characterizing this as a rootkit loader.",
+    "general": "High-intent evidence includes kernel-mode hooks (fcn.1000b369 targeting KeServiceDescriptorTable), XOR decryption routines in fcn.100015f7, and process creation targeting specific system binaries. The use of 'lsass' as a target for registry value modification (fcn.100017a0) is highly suspicious.",
+    "uncertainties": "While the kernel-mode functionality is clear, the exact nature of the final payload depends on the contents of the UNKNOWN (232) resources which are encrypted/compressed, though the loader logic is clearly identified.",
+    "conditions": "The sample requires a specific environment (e.g., standard Windows system directories) and likely executes as a background service. It uses mutex checks (GlobalRPCMutex) to ensure only one instance runs.",
+    "sandbox_recommendations": "Ensure the sandbox provides a full Windows environment. The file attempts to access system-specific drivers ('win32k.sys') and registry keys. Monitor all API calls related to registry manipulation and thread injection, particularly those involving 'lsass.exe'."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Registry path targets for persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for synchronization."
+        },
+        {
+          "value": "lsass",
+          "description": "Targeted process for manipulation."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Function responsible for manipulating the system service descriptor table (SSDT)."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Resource decryption and de-obfuscation routine."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Registry modification for persistence targeting system processes."
+    }
+  ]
+}

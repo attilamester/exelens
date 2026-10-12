@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple functionalities typical of a kernel-mode rootkit or driver installer, including dynamic resolution of internal Windows APIs (NtQuerySystemInformation, NtQueryObject, NtShutdownSystem), direct modification of kernel-mode structures (KeServiceDescriptorTable), and the ability to drop and execute files in system directories.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource-based payload extraction",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress",
+      "XOR-based obfuscation of sensitive strings and names"
+    ],
+    "details": "The binary uses XOR loops to deobfuscate strings and imports, and it contains significant compressed/encrypted resources (106KB) that are loaded into memory and processed. It uses dynamic API resolution, obfuscating the names of functions it intends to call."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Attempts to locate and modify 'KeServiceDescriptorTable' and uses 'NtQuerySystemInformation' and 'NtQueryObject', suggesting rootkit-like persistence or monitoring."
+    },
+    {
+      "name": "System File Modification",
+      "description": "Drops files in the System32 directory and modifies registry keys to likely trigger automatic execution, using 'CopyFileA' and 'RegSetValueExA'."
+    },
+    {
+      "name": "Persistence Mechanisms",
+      "description": "Utilizes Mutex creation (prkMtx) to ensure single instance and interacts with registry run keys."
+    },
+    {
+      "name": "Process Injection",
+      "description": "Uses 'CreateProcessA' and file path manipulation, alongside potential memory-resident payload execution."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode API usage, manipulation of the KeServiceDescriptorTable, and stealthy registry operations (e.g., modifying system paths) strongly indicates malicious intent rather than a legitimate installer. The presence of routines to disable or monitor system shutdown/reboot mechanisms ('NtShutdownSystem') further confirms high-intent malicious behavior.",
+    "general": "High-intent evidence includes calls to 'fcn.1000b369' (modifying KeServiceDescriptorTable), 'fcn.1000c755' (resolving NtShutdownSystem), and registry manipulation in 'fcn.1000788e' to hide or inject components under 'win32k.sys' or other system-critical names.",
+    "uncertainties": "The exact function of the encrypted payload in resource 102 could not be fully analyzed statically, though its loader behavior is consistent with malicious droppers.",
+    "conditions": "The malware checks for administrative privileges via 'ADVAPI32.dll_GetTokenInformation' and potentially requires specific OS versions for its kernel-level hooks. It uses mutexes ('prkMtx') to prevent multiple instances from running.",
+    "sandbox_recommendations": "Run in a virtualized Windows environment with kernel-level monitoring enabled. Monitor registry write attempts to 'HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services' and ensure the environment supports kernel debugging to catch potential SSDT hooking."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Targeted registry hive for persistence"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used to ensure single-instance execution"
+        },
+        {
+          "value": "win32k.sys",
+          "description": "Targeted system file name for modification"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Hooks KeServiceDescriptorTable to intercept kernel calls."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Performs registry-based persistence and privilege checking."
+    },
+    {
+      "address": "0x10004d5c",
+      "name": "fcn.10004d5c",
+      "description": "Main loader routine responsible for system environment preparation and payload execution."
+    }
+  ]
+}

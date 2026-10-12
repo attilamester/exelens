@@ -1,0 +1,75 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample exhibits rootkit-like behavior, including manual modification of the System Service Descriptor Table (SSDT) in kernel memory and registry manipulation to hide files and processes. It uses techniques to bypass security software by interacting directly with low-level OS structures.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation of resource data",
+      "Manual API resolution"
+    ],
+    "details": "Several functions (e.g., fcn.100015f7) perform XOR decryption on resource data (using 0xcd as the key) to extract dynamic payload or configuration data. The file also uses manual API resolution through GetProcAddress for critical functions to avoid static analysis detection."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode SSDT Hooking",
+      "description": "Functions like fcn.1000b369 and fcn.1000aa69 locate the System Service Descriptor Table and attempt to modify service addresses."
+    },
+    {
+      "name": "Registry Manipulation for Evasion",
+      "description": "Uses RegSetValueExA and RegCreateKeyExA to alter system configurations, likely to persist and hide its presence (e.g., hiding services or driver entries)."
+    },
+    {
+      "name": "Manual Process/Driver Injection",
+      "description": "Uses VirtualAlloc and CreateProcess to load and execute malicious code into target processes."
+    },
+    {
+      "name": "Process/File Hiding",
+      "description": "Includes logic (e.g., fcn.1000b46f) that interacts with system processes to prevent them from being listed, typical of rootkit activity."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level SSDT modification, manual registry key manipulation for stealth (e.g., modifying service entries), and the use of low-level kernel APIs (MmProbeAndLockPages, MmMapLockedPagesSpecifyCache) points to an attempt to manipulate the Windows kernel for malicious purposes. The file does not exhibit features of a legitimate installer or security product that would require such intrusive and dangerous kernel-level modifications.",
+    "general": "The function fcn.1000b369 and fcn.1000aa69 explicitly target 'KeServiceDescriptorTable' and modify kernel pointers to hook functions. This is a classic rootkit behavior. Additionally, fcn.1000b46f uses NtQuerySystemInformation to iterate over system objects, characteristic of malicious software attempting to evade detection by hiding its own files or processes.",
+    "uncertainties": "While the kernel-mode interaction is confirmed, the specific target of the SSDT hooks or the final payload executed after the driver is established might depend on external configuration files or C2 server responses, which are not present in this static snapshot.",
+    "conditions": "The malware requires administrator privileges to perform SSDT hooking and registry modifications. It appears to check for the presence of specific environment variables and system state before proceeding to high-privilege operations.",
+    "sandbox_recommendations": "Run in an isolated environment with a kernel-mode debugger (e.g., WinDbg) attached to observe modifications to the system table. Monitor for file system and registry changes during the first few minutes of execution."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Targeted for modification to hide services or establish persistence."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "C:\\Windows\\System32\\drivers\\",
+          "description": "Common directory targeted for dropping malicious driver components."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Kernel-mode SSDT hooking function."
+    },
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Process and file object manipulation for hiding."
+    },
+    {
+      "address": "0x1000aa69",
+      "name": "fcn.1000aa69",
+      "description": "Additional SSDT manipulation logic targeting service descriptor table."
+    }
+  ]
+}

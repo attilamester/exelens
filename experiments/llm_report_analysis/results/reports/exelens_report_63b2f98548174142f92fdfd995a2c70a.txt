@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to manipulate system internals, including patching system tables (ServiceDescriptorTable), hijacking function pointers (e.g., KeRaiseIrqlToDpcLevel), and performing registry-based persistence. It uses custom packing and XOR-based obfuscation to hide its payload.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "XOR-based obfuscation",
+      "Dynamic API resolution (GetProcAddress)",
+      "Custom memory decryption/decompression"
+    ],
+    "details": "The file contains a section (RSRC) with high entropy and uses routines like fcn.10001697 to dynamically load and potentially unpack code in memory. The entry point and several key functions (e.g., fcn.1000788e) contain XOR-loop-based decryption routines (e.g., xor [eax + ebx], 0xcd) to reconstruct function pointers and payloads."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Attempts to interact with KeServiceDescriptorTable and system-level APIs"
+    },
+    {
+      "name": "Registry Persistence",
+      "description": "Modifies Run keys or services via RegSetValueExA"
+    },
+    {
+      "name": "Process Injection/Hooking",
+      "description": "Uses WriteFile/CreateProcess and pattern-based function patching (fcn.10009f62)"
+    },
+    {
+      "name": "Evasion",
+      "description": "Uses mutexes and timing delays to detect/evade analysis"
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level structure modification (KeServiceDescriptorTable), sophisticated anti-analysis, and persistence mechanisms clearly indicates malicious intent. The dual-use nature of APIs like VirtualAlloc is superseded here by their use in conjunction with pattern-matching routines (fcn.10009f62) designed to find and patch system functions in memory, which is a hallmark of rootkit/malware behavior.",
+    "general": "Evidence of high intent: fcn.10009f62 scans memory for function patterns (e.g., 0x55, 0x8b, 0xec) to hook system functions. fcn.1000b369 explicitly modifies the KeServiceDescriptorTable. Persistence is achieved via registry manipulation (RegSetValueExA) observed in fcn.1000202a.",
+    "uncertainties": "The exact nature of the payload stored in the RSRC section cannot be fully determined due to the obfuscation, but the loader logic is clearly identified as malicious.",
+    "conditions": "Execution is gated by environment checks such as GetEnvironmentVariableA (searching for specific strings like 'system32') and existence of specific registry keys. It also uses OpenMutexA('GlobalRPCMutex') to ensure single-instance execution.",
+    "sandbox_recommendations": "Run in an environment that allows kernel-level debugging, as the malware attempts to hook internal Windows structures. Ensure the environment simulates a non-debugged Windows system to bypass anti-analysis checks."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Targeted for persistence"
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used to prevent multiple instances"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for synchronization"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Kernel service descriptor table modification"
+    },
+    {
+      "address": "0x10009f62",
+      "name": "fcn.10009f62",
+      "description": "Memory scanner for function hooking"
+    },
+    {
+      "address": "0x1000202a",
+      "name": "fcn.1000202a",
+      "description": "Registry persistence logic"
+    }
+  ]
+}

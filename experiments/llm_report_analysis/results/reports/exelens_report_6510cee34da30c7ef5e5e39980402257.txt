@@ -1,0 +1,74 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This sample acts as a downloader/dropper service. It attempts to connect to a specific remote URL, downloads an encrypted file, decrypts it, saves the decrypted payload to disk as an .exe, and executes it using WinExec.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Custom encryption/obfuscation routine"
+    ],
+    "details": "The file contains a custom decryption algorithm in fcn.100012b0 that processes data downloaded from the remote server. The routine uses a set of constant tables and a multi-stage transformation loop characteristic of custom obfuscation."
+  },
+  "capabilities": [
+    {
+      "name": "Network Communication",
+      "description": "Utilizes WININET.dll to connect to service.issnbgkit.net, download files, and perform HTTP requests."
+    },
+    {
+      "name": "Payload Decryption/Loading",
+      "description": "Implements a custom decryption function (fcn.100012b0) to process downloaded content before saving it as an executable."
+    },
+    {
+      "name": "Service Manipulation",
+      "description": "Uses ADVAPI32.dll functions to manage services (Install, Uninstall, ServiceMain), implying persistent background execution."
+    },
+    {
+      "name": "File Execution",
+      "description": "Uses KERNEL32.dll WinExec to run the dropped payload."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of functions to register a service, contact a hard-coded domain (service.issnbgkit.net), download data, decrypt it via a custom routine, write it to disk as an .exe, and execute it using WinExec provides clear evidence of a malicious dropper/downloader intended for persistence and malware delivery. This exceeds dual-use limits.",
+    "general": "The sequence is found in fcn.100032b3, which invokes WININET functions for network retrieval, calls fcn.100012b0 for decryption, then uses fopen/fwrite to create a file in the Windows directory and calls WinExec to trigger execution.",
+    "uncertainties": "The exact nature of the decrypted payload is unknown as it is fetched at runtime from the C2 server.",
+    "conditions": "The execution requires the system to have network connectivity to reach the domain 'service.issnbgkit.net' and the ability to write to the Windows folder.",
+    "sandbox_recommendations": "Provide internet access to the sample, monitor HTTP traffic to 'service.issnbgkit.net', and monitor file system changes in the Windows directory for newly created .exe files."
+  },
+  "ioc": [
+    {
+      "type": "url",
+      "values": [
+        {
+          "value": "service.issnbgkit.net",
+          "description": "C2 domain identified in fcn.100035f4 and fcn.100032b3"
+        }
+      ]
+    },
+    {
+      "type": "file",
+      "values": [
+        {
+          "value": "*.exe",
+          "description": "Dropper creates executable files in the Windows folder."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100032b3",
+      "name": "fcn.100032b3",
+      "description": "Main downloader/dropper loop; manages network connection, decryption, and execution."
+    },
+    {
+      "address": "0x100012b0",
+      "name": "fcn.100012b0",
+      "description": "Custom decryption routine applied to downloaded content."
+    },
+    {
+      "address": "0x10003b71",
+      "name": "fcn.10003b71",
+      "description": "Service configuration logic, used for service-based persistence."
+    }
+  ]
+}

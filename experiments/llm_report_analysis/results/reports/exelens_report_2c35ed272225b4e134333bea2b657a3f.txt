@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to manipulate system internals, specifically targeting the Windows kernel environment. It attempts to modify system service dispatch tables (likely to hook system calls) and interacts with low-level kernel drivers. It also employs persistence techniques, registry modification, and process manipulation.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed, and the logic is directly accessible in the provided assembly. It relies on dynamic API resolution for most of its sensitive activities."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel Hooking/System Call Manipulation",
+      "description": "Utilizes functions like fcn.1000ab6f and fcn.1000b46f to potentially interact with and modify the System Service Descriptor Table (SSDT), a common technique for rootkit-style concealment."
+    },
+    {
+      "name": "Registry Persistence",
+      "description": "Uses RegCreateKeyExA and RegSetValueExA to ensure persistence, targeting system configuration areas."
+    },
+    {
+      "name": "Process Injection/Manipulation",
+      "description": "Uses CreateProcessA and related API calls to spawn processes, likely used for stealthy execution or injection."
+    },
+    {
+      "name": "Evasion/Anti-Analysis",
+      "description": "Includes multiple anti-debugging and environment checking routines, including checking for specific driver names and debug registry keys."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level access (modifying system structures), persistent registry manipulation, and attempts to hide process activities via known rootkit techniques (SSDT hooking/redirection) provides clear evidence of malicious intent that exceeds any reasonable dual-use justification.",
+    "general": "High-intent evidence includes the use of KeServiceDescriptorTable (fcn.1000ab6f), modifications to system tables (fcn.1000c755 calling NtShutdownSystem hooking routines), and the search for kernel-related files like ntoskrnl.exe and ntkrnlpa.exe to locate and hook sensitive symbols.",
+    "uncertainties": "While the code structure is clear, some dynamic function calls were truncated or resolved at runtime; however, the pattern of hooking kernel functions remains consistent throughout the analyzed functions.",
+    "conditions": "The primary payload triggers require an environment where the malware can successfully load into a high-privilege (kernel/administrator) context, and it likely executes a delayed start after checking for the existence of its mutex (prkMtx).",
+    "sandbox_recommendations": "Simulate a fully privileged Windows environment, monitor registry modifications on system keys (e.g., Services, Run), and capture kernel-mode API calls. Do not use an automated sandboxed analysis that lacks kernel-mode monitoring."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used to detect concurrent instances"
+        },
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Global mutex used for potential inter-process synchronization"
+        },
+        {
+          "value": "DMWI",
+          "description": "Registry/path identifier string"
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Targeted for persistence via service installation"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Performs system-wide hook installation, likely targeting kernel dispatch tables."
+    },
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Additional kernel-level manipulation logic, used in coordination with SSDT-related modifications."
+    },
+    {
+      "address": "0x100028d6",
+      "name": "fcn.100028d6",
+      "description": "Coordinates the main logic loop for persistence and payload deployment."
+    }
+  ]
+}

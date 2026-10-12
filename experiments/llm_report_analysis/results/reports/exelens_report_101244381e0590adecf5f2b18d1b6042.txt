@@ -1,0 +1,74 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable performs environment fingerprinting, system information collection, and C2 communication using obfuscated network strings, then attempts to execute a retrieved payload.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "String obfuscation",
+      "Dynamic API resolution (partially observed)"
+    ],
+    "details": "Extensive use of a custom XOR-based string decryption routine (fcn.00402140) to hide network URLs, registry keys, and file paths. The core logic is clear but heavily reliant on these obfuscated values."
+  },
+  "capabilities": [
+    {
+      "name": "Environment Fingerprinting",
+      "description": "Collects system information including CPU name, OS version, computer name, username, and IP addresses."
+    },
+    {
+      "name": "Network Communication",
+      "description": "Uses WININET APIs (HttpOpenRequestA, HttpSendRequestA) for outbound connectivity and WS2_32 for local network information."
+    },
+    {
+      "name": "Persistence / File System Manipulation",
+      "description": "Checks for file existence, creates directories, and uses CreateProcessA to launch downloaded content."
+    },
+    {
+      "name": "Mutex Creation",
+      "description": "Creates a mutex (checked via CreateMutexA) to ensure single instance execution."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of specific system fingerprinting (CPUID registry lookups, IP/OS details), custom string obfuscation, and the sequence of fetching data followed by 'CreateProcessA' strongly indicates malicious intent (loader/dropper).",
+    "general": "The function fcn.00403090 performs network communication using WININET. It is preceded by data collection (fcn.00402990, fcn.00402ee0) and followed by path checks and process creation (fcn.00403000), indicating a typical droppers workflow: Collect -> Exfiltrate/Download -> Execute.",
+    "uncertainties": "The exact content of the C2 communication is obfuscated and dependent on server-side responses. The payload is not present in the static analysis.",
+    "conditions": "The sample uses Mutexes to check for prior execution. It also performs path existence checks on specific files before execution. It likely requires Internet connectivity to succeed.",
+    "sandbox_recommendations": "Provide a fake Internet connection and simulate a Windows environment (registry keys for current version, CPU strings) to allow the sample to reach its C2 logic."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0",
+          "description": "Used to retrieve CPU identifier"
+        },
+        {
+          "value": "SYSTEM\\CurrentControlSet\\Control\\Nls\\Language",
+          "description": "Used to check OS language settings"
+        },
+        {
+          "value": "SOFTWARE\\MICROSOFT\\WINDOWS NT\\CurrentVersion",
+          "description": "Used to retrieve OS build/product info"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00402140",
+      "name": "fcn.00402140",
+      "description": "Primary string decryption/obfuscation routine."
+    },
+    {
+      "address": "0x00403090",
+      "name": "fcn.00403090",
+      "description": "Handles C2 HTTP communications via WININET."
+    },
+    {
+      "address": "0x00403000",
+      "name": "fcn.00403000",
+      "description": "Executes downloaded payload using CreateProcessA."
+    }
+  ]
+}

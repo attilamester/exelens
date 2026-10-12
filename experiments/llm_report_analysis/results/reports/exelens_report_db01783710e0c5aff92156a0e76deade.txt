@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a dropper. It creates a mutex for persistence, extracts embedded resources (icons) using FindResource/LoadResource/LockResource, decrypts them using a XOR-based routine, and writes them to the file system (tmp/temp/intel directories) before executing them using ShellExecuteExA.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed; it performs standard resource extraction and file I/O."
+  },
+  "capabilities": [
+    {
+      "name": "Resource Dropping",
+      "description": "Extracts binary data from the .rsrc section and writes it to the disk."
+    },
+    {
+      "name": "Mutex Creation",
+      "description": "Uses CreateMutexA with 'mark01' to ensure only one instance runs."
+    },
+    {
+      "name": "Code Execution",
+      "description": "Executes dropped files using ShellExecuteExA and ShellExecuteA."
+    },
+    {
+      "name": "Obfuscation",
+      "description": "Uses a custom XOR-based obfuscation loop in fcn.00401440 to process the payload before writing to disk."
+    }
+  ],
+  "details": {
+    "reasoning": "The application exhibits clear malicious intent by combining resource extraction, custom XOR-based decryption (fcn.00401440), and the dropping of executables to temporary system directories (c:\\tmp, c:\\temp, c:\\intel) via ShellExecuteExA. This combination of persistence (mutex) and silent execution of hidden payloads is consistent with dropper/loader behavior.",
+    "general": "fcn.004014c0 performs the core dropper logic: it calls fcn.00401320 to setup directories, retrieves resources using FindResourceA, decrypts them via fcn.00401440, and writes them to disk using CreateFileA/WriteFile. fcn.00401600 then calls ShellExecuteExA to execute the dropped file.",
+    "uncertainties": "The exact nature of the dropped payload remains unknown as it is stored in the .rsrc section, but the mechanism for delivery is clearly identified.",
+    "conditions": "The program checks for the existence of a 'mark01' mutex. It also requires the existence of resources IDR_ICOFILE1 and IDR_ICOFILE2. It attempts to create directories 'c:\\tmp', 'c:\\temp', and 'c:\\intel' to drop files.",
+    "sandbox_recommendations": "Monitor file system activity in 'c:\\tmp', 'c:\\temp', and 'c:\\intel'. Set up a fake file system structure for these paths. Allow the process to run until it calls ShellExecuteExA."
+  },
+  "ioc": [
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "mark01",
+          "description": "Mutex used to prevent multiple instances."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "c:\\tmp",
+          "description": "Directory used for dropping files."
+        },
+        {
+          "value": "c:\\temp",
+          "description": "Directory used for dropping files."
+        },
+        {
+          "value": "c:\\intel",
+          "description": "Directory used for dropping files."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x004014c0",
+      "name": "fcn.004014c0",
+      "description": "Main dropper routine: extracts, decrypts, and writes resources to disk."
+    },
+    {
+      "address": "0x00401440",
+      "name": "fcn.00401440",
+      "description": "Custom XOR-based decryption routine for the embedded payload."
+    },
+    {
+      "address": "0x00401600",
+      "name": "fcn.00401600",
+      "description": "Execution handler using ShellExecuteExA."
+    }
+  ]
+}

@@ -1,0 +1,68 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample exhibits malicious persistence behavior by modifying the Windows Registry to ensure execution at system startup. It also performs system information gathering and transmits collected data over the network via WinHTTP.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed; the entrypoint and function bodies are clearly readable as standard C/C++ compiled code."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Modifies the Windows Registry Run key (Software\\Microsoft\\Windows\\CurrentVersion\\Run) to maintain persistence."
+    },
+    {
+      "name": "Data Exfiltration",
+      "description": "Collects system information (OS version, computer name, CPU info) and transmits it to a remote location using WINHTTP APIs."
+    },
+    {
+      "name": "System Enumeration",
+      "description": "Enumerates installed programs, system services, and disk information."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistence via registry modification (seen in fcn.00403470) and exfiltration of system data (fcn.00402c00) confirms malicious intent rather than a legitimate software installation or protection pattern. The file lacks the typical characteristics of a commercial protector (e.g., integrity checks on its own code or complex anti-debugging loops typical of software licensing).",
+    "general": "Persistence is achieved in fcn.00403470 via ADVAPI32.dll_RegCreateKeyA and ADVAPI32.dll_RegSetValueExA targeting the 'Software\\Microsoft\\Windows\\CurrentVersion\\Run' key. Networking is performed by fcn.00402c00, which uses WINHTTP APIs to conduct an HTTP POST request, likely to send collected system information.",
+    "uncertainties": "While the destination URL/IP for the data exfiltration is not hard-coded in plain text (it appears to be dynamically resolved or constructed), the logic in fcn.00402c00 and fcn.00402b80 leaves no doubt about the intent to communicate with a remote server.",
+    "conditions": "The file executes its main logic upon entry, starting with a thread that performs registry operations and system enumeration.",
+    "sandbox_recommendations": "Run in an isolated environment with network traffic logging enabled. Monitor registry activity for modifications to the Windows Run key and capture outgoing HTTP POST requests."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Registry key used for persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "Content-Type: multipart/form-data; boundary",
+          "description": "Evidence of HTTP POST data preparation for data exfiltration."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00403470",
+      "name": "fcn.00403470",
+      "description": "Performs persistence by adding the executable to the Windows Registry Run key."
+    },
+    {
+      "address": "0x00402c00",
+      "name": "fcn.00402c00",
+      "description": "Handles network communication via WinHTTP, responsible for exfiltrating collected system data."
+    },
+    {
+      "address": "0x004010b0",
+      "name": "fcn.004010b0",
+      "description": "Enumerates system services and collects state information."
+    }
+  ]
+}

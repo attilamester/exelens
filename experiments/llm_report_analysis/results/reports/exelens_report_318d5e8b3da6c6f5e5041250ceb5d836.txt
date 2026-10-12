@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to perform kernel-mode system modifications and process injection by manipulating system structures. It utilizes resource-based payload extraction followed by decryption (XOR 0xCD), and interacts with sensitive kernel structures including the System Service Descriptor Table (SSDT).",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource-based payload extraction",
+      "XOR-based decryption of embedded data (0xCD)",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress"
+    ],
+    "details": "The sample uses RCDATA/resource-based storage (Section .rsrc) for embedded data. Functions like fcn.100015f7 extract these resources, and a decryption routine (fcn.1000167b) applies an XOR 0xCD operation to the extracted data before likely executing it."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Attempts to interact with kernel-level structures like the KeServiceDescriptorTable and NtQuerySystemInformation."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies Windows Registry keys to maintain execution, specifically targeting system services or startup paths."
+    },
+    {
+      "name": "Privilege Escalation / Token manipulation",
+      "description": "Uses OpenProcessToken and DuplicateTokenEx to manipulate security tokens."
+    },
+    {
+      "name": "System modification",
+      "description": "Uses CreateFile and SetFileAttributes to hide or modify files, and potentially inject code into running processes via CreateProcess or memory manipulation."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level hooking capabilities (accessing the SSDT/KeServiceDescriptorTable), the attempt to load ntoskrnl.exe/ntdll.dll, and the modification of security tokens strongly points to rootkit-like or advanced persistent threat (APT) behavior. This is not dual-use software; the intent is clearly unauthorized system-level manipulation.",
+    "general": "High-intent evidence includes calls to fcn.1000b369 (SSDT hook-related), fcn.100096ce (kernel-level function hooking/manipulation), and fcn.1000788e (SID manipulation). The XOR 0xCD loop in fcn.1000167b confirms payload obfuscation.",
+    "uncertainties": "The exact nature of the payload being decrypted (0xCD XOR) could not be fully analyzed statically, but its structural usage in code that interacts with kernel memory confirms its malicious purpose.",
+    "conditions": "The sample performs environmental checks such as looking for specific registry keys/paths (e.g., system32, lsass, prkMtx). Execution is likely gated by the existence of these environments or specific administrative privileges.",
+    "sandbox_recommendations": "Run in a controlled Windows kernel-debugging environment with strict network isolation. Monitor attempts to load or modify system drivers."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex string used for process synchronization or anti-re-execution."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for kernel-mode synchronization."
+        },
+        {
+          "value": "lsass",
+          "description": "Targeted process name, indicative of credential theft or process masquerading."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Resource extraction routine for the encrypted payload."
+    },
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Function responsible for manipulating the KeServiceDescriptorTable (SSDT)."
+    },
+    {
+      "address": "0x100096ce",
+      "name": "fcn.100096ce",
+      "description": "Function responsible for hooking kernel functions."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "SID/Token manipulation routine."
+    }
+  ]
+}

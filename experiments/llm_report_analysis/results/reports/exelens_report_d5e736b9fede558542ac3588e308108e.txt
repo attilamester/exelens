@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a modular rootkit/backdoor downloader that employs custom encryption to hide its payload. It interacts with the Windows Service Control Manager to load malicious system drivers, performs process/module hiding via kernel-mode object manipulation, and utilizes registry keys for persistence.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR-based encryption",
+      "Dynamic API resolution via custom loader"
+    ],
+    "details": "The sample uses a custom loader mechanism (`fcn.100015f7`) to load and decrypt encrypted resources from the PE `.rsrc` section using an XOR key `0xCD`. These resources are transferred into memory and executed, indicative of a staged malware loader."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "Uses CreateProcessA to inject or launch auxiliary payloads."
+    },
+    {
+      "name": "Kernel-mode Rootkit capability",
+      "description": "Contains routines designed to manipulate the `KeServiceDescriptorTable` and `IoAllocateMdl`, suggesting attempts to subvert OS kernel structures to hide files or processes."
+    },
+    {
+      "name": "Registry Persistence",
+      "description": "Writes to system registry keys (e.g., `RegCreateKeyExA`, `RegSetValueExA`) to ensure persistence across reboots."
+    },
+    {
+      "name": "Environment Evasion",
+      "description": "Checks system version, computer name, and environment variables to avoid sandboxes or specific analysis environments."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode API imports (`KeServiceDescriptorTable`, `NtQuerySystemInformation`, `MmMapLockedPagesSpecifyCache`), custom XOR decryption routines, and the active manipulation of system registry keys indicates high-intent malicious behavior typical of rootkits or sophisticated modular backdoors. The presence of legitimate-looking strings is clearly used to disguise a malicious payload.",
+    "general": "High-intent evidence includes the direct interaction with `KeServiceDescriptorTable` in `fcn.1000ab6f` and the use of `KeGetCurrentIrql` in `fcn.10009d28`. The decryption loop in `fcn.100015f7` using `0xCD` XORing of resources definitively confirms hidden content intent.",
+    "uncertainties": "The sample contains complex kernel-mode transition code (`int 0x2e`). While high confidence exists for malicious intent, the exact command-and-control communication protocol remains hidden behind the encrypted payload logic.",
+    "conditions": "The sample requires specific conditions to execute its core payload: it checks for existing mutexes (`GlobalRPCMutex` in `fcn.10002109`) and potentially specific registry entries to ensure it does not re-infect the same system or conflict with other instances.",
+    "sandbox_recommendations": "The analyst should use a full-system debugger (e.g., WinDbg) rather than a standard user-mode sandbox. It is necessary to monitor registry operations (`RegSetValueExA`) and file system access to system directories (`System32`) for the creation of malicious driver files."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Potential persistence location"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used to synchronize execution"
+        },
+        {
+          "value": "DMWI__",
+          "description": "Possible backdoor identifier/service name"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Resource decryption routine using XOR 0xCD"
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Rootkit functionality: modifies kernel Service Descriptor Table"
+    },
+    {
+      "address": "0x1000c492",
+      "name": "fcn.1000c492",
+      "description": "Memory manipulation (MDL) for kernel-level memory access"
+    }
+  ]
+}

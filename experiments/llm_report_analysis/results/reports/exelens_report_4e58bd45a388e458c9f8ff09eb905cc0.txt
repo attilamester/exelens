@@ -1,0 +1,71 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality consistent with a kernel-mode rootkit or driver installer, including anti-analysis mechanisms, persistence via registry modifications, and direct manipulation of system structures like the KeServiceDescriptorTable (SSDT).",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR encoding",
+      "Dynamic API resolution (GetProcAddress)",
+      "Resource-based payload hiding"
+    ],
+    "details": "The file uses XOR loops (e.g., 0xcd key) to decrypt internal payloads stored in resources (RSRC). Dynamic loading of system libraries and modules is used to hide malicious intentions."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Modifies system registry keys to ensure execution on system startup."
+    },
+    {
+      "name": "System Internals Manipulation",
+      "description": "Contains code to locate and patch the System Service Descriptor Table (SSDT) in memory (fcn.1000b369)."
+    },
+    {
+      "name": "Evasion",
+      "description": "Checks for debugger presence and performs anti-analysis checks via GetSystemTime and registry inspection."
+    },
+    {
+      "name": "Process Injection",
+      "description": "Uses CreateProcessA and writes resources to disk to install secondary payloads."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of SSDT hooking (a high-intent malicious technique used by rootkits), persistent registry modifications, and specific efforts to patch system structures like KeServiceDescriptorTable constitutes clear malicious intent. The sample is clearly designed to interact with kernel-mode structures and evade analysis, rather than acting as a standard installer.",
+    "general": "High-intent evidence is found in fcn.1000b369, which attempts to resolve 'KeServiceDescriptorTable' and 'KeAddSystemServiceTable'. Additionally, fcn.10009d28 contains logic for 'KeRaiseIrqlToDpcLevel', suggesting kernel-mode code execution.",
+    "uncertainties": "The exact nature of the payload inside the resource section remains partially obscured, but the loader code itself is definitive.",
+    "conditions": "The file appears to behave differently based on the environment (registry key checks) and OS version. It requires administrative privileges to perform registry modifications and SSDT patching.",
+    "sandbox_recommendations": "Run in a controlled Windows kernel-debugging environment. Monitor registry access and SSDT modifications."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used to ensure single-instance execution."
+        },
+        {
+          "value": "KeServiceDescriptorTable",
+          "description": "Target of rootkit-style hooking."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Attempts to locate and hook the SSDT."
+    },
+    {
+      "address": "0x10009d28",
+      "name": "fcn.10009d28",
+      "description": "Kernel-mode privilege adjustment routine."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Writes payloads to disk and creates processes."
+    }
+  ]
+}

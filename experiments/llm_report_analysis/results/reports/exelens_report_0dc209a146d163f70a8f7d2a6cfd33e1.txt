@@ -1,0 +1,62 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains a standard MFC application framework but includes a malicious routine (fcn.00401810) that decrypts a payload in memory, sets the memory region to executable using VirtualProtect, and performs process-hollowing-like actions or payload execution. It also attempts to ensure persistence by adding a registry key to the Windows Run folder.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Dynamic memory decryption",
+      "Dynamic execution of decrypted payload"
+    ],
+    "details": "The application is a standard MFC binary, but function 00401810 contains a custom XOR decryption loop (fcn.00401a00) and calls VirtualProtect on allocated memory to prepare for execution of an encrypted payload."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Writes to the Windows Registry 'Run' key to ensure execution at startup."
+    },
+    {
+      "name": "Payload Execution",
+      "description": "Decrypts data, changes page protections to executable, and executes the decrypted code."
+    },
+    {
+      "name": "Registry Modification",
+      "description": "Uses RegCreateKeyA and RegSetValueExA to manage persistence."
+    }
+  ],
+  "details": {
+    "reasoning": "While the file appears to be a legitimate MFC application, the presence of fcn.00401810—which allocates memory, performs XOR-based decryption, calls VirtualProtect to set that memory as executable, and then executes it—is highly indicative of a loader or stuffer. Combined with the use of RegSetValueExA to add the application to the system's Run registry keys, this confirms malicious intent rather than a legitimate software installation.",
+    "general": "The function fcn.00401810 allocates memory via operatornew, decrypts a payload using fcn.00401a00 (XOR loop), and executes it after modifying memory protections via KERNEL32.dll_VirtualProtect. Persistence is attempted in fcn.004010b0 by accessing 'SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run'.",
+    "uncertainties": "The exact nature of the decrypted payload is unknown as it is stored in the data segment and decrypted at runtime. The execution logic of the final payload is not visible.",
+    "conditions": "The malicious routine is triggered as part of the application initialization process. No specific arguments appear to be required, but it is designed to run automatically if the registry entry is successfully written.",
+    "sandbox_recommendations": "Monitor registry activity for 'SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run'. Observe the memory allocation process in fcn.00401810 and capture the decrypted data block passed to the memory address modified by VirtualProtect."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Registry key used for persistence."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401810",
+      "name": "fcn.00401810",
+      "description": "Main malicious orchestrator: handles allocation, decryption, and execution of the hidden payload."
+    },
+    {
+      "address": "0x00401a00",
+      "name": "fcn.00401a00",
+      "description": "Decryption routine using XOR-based transformations."
+    },
+    {
+      "address": "0x004010b0",
+      "name": "fcn.004010b0",
+      "description": "Persistence logic: modifies the Windows registry for automatic execution."
+    }
+  ]
+}

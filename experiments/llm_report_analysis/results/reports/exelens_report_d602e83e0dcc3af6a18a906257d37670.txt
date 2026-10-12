@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a sophisticated dropper/installer that decrypts and installs a payload. It demonstrates persistence mechanisms, registry key manipulation, and uses system-level API functions to potentially hook or modify kernel-mode drivers, suggesting an rootkit-like or advanced persistent threat (APT) behavior.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation of embedded resources",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress",
+      "Resource modification (BeginUpdateResourceA/UpdateResourceA)"
+    ],
+    "details": "The sample uses a custom XOR routine (fcn.10001697) to decrypt embedded resources (type 102) in memory. It also uses dynamic API resolution and modifies its own resources at runtime to likely hide or update the payload."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Uses RegCreateKeyExA and RegSetValueExA to establish registry-based persistence."
+    },
+    {
+      "name": "Process Injection/System Modification",
+      "description": "Attempts to interact with system drivers (win32k.sys, ntoskrnl.exe) and uses LdrGetProcedureAddress for dynamic lookups."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Includes mutex checks (GlobalRPCMutex, prkMtx) to prevent multiple instances and likely detect sandbox environments."
+    },
+    {
+      "name": "Resource Modification",
+      "description": "Uses BeginUpdateResourceA/UpdateResourceA to potentially self-patch or drop secondary modules."
+    }
+  ],
+  "details": {
+    "reasoning": "While installers often use these APIs, the combination of self-patching (UpdateResourceA), direct modification of kernel-related files (win32k.sys), and low-level registry manipulation (accessing KeServiceDescriptorTable) is far beyond the scope of a legitimate installer. The high-intent behavior of targeting system-level components strongly confirms malicious intent.",
+    "general": "High-intent indicators include fcn.1000b46f (direct registry modification for persistence), fcn.1000ab6f (attempting to access/hook KeServiceDescriptorTable), and fcn.100017a0 (self-updating via UpdateResourceA).",
+    "uncertainties": "The exact function of the decrypted binary (Resource 102) remains partially obscured, as it is only dynamically resolved and executed.",
+    "conditions": "Requires execution with administrative privileges to successfully modify system registry keys and interact with system drivers. The code checks for environment variables and specific file paths (win32k.sys).",
+    "sandbox_recommendations": "Run in an isolated environment with network traffic monitoring. Simulate administrative user privileges and ensure access to standard system directories is enabled."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "DMWI",
+          "description": "Registry key/value used for persistence"
+        },
+        {
+          "value": "DMWH",
+          "description": "Registry key/value used for persistence"
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for process synchronization"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for process synchronization"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001697",
+      "name": "fcn.10001697",
+      "description": "Decrypts and initializes the main payload."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Persistence routine, interacts with registry and system files."
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Attempts to interact with the system service descriptor table (SSDT)."
+    }
+  ]
+}

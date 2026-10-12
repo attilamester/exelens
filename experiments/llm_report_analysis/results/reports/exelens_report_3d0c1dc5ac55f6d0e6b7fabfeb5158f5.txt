@@ -1,0 +1,72 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This sample acts as a backdoor/RAT (Remote Access Trojan). It registers itself as a system service, establishes a connection to a remote C2 server, executes arbitrary commands via cmd.exe (with pipe-based redirection), and supports file exfiltration and download capabilities.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The file is not packed. The code structure is standard compiled C/C++ using MSVCRT and standard Windows/Networking APIs."
+  },
+  "capabilities": [
+    {
+      "name": "Remote Command Execution",
+      "description": "Uses CreatePipe and CreateProcessA to launch 'cmd.exe' and redirect input/output streams to a network socket."
+    },
+    {
+      "name": "Network Communication",
+      "description": "Uses WININET and WS2_32 APIs to connect to 'time.issnbgkit.net', fetch files, and send data."
+    },
+    {
+      "name": "Persistence",
+      "description": "Imports 'InstallService', 'CreateServiceA', and related registry functions to persist as a Windows Service."
+    },
+    {
+      "name": "File Operations",
+      "description": "Can write files to the system directory, likely to drop secondary payloads or exfiltrate data."
+    }
+  ],
+  "details": {
+    "reasoning": "While service management and network communication are dual-use, the combination of 'CreatePipe' with 'cmd.exe', remote command parsing (strstr 'getfile', 'exit', 'quit'), and file download/execution ('WinExec', 'fwrite') confirms malicious intent as a backdoor rather than a legitimate administration tool.",
+    "general": "The function fcn.100017cb implements a reverse shell by creating pipes ('CreatePipe') and spawning a command shell ('cmd.exe /c'). It uses 'WS2_32' to send/receive commands. Function fcn.100012c8 and fcn.1000211b handle downloading files from a remote server using 'HttpOpenRequestA' and 'InternetReadFile' and executing them via 'WinExec'.",
+    "uncertainties": "No significant uncertainties; the operational logic is clearly visible in the assembly.",
+    "conditions": "The sample requires network connectivity to 'time.issnbgkit.net'. It appears to function as a service ('ServiceMain').",
+    "sandbox_recommendations": "Provide an internet-simulated environment (e.g., INetSim) to capture the initial connection to 'time.issnbgkit.net'. Run as an Administrator to allow successful service registration."
+  },
+  "ioc": [
+    {
+      "type": "url",
+      "values": [
+        {
+          "value": "time.issnbgkit.net",
+          "description": "C2 server for configuration or payload download."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "cmd.exe /c",
+          "description": "Command used for shell execution."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100017cb",
+      "name": "fcn.100017cb",
+      "description": "Main backdoor command loop, handles socket communication and shell redirection."
+    },
+    {
+      "address": "0x100012c8",
+      "name": "fcn.100012c8",
+      "description": "Handles downloading files from the C2 and executing them via WinExec."
+    },
+    {
+      "address": "0x10002306",
+      "name": "fcn.10002306",
+      "description": "Initial connection routine to the C2 server."
+    }
+  ]
+}

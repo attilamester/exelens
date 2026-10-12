@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample is an installer/dropper that uses resource sections to store an encrypted payload. It exhibits persistence capabilities by registering itself in the system registry, performs process hollowing or memory patching to inject code, and includes system-level interaction (e.g., driver interaction with 'win32k.sys' or 'ntoskrnl.exe').",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Resource-based loading",
+      "XOR decryption loop"
+    ],
+    "details": "The file uses FindResourceA/LoadResource to extract a payload from RCDATA-like resources (e.g., 0x65, 0x66), which are then decrypted using a simple XOR loop with a constant key (0xcd)."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Modifies Windows Registry keys (e.g., Run keys, system services) via RegCreateKeyExA and RegSetValueExA to ensure execution upon boot."
+    },
+    {
+      "name": "Process Injection/Memory Manipulation",
+      "description": "Uses VirtualAlloc and CreateProcessA followed by potential patching of memory regions to hide malicious code within legitimate process spaces."
+    },
+    {
+      "name": "Evasion",
+      "description": "Checks for debugger presence and system environment variables; uses mutexes (e.g., GlobalRPCMutex) to avoid multiple infections."
+    },
+    {
+      "name": "Kernel-level interaction",
+      "description": "Functions reference symbols like NtShutdownSystem, KeServiceDescriptorTable, and interact with system drivers (win32k.sys), suggesting rootkit-like behavior."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistence, system file interaction, and kernel-level symbol resolving (KeServiceDescriptorTable, etc.) in a file that explicitly decrypts an embedded resource is a high-intent indicator. While installers often modify the registry, they rarely perform kernel service descriptor table manipulation or target ntoskrnl.exe/win32k.sys directly, which confirms malicious intent.",
+    "general": "The function fcn.1000b73a and fcn.1000ab6f directly interact with kernel structures. The presence of 'KeServiceDescriptorTable' and 'NtShutdownSystem' string references combined with XOR decryption loops (fcn.100015f7) is definitive evidence of malicious capability.",
+    "uncertainties": "The exact nature of the final payload depends on the decrypted RCDATA blob, which is not fully provided in the static listing, but the loader code is sufficient to determine malicious intent.",
+    "conditions": "The malware checks for a specific Mutex (GlobalRPCMutex) and requires specific registry entries. It is designed to run in a Windows environment, likely requiring administrative privileges to perform the kernel and registry modifications.",
+    "sandbox_recommendations": "Use a fully instrumented Windows 7 or 10 x86 environment. Monitor registry modifications, specifically in HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run. Monitor for cross-process memory writing operations."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Persistence mechanism."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used to ensure single instance."
+        },
+        {
+          "value": "KeServiceDescriptorTable",
+          "description": "Kernel symbol targeting."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Main decryption routine (XOR 0xcd) for embedded resources."
+    },
+    {
+      "address": "0x1000b73a",
+      "name": "fcn.1000b73a",
+      "description": "Kernel-level interaction function, targeting system shutdown and service descriptors."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Executes dropped payload via CreateProcessA."
+    }
+  ]
+}

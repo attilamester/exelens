@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable demonstrates worm-like behavior by attempting to replicate itself into the system directory with different extensions (.SCR, .EXE), modifying registry keys for persistence, and attempting to download external payloads via URLDownloadToFileA.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code structure is clearly visible in the provided assembly. No unpacking stub or high-entropy data sections were observed."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Uses RegSetValueExA to modify registry keys, likely for autostart purposes."
+    },
+    {
+      "name": "Payload Download",
+      "description": "Dynamically loads Urlmon.dll to use URLDownloadToFileA to retrieve external content."
+    },
+    {
+      "name": "Process Injection/Replication",
+      "description": "Uses CopyFileA and rename to propagate the executable in system directories, and CreateProcessA to launch the copies."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Uses Mutexes (CreateMutexA/OpenMutexA) to ensure only one instance runs and to check if the environment is already infected."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of self-replication (copying/renaming files in system folders), persistence mechanisms via registry keys, and dynamic downloading of external URLs (likely stage-two payloads) characterizes a malicious dropper/worm. These behaviors are not characteristic of standard installers or legitimate software.",
+    "general": "High-intent evidence includes the repeated use of CreateProcessA (RVA 0x401192), URLDownloadToFileA (dynamically loaded in 0x40110a), and the logic flow of modifying registry keys (0x40150e) combined with self-replication logic (0x4011d0).",
+    "uncertainties": "The exact source URL for the download is obfuscated/encoded, so the final stage of the infection could not be determined beyond its intent to fetch a file.",
+    "conditions": "The sample performs a mutex check for 'RnhwtxtkyLRR_O'. If the mutex exists, it attempts to coordinate with existing instances; if not, it proceeds with the installation/replication flow.",
+    "sandbox_recommendations": "Monitor the Windows System directory for new file creation (specifically .SCR and .EXE files), trace registry write operations in HKLM/Software, and block outgoing connections to non-whitelisted domains to capture the URLDownloadToFileA request."
+  },
+  "ioc": [
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "HYKR5S3J_J",
+          "description": "Filename/Path segment used in file operations."
+        },
+        {
+          "value": "asjyxh3jj",
+          "description": "File or path segment used in downloader logic."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "RnhwtxtkyLRR_O",
+          "description": "Mutex name used for synchronization/infection check."
+        },
+        {
+          "value": "myyu_443qnxtwi3htr4MR4Zuifyj3myr",
+          "description": "Obfuscated URL or C2-related string."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x40110a",
+      "name": "fcn.0040110a",
+      "description": "Handles the dynamic loading of URLMon and the file download process."
+    },
+    {
+      "address": "0x4011d0",
+      "name": "fcn.004011d0",
+      "description": "Core logic handling self-replication and process spawning."
+    },
+    {
+      "address": "0x40150e",
+      "name": "fcn.0040150e",
+      "description": "Manages registry persistence and cleanup."
+    }
+  ]
+}

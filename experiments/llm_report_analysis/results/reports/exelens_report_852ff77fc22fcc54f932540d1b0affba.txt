@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a sophisticated dropper that uses process hollowing, kernel-mode driver manipulation, and registry-based persistence mechanisms to deploy malicious payloads. It contains code to interact with internal kernel data structures (KeServiceDescriptorTable) and performs code injection into system processes.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Custom XOR obfuscation of resource data",
+      "Dynamic API resolution",
+      "Dynamic kernel structure modification"
+    ],
+    "details": "The binary stores encrypted payloads in RSRC sections, which are decrypted at runtime via XOR loops (0xcd key). It performs dynamic resolution of kernel functions like NtQuerySystemInformation and NtQueryObject."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Hollowing",
+      "description": "Utilizes CreateProcessA and potentially WriteProcessMemory to perform process hollowing."
+    },
+    {
+      "name": "Kernel Mode Interaction",
+      "description": "Attempts to locate and modify the System Service Descriptor Table (SSDT) via direct memory manipulation."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies system registry keys to ensure execution on system startup."
+    },
+    {
+      "name": "File Manipulation",
+      "description": "Deletes and copies files, potentially replacing system drivers or binaries (e.g., win32k.sys)."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode structures access (SSDT modification), process creation of system-like paths (win32k.sys injection), and registry persistence is consistent with advanced rootkit behavior. The dual-use capabilities (VirtualAlloc, CreateThread) are here contextualized by direct manipulation of critical system structures, moving the verdict from suspicious to malicious.",
+    "general": "The function fcn.1000ab6f and fcn.1000a2cd are highly suspicious, directly referencing 'KeServiceDescriptorTable' and 'KeAddSystemServiceTable'. The code at 0x1000b46f shows logic for modifying the system service table, an indicator of rootkit activity. String indicators like 'DMWI' and 'cnFormSyncExFBC' are consistent with known malicious framework artifacts.",
+    "uncertainties": "The exact nature of the final payload is hidden by the XOR-based resource obfuscation, meaning the secondary stage behavior is inferred from loader patterns rather than direct observation.",
+    "conditions": "The malware checks for administrator privileges and specific environment variables (e.g., 'temp'). It often requires specific registry keys to be present to identify the target environment.",
+    "sandbox_recommendations": "Run in a kernel-aware debugger (e.g., WinDbg) on a virtualized Windows machine. Monitor registry write activity for Run keys and file system changes in System32."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Targeted for persistence."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "C:\\Windows\\System32\\win32k.sys",
+          "description": "Targeted for modification/injection."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "SSDT hooking and kernel structure modification."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Creates processes and handles file writing/injection."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Registry-based persistence and sid manipulation."
+    }
+  ]
+}

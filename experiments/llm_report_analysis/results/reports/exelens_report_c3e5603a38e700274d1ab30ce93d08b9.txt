@@ -1,0 +1,89 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a remote access backdoor. It periodically communicates with a hard-coded IP address (204.111.73.150) to download commands, executes them via 'cmd.exe', captures the output, and uploads the results back to the server. It also includes capabilities for process enumeration and termination.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed; the logic for communication and process control is directly visible in the disassembly."
+  },
+  "capabilities": [
+    {
+      "name": "Network Communication",
+      "description": "Uses Wininet.dll to perform HTTP GET/POST requests for command-and-control communication."
+    },
+    {
+      "name": "Process Injection/Control",
+      "description": "Uses CreateProcessA, CreatePipe, and ReadFile to execute arbitrary commands via cmd.exe and capture their output."
+    },
+    {
+      "name": "Persistence/Privilege Escalation",
+      "description": "Attempts to enable SeDebugPrivilege to interact with system processes and uses ShellExecuteExA to perform self-deletion or cleanup operations."
+    },
+    {
+      "name": "Process Enumeration",
+      "description": "Uses CreateToolhelp32Snapshot, Process32First, and Process32Next to list running processes."
+    }
+  ],
+  "details": {
+    "reasoning": "The application exhibits clear malicious intent through its C2 infrastructure. It connects to a hard-coded IP (204.111.73.150), fetches remote files, executes them using cmd.exe, and returns the output via POST requests. This pattern is characteristic of a remote shell or backdoor, not legitimate administrative software.",
+    "general": "High-intent evidence includes the repeated use of '204.111.73.150' for URL construction (fcn.00401cd0, fcn.00401af0), the redirection of command output via pipes (CreatePipe), and the functional implementation of 'pslist' and 'pskill' logic within fcn.00402080.",
+    "uncertainties": "While the logic is clear, the exact command format expected from the server (e.g., specific HTTP headers or parameters) is abstracted through dynamic string construction, but the overall intent remains unambiguous.",
+    "conditions": "The malware will initiate network communication immediately upon execution. It requires internet access to reach '204.111.73.150'. If the C2 server is unreachable, the sample enters a loop and periodically retries connections.",
+    "sandbox_recommendations": "Isolate the sample in a virtual network. Use an INetSim or similar tool to simulate a web server hosting the file '/images/_vti_img_index.asp'. Monitor traffic to 204.111.73.150."
+  },
+  "ioc": [
+    {
+      "type": "ip",
+      "values": [
+        {
+          "value": "204.111.73.150",
+          "description": "Hard-coded Command and Control server IP address."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "_runinfo.exe",
+          "description": "Temporary file name used during execution or self-copy."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "images/_vti_img_index.asp",
+          "description": "Target URL path for C2 communication."
+        },
+        {
+          "value": "pslist",
+          "description": "Command recognized for process listing."
+        },
+        {
+          "value": "pskill",
+          "description": "Command recognized for process termination."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401cd0",
+      "name": "fcn.00401cd0",
+      "description": "Main communication routine; parses and executes commands from the remote server."
+    },
+    {
+      "address": "0x00402080",
+      "name": "fcn.00402080",
+      "description": "Handles process enumeration (pslist) and process termination (pskill) requests."
+    },
+    {
+      "address": "0x004016b0",
+      "name": "fcn.004016b0",
+      "description": "Handles cleanup, process priority manipulation, and self-deletion logic."
+    }
+  ]
+}

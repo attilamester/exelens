@@ -1,0 +1,77 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The file is a remote access trojan (RAT) that uses HTTP for C2 communication, persistent registry modification for firewall bypass, process enumeration and killing capabilities, and process execution.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The file is not packed; the logic is visible, including the C2 communication routines and command processing."
+  },
+  "capabilities": [
+    {
+      "name": "Command and Control",
+      "description": "Utilizes WININET APIs (InternetOpenA, HttpOpenRequestA) to communicate with a remote server (www.ngo21.or.kr) via HTTP."
+    },
+    {
+      "name": "Process Enumeration/Killing",
+      "description": "Uses Toolhelp32 snapshots to list processes and TerminateProcess to kill them."
+    },
+    {
+      "name": "Persistence/Firewall Bypass",
+      "description": "Modifies Windows Firewall policies via registry keys to authorize the application."
+    },
+    {
+      "name": "Process Injection/Execution",
+      "description": "Uses CreateProcess to spawn shells or other executables, often hidden or controlled via pipes."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of C2 networking (WININET), registry modifications for firewall authorization, and process control (listing and killing) provides clear evidence of malicious intent. The code contains specific command strings ('pslist', 'pskill', 'run') that are standard indicators of a remote-controlled backdoor.",
+    "general": "In fcn.00401a70 and fcn.00402a20, the code processes commands received from the network. In fcn.00401dc0, it manipulates registry keys at 'SYSTEM\\CurrentControlSet\\Services\\SharedAccess\\Parameters\\FirewallPolicy\\StandardProfile\\AuthorizedApplications\\List' to persist. Process control is observed via KERNEL32.dll_CreateToolhelp32Snapshot and TerminateProcess.",
+    "uncertainties": "While the C2 host 'www.ngo21.or.kr' is visible, the actual commands received at runtime determine the scope of the threat.",
+    "conditions": "The malware primarily executes its loop upon successful internet connection (InternetGetConnectedState). It processes specific commands like 'run', 'pslist', and 'pskill' received from the server.",
+    "sandbox_recommendations": "Provide internet access to the sandbox, monitor network traffic for HTTP POST requests, and observe registry changes under the FirewallPolicy key."
+  },
+  "ioc": [
+    {
+      "type": "url",
+      "values": [
+        {
+          "value": "http://www.ngo21.or.kr/info_ren1_search.asp",
+          "description": "C2 server URL used for commands and data exfiltration."
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SYSTEM\\CurrentControlSet\\Services\\SharedAccess\\Parameters\\FirewallPolicy\\StandardProfile\\AuthorizedApplications\\List",
+          "description": "Registry key modified to bypass firewall restrictions."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401dc0",
+      "name": "fcn.00401dc0",
+      "description": "Handles system privilege escalation and firewall registry modification."
+    },
+    {
+      "address": "0x004023f0",
+      "name": "fcn.004023f0",
+      "description": "Handles the 'pskill' command to terminate processes."
+    },
+    {
+      "address": "0x004025c0",
+      "name": "fcn.004025c0",
+      "description": "Handles the 'run' command to execute new processes."
+    },
+    {
+      "address": "0x00402830",
+      "name": "fcn.00402830",
+      "description": "Performs file download and execution from the remote C2."
+    }
+  ]
+}

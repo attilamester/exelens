@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a dropper/loader that persists by modifying registry keys, downloads additional payloads via URLDownloadToCacheFileA, and uses LZ compression and custom decryption routines to unpack embedded resources.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR/decryption loop",
+      "LZ compression"
+    ],
+    "details": "The .rsrc section has very high entropy (7.97) and contains large RCDATA resources (105KB). The code uses LZ32.dll (LZCopy/LZOpenFileA) and decryption routines (fcn.00401055, fcn.004011d3) to unpack payloads at runtime."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Reads Run/Startup registry keys via RegQueryValueExA to locate and manipulate persistence locations."
+    },
+    {
+      "name": "Process Hollowing/Injection",
+      "description": "Uses CreateProcessA followed by potential injection or file replacement to execute hidden payloads."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Contains IsDebuggerPresent checks to evade dynamic analysis."
+    },
+    {
+      "name": "Network Communication",
+      "description": "Downloads files from URLs using URLDownloadToCacheFileA (imported from urlmon.dll)."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-entropy resources, runtime decryption (CryptDecrypt), persistence manipulation via registry (RegQueryValueExA), and dynamic downloading (URLDownloadToCacheFileA) is characteristic of a malicious dropper. The binary actively attempts to hide by replacing/deleting files and using obfuscated URLs, confirming malicious intent rather than dual-use functionality.",
+    "general": "High-intent malicious actions include: 1) fcn.0040243f interacting with registry keys related to 'Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders' and 'Startup'. 2) fcn.0040172d using URLDownloadToCacheFileA to fetch remote content. 3) fcn.004018b0 triggering CreateProcessA with hidden parameters.",
+    "uncertainties": "The exact nature of the payload inside the high-entropy RCDATA resource is not fully visible, though the loader routines are clearly defined.",
+    "conditions": "The execution flow requires the presence of certain registry keys and external network connectivity for the downloader to successfully fetch the secondary stage. The sample likely requires elevated privileges to write to startup folders or system-related registry keys.",
+    "sandbox_recommendations": "Provide internet access to allow the download routine (URLDownloadToCacheFileA) to complete. Monitor registry activity for modifications to the 'Startup' and 'Shell Folders' keys. Use a debugger to bypass the IsDebuggerPresent check if execution halts early."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders",
+          "description": "Target key for persistence location lookup"
+        },
+        {
+          "value": "Startup",
+          "description": "Common persistence target folder"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "_adobe_sl.exe",
+          "description": "Target file name used in persistence operations"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x0040172d",
+      "name": "fcn.0040172d",
+      "description": "Primary downloader function using URLDownloadToCacheFileA"
+    },
+    {
+      "address": "0x0040243f",
+      "name": "fcn.0040243f",
+      "description": "Registry-based persistence and environment setup"
+    },
+    {
+      "address": "0x00401055",
+      "name": "fcn.00401055",
+      "description": "Decryption and file handling routine"
+    },
+    {
+      "address": "0x00403236",
+      "name": "entry0",
+      "description": "Main entry point initializing runtime and setup"
+    }
+  ]
+}

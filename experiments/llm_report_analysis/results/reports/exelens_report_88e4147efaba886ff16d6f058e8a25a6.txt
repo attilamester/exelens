@@ -1,0 +1,93 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple high-intent indicators of rootkit or kernel-level persistence mechanisms, including direct manipulation of kernel structures (System Service Descriptor Table) and attempts to load driver-like modules (`win32k.sys`). It uses dynamic API resolution and contains hidden, encrypted/compressed resources to hide its primary payload.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR decryption loop",
+      "Resource-based payload hiding",
+      "Dynamic API resolution (GetProcAddress)"
+    ],
+    "details": "The file uses `FindResourceA` and `LockResource` to extract encrypted data (size ~100KB), which is then decrypted via a simple XOR-based routine (`xor [esi + eax], 0xcd`) before being executed or mapped into memory."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-Level Hooking",
+      "description": "Attempts to modify the System Service Descriptor Table (SSDT) in kernel memory via `KeServiceDescriptorTable` lookup."
+    },
+    {
+      "name": "Process Injection",
+      "description": "Uses `CreateProcessA` and likely `WriteProcessMemory` (inferred from `VirtualAlloc` and write-file routines) to inject payloads into target system processes."
+    },
+    {
+      "name": "Persistence via Registry",
+      "description": "Extensive use of `RegCreateKeyExA` and `RegSetValueExA` to modify registry keys for system startup persistence."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Capable of copying, deleting, and modifying file attributes (including `win32k.sys` references) to masquerade or overwrite system files."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of SSDT modification (hooking system services), targeting critical drivers (`win32k.sys`, `ntoskrnl.exe`), and dynamic manipulation of low-level registry keys confirms malicious intent. While individual functions like `VirtualAlloc` are dual-use, the context of patching kernel tables and targeting sensitive OS components excludes a benign interpretation. The file functions as an installer for a rootkit-class payload.",
+    "general": "Evidence is found in `fcn.1000b369` (SSDT hooking via `KeServiceDescriptorTable` manipulation) and `fcn.10009d28` (targeting `HAL.dll` and `ntoskrnl.exe` exports to manipulate kernel routines). Further proof exists in `fcn.1000b46f` and `fcn.1000ab6f` where the sample attempts to manipulate `win32k.sys` and register persistence via registry values, suggesting a boot-level or kernel-mode infection.",
+    "uncertainties": "The exact nature of the final, decrypted kernel payload remains somewhat obscured as it is built dynamically at runtime from the extracted RCDATA resources.",
+    "conditions": "Execution is gated by environmental checks including `GetSystemDirectoryA` to locate OS paths, checks for existing mutexes (`GlobalRPCMutex`, `prkMtx`), and potential version checks on the operating system to determine which hooking technique to employ.",
+    "sandbox_recommendations": "Run in a kernel-aware sandbox capable of detecting SSDT hooks and registry modifications. The sample may require administrative privileges and a full Windows environment to successfully trigger the persistence and kernel-patching code paths."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Persistence target location"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "win32k.sys",
+          "description": "System driver targeted for manipulation"
+        },
+        {
+          "value": "ntoskrnl.exe",
+          "description": "Kernel image targeted for export resolution"
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Used to prevent concurrent execution"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Used as an anti-re-infection/synchronization primitive"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Performs SSDT hooking by identifying the location of system tables."
+    },
+    {
+      "address": "0x10009d28",
+      "name": "fcn.10009d28",
+      "description": "Scans and resolves kernel export addresses (KeGetCurrentIrql, etc) for patching."
+    },
+    {
+      "address": "0x100028d6",
+      "name": "fcn.100028d6",
+      "description": "Manages communication and setup routines, heavily utilizing registry interaction."
+    }
+  ]
+}

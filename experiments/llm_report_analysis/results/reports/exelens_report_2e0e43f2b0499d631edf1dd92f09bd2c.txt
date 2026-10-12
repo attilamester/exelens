@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to modify system-level drivers or system files, including the use of rootkit-like techniques such as direct manipulation of the System Service Descriptor Table (SSDT) via 'KeServiceDescriptorTable'. It also attempts to hook or patch system functions like 'NtShutdownSystem' and 'DbgPrint', likely to evade detection or achieve persistence at a high privilege level.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Custom XOR obfuscation of resource data",
+      "Dynamic API resolution through GetProcAddress/LoadLibrary"
+    ],
+    "details": "The binary uses resource-based storage for its payload (e.g., '102'), which is subjected to a simple XOR transformation (0xcd) during execution, as seen in fcn.10001697 and fcn.10001723."
+  },
+  "capabilities": [
+    {
+      "name": "SSDT Hooking/Modification",
+      "description": "Uses 'KeServiceDescriptorTable' to modify system call tables."
+    },
+    {
+      "name": "System API Patching",
+      "description": "Attempts to patch 'NtShutdownSystem' and 'DbgPrint' functions in ntdll.dll."
+    },
+    {
+      "name": "Process/Service Manipulation",
+      "description": "Utilizes 'OpenProcess', 'VirtualAlloc', and 'CreateRemoteThread' (implied by memory handling) or similar injection techniques."
+    },
+    {
+      "name": "Mutex-based synchronization",
+      "description": "Uses global mutexes like 'GlobalRPCMutex' to ensure single instance execution."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of SSDT modification (fcn.1000b369) and runtime patching of critical kernel-mode/system functions (fcn.1000c755) is indicative of rootkit behavior. While some installers use low-level APIs, the direct manipulation of the SSDT and patching of 'NtShutdownSystem' serves no legitimate purpose for a standard user application or installer, thus confirming malicious intent.",
+    "general": "High-intent indicators include the attempt to resolve 'KeServiceDescriptorTable' (fcn.1000b369), the patching of 'NtShutdownSystem' (fcn.1000c755) via ntdll.dll, and the modification of security descriptors (ADVAPI32.dll_SetSecurityDescriptorDacl).",
+    "uncertainties": "The exact nature of the payload inside resource '102' remains hidden, though it is clear it contains executable code or configuration data designed to be mapped into memory.",
+    "conditions": "The file appears to be an installer (given 'sym.dll_installer.dll') but performs privilege-escalation-related tasks. It likely requires execution in an environment with high privileges (Administrator/SYSTEM) to successfully perform SSDT modifications.",
+    "sandbox_recommendations": "Run in a kernel-aware sandbox capable of logging MSR changes or SSDT modifications. Monitor for attempts to write to 'system32' or modify 'win32k.sys'."
+  },
+  "ioc": [
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used to prevent concurrent execution."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex identified in internal logic."
+        }
+      ]
+    },
+    {
+      "type": "file",
+      "values": [
+        {
+          "value": "win32k.sys",
+          "description": "System file targeted for modification."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Performs SSDT hooking by resolving and modifying KeServiceDescriptorTable."
+    },
+    {
+      "address": "0x1000c755",
+      "name": "fcn.1000c755",
+      "description": "Patches system functions like NtShutdownSystem in ntdll.dll."
+    },
+    {
+      "address": "0x10001723",
+      "name": "fcn.10001723",
+      "description": "XOR-decrypts and updates resource data."
+    }
+  ]
+}

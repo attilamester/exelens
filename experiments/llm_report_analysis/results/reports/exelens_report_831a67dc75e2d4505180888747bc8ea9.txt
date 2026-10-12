@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a process hollowing/debugging utility targeting 'lsass.exe'. It uses debug APIs to attach to the lsass process, reads its memory, patches instructions, and potentially injects code by manipulating thread contexts.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The file is not packed; it is a standard compiled C++ executable with straightforward import structures and logic."
+  },
+  "capabilities": [
+    {
+      "name": "Process Debugging and Control",
+      "description": "Uses DebugActiveProcess, WaitForDebugEvent, and ContinueDebugEvent to manipulate a target process."
+    },
+    {
+      "name": "Process Memory Injection/Patching",
+      "description": "Utilizes VirtualProtectEx, WriteProcessMemory, and ReadProcessMemory to modify the memory space of an external process."
+    },
+    {
+      "name": "Token Privilege Escalation",
+      "description": "Uses AdjustTokenPrivileges to acquire SeDebugPrivilege, necessary for interacting with system processes like lsass.exe."
+    },
+    {
+      "name": "Process Enumeration",
+      "description": "Uses CreateToolhelp32Snapshot, Process32First, and Process32Next to locate the PID of lsass.exe."
+    }
+  ],
+  "details": {
+    "reasoning": "The application exhibits clear malicious intent by specifically targeting 'lsass.exe' (Local Security Authority Subsystem Service), a critical system process. The combination of SeDebugPrivilege escalation, process enumeration, and the use of Debug APIs (DebugActiveProcess) to modify memory/patch bytes inside a sensitive system process is indicative of credential dumping or security evasion behavior, which has no legitimate use for a standalone tool.",
+    "general": "The function fcn.00401c0d acquires 'SeDebugPrivilege'. fcn.00401c9c finds 'lsass.exe'. The logic in fcn.00401d36, fcn.00401e29, and fcn.00401ec1 uses WriteProcessMemory and SetThreadContext to hijack the target process execution flow, which is a classic process hollowing pattern.",
+    "uncertainties": "While the specific payload being written into lsass.exe is derived from input arguments and calculated hashes (e.g., MD4), the actual nature of the injected code (shellcode) is not visible in the binary, although the mechanism for injection is unambiguous.",
+    "conditions": "The program requires command-line arguments (expected: NTLMHash.exe <WaitTime> <Password> <NTLMHash>). It also performs an integrity check via a named mutex '__ADS__'.",
+    "sandbox_recommendations": "Run the sample with arguments: 'NTLMHash.exe 10 <password> <hash>'. Ensure the environment has elevated privileges (Administrator/SYSTEM) as the program requires SeDebugPrivilege to attach to lsass.exe."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "lsass.exe",
+          "description": "Target process for debugging/patching."
+        },
+        {
+          "value": "SeDebugPrivilege",
+          "description": "Privilege required for process interaction."
+        },
+        {
+          "value": "__ADS__",
+          "description": "Mutex name used for process single-instance check."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "Advapi32.dll",
+          "description": "Required DLL for token manipulation."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401c0d",
+      "name": "fcn.00401c0d",
+      "description": "Elevates privileges by enabling SeDebugPrivilege."
+    },
+    {
+      "address": "0x00401c9c",
+      "name": "fcn.00401c9c",
+      "description": "Enumerates processes to identify the PID of lsass.exe."
+    },
+    {
+      "address": "0x00401ec1",
+      "name": "fcn.00401ec1",
+      "description": "Core injection/patching logic using ReadProcessMemory, WriteProcessMemory, and SetThreadContext."
+    }
+  ]
+}

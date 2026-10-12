@@ -1,0 +1,92 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple techniques for system-level persistence and privilege escalation, including modifying system driver files (e.g., win32k.sys), creating kernel-level mutexes, and manipulating system service tables.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation of resource data",
+      "Dynamic API resolution through GetProcAddress and custom string obfuscation/decryption"
+    ],
+    "details": "The file uses custom XOR routines (e.g., fcn.100075ce, fcn.10001723) to decrypt resources and configuration data. It resolves many Windows API functions dynamically at runtime."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode service table manipulation",
+      "description": "Functions like fcn.1000ab6f and fcn.1000b369 interact with KeServiceDescriptorTable (SSDT) to hook system services."
+    },
+    {
+      "name": "File infection/replacement",
+      "description": "The malware attempts to overwrite or infect system files such as win32k.sys and kernel32.dll using CopyFileA and UpdateResourceA."
+    },
+    {
+      "name": "Persistence via Registry",
+      "description": "Utilizes RegCreateKeyExA and RegSetValueExA to establish persistence or inject code into system components (e.g., lsass)."
+    },
+    {
+      "name": "Anti-analysis/Mutex checks",
+      "description": "Uses mutexes named 'prkMtx' and 'GlobalRPCMutex' to ensure single-instance execution and avoid sandbox detection."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode SSDT hooking, unauthorized modification of critical system files (win32k.sys/kernel32.dll), and persistence via registry modification provides clear evidence of malicious intent. The dual-use features like RegCreateKey or VirtualAlloc are here clearly directed towards subverting OS integrity, not providing legitimate software functionality.",
+    "general": "The function fcn.1000ab6f and fcn.1000b369 perform SSDT patching by interacting with KeServiceDescriptorTable. The code in fcn.100010a1 and fcn.100017a0 specifically targets replacing system files and modifying resource sections of binaries (lsass/kernel32.dll), which is highly indicative of rootkit-like behavior.",
+    "uncertainties": "The exact nature of the decrypted resource payloads (102, 101) is not fully visible without runtime decryption; however, the surrounding loader code is definitively malicious.",
+    "conditions": "Execution is likely triggered by specific registry keys or system environments. It uses GetEnvironmentVariable and checks for specific system configurations before initiating its payload.",
+    "sandbox_recommendations": "Deploy the file in an isolated kernel-debugging environment. Ensure the environment is not a virtual machine if possible, as the sample contains detection routines. Monitor disk I/O to system32 and registry modifications to HKLM\\System\\CurrentControlSet."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\System\\CurrentControlSet",
+          "description": "Registry hive modified for persistence and hook installation."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "C:\\Windows\\system32\\win32k.sys",
+          "description": "Target file for system-level modification/infection."
+        },
+        {
+          "value": "C:\\Windows\\system32\\kernel32.dll",
+          "description": "Target file for modification."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for execution synchronization."
+        },
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Alternative mutex name for synchronization."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Handles SSDT hooking and system service table modification."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Performs modification of system files by updating their resource sections."
+    },
+    {
+      "address": "0x10003c04",
+      "name": "fcn.10003c04",
+      "description": "Primary installer logic for deploying components to the system directory."
+    }
+  ]
+}

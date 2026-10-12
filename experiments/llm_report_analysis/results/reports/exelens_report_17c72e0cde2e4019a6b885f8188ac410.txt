@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This executable performs process hollowing and persistence by infecting legitimate Windows system files (e.g., explorer.exe, sysprep.exe). It uses a custom decompression routine to unpack an embedded payload into memory, then uses process injection techniques (WriteProcessMemory, CreateRemoteThread) to execute malicious code in a trusted process context.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom compression algorithm",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress"
+    ],
+    "details": "The file contains highly entropic data sections (.data, entropy ~7.96) and custom decompression logic (e.g., fcn.10004430, fcn.10004980, fcn.10005870) which suggests it is packed. It dynamically resolves functions from kernel32.dll and ntdll.dll to perform its injection logic."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Hollowing",
+      "description": "Uses VirtualAllocEx, WriteProcessMemory, and CreateRemoteThread to inject code into target processes."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies system files and potentially creates services or scheduled tasks to maintain presence."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Renames and overwrites system files (e.g., sysprep.exe) to hijack execution."
+    },
+    {
+      "name": "Dynamic API Resolution",
+      "description": "Uses GetProcAddress to hide imported functions, evading static detection."
+    }
+  ],
+  "details": {
+    "reasoning": "The presence of code hollowing primitives combined with logic that explicitly targets Windows system folders (C:\\Windows\\System32) and processes (explorer.exe, sysprep.exe) confirms malicious intent. The dual-use functions are part of a coordinated attack chain designed to elevate privileges and establish persistence.",
+    "general": "The function fcn.10003c90 implements low-level thread/process manipulation using Nt-prefixed functions (e.g., ZwAllocateVirtualMemory, ZwWriteVirtualMemory, ZwCreateThread). The call sequence in entry0 leads to fcn.100022b0, which performs file path manipulation, followed by injection and execution logic.",
+    "uncertainties": "The exact contents of the primary unpacked payload (the code injected into memory) are unknown as they are dynamically decrypted at runtime.",
+    "conditions": "The sample performs environmental checks, including verifying if it is running from system paths and checking for existing logs (e.g., sysprep.exe, KB975552.log). It likely requires elevated permissions to overwrite files in C:\\Windows\\System32.",
+    "sandbox_recommendations": "Simulate a Windows environment where sysprep.exe exists and provide full administrative privileges. Monitor all file system changes and process creations."
+  },
+  "ioc": [
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "C:\\Windows\\System32\\sysprep\\sysprep.exe",
+          "description": "Target file for hijacking/hollowing."
+        },
+        {
+          "value": "KB975552.log",
+          "description": "Infection-related log file."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "SeDebugPrivilege",
+          "description": "Privilege required for injection."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10003c90",
+      "name": "fcn.10003c90",
+      "description": "Core injection logic using ntdll functions."
+    },
+    {
+      "address": "0x100022b0",
+      "name": "fcn.100022b0",
+      "description": "Initial environment check and path manipulation routine."
+    },
+    {
+      "address": "0x10004430",
+      "name": "fcn.10004430",
+      "description": "Decompression engine used to unpack the payload."
+    }
+  ]
+}

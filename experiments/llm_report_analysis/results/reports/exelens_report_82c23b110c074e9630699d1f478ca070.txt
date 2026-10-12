@@ -1,0 +1,75 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains a sophisticated rootkit-like payload designed for kernel-mode modification. It utilizes system APIs to perform process hollowing, modify system service descriptor tables (SSDT), and manipulate registry keys, likely to hide its presence and persist on the target system.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR obfuscation of embedded resource",
+      "Dynamic API resolution through GetProcAddress and LdrGetProcedureAddress"
+    ],
+    "details": "The entry point and multiple functions, such as fcn.100015f7, perform memory-based decryption (XOR 0xcd) of a resource section (102) before executing or loading the resulting code. The code also implements dynamic API hooking for kernel-level persistence."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "The binary imports and calls functions related to KeServiceDescriptorTable, NtQuerySystemInformation, and MmMapLockedPagesSpecifyCache."
+    },
+    {
+      "name": "Process Injection/Creation",
+      "description": "Utilizes CreateProcessA and WriteFile to deploy or inject components into temporary files."
+    },
+    {
+      "name": "Persistence via Registry",
+      "description": "Extensive use of RegCreateKeyExA and RegSetValueExA to modify system registry keys."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Includes logic to check for the presence of specific debuggers or system environment variables to prevent detonation."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level hooking (SSDT modification, KeServiceDescriptorTable), the use of undocumented NT functions like NtShutdownSystem and KeRaiseIrqlToDpcLevel, and the explicit logic for file-system manipulation clearly indicates malicious intent. This is not a standard application, but a kernel-aware threat.",
+    "general": "The function fcn.10003417 and fcn.1000b369 perform explicit modifications to the system service descriptor tables by resolving NtQuerySystemInformation and KeServiceDescriptorTable. The binary also attempts to copy files to system directories (fcn.10003c04).",
+    "uncertainties": "While the kernel-level code is highly indicative of a rootkit, parts of the logic (especially the exact payload functionality) depend on successful decryption of the 106KB resource, which cannot be fully simulated.",
+    "conditions": "The payload requires administrative or system-level privileges to interact with NT kernel structures. It also checks for the existence of specific files or registry keys like 'DMWH' or 'lsass' before proceeding.",
+    "sandbox_recommendations": "Ensure the sandbox supports kernel-mode logging. The sample may require high privileges (system) to execute its primary payload. Emulate a standard Windows environment with common registry keys present."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\",
+          "description": "Potential persistence registry path targeted by the installer."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "system32\\win32k.sys",
+          "description": "System file monitored and manipulated."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Performs SSDT hooking and system service table manipulation."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Main routine for enumerating and interacting with kernel structures."
+    },
+    {
+      "address": "0x10003c04",
+      "name": "fcn.10003c04",
+      "description": "Deployment function that writes malicious components to the system directory."
+    }
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to detect and modify critical system components, specifically targeting system drivers (e.g., win32k.sys, ntoskrnl.exe, ntkrnlpa.exe). It performs direct kernel memory manipulation by searching for and modifying service descriptors and kernel objects using techniques that bypass standard API limitations (e.g., memory mapping drivers). It also includes capabilities for persistence via Registry key manipulation and creates a global mutex to ensure singular execution.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation of resource data",
+      "Dynamic API resolution through GetProcAddress",
+      "Memory mapping of system modules"
+    ],
+    "details": "Resources are loaded and modified in memory using an XOR operation (0xcd key). Several core behaviors, such as interacting with ntoskrnl.exe, are resolved dynamically."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel Object Manipulation",
+      "description": "The sample uses NtQuerySystemInformation and direct memory modification to locate and patch system kernel objects like the KeServiceDescriptorTable."
+    },
+    {
+      "name": "File System Persistence",
+      "description": "Copies its binary to system directories and sets attributes, likely to hide the presence or ensure execution in specific contexts."
+    },
+    {
+      "name": "Process Injection/Hooking",
+      "description": "The code contains references to hooking functions such as KeGetCurrentIrql and KeRaiseIrqlToDpcLevel, indicating potential rootkit functionality."
+    },
+    {
+      "name": "Privilege Escalation Checks",
+      "description": "Checks system tokens and performs SID lookups (LookupAccountSidW) to determine its privilege level."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of specific kernel-space manipulation techniques (patching system service tables, directly loading and modifying drivers like win32k.sys) and the code's attempt to subvert security checks (using anti-debugging and anti-analysis gates) constitutes clear malicious intent. The dual-use nature of the API calls is superseded by the clear logic targeting the modification of the kernel's integrity.",
+    "general": "The function fcn.1000b369 performs direct modification of the KeServiceDescriptorTable. The function fcn.10009d28 maps kernel modules into memory to locate and patch critical functions like KeGetCurrentIrql. The usage of 'prkMtx' mutex and various Registry keys (e.g., 'DMWI') suggests tracking and persistence.",
+    "uncertainties": "While the binary behavior is clearly aimed at kernel manipulation, the ultimate payload goal (e.g., data exfiltration vs. system disruption) remains obscured due to the complexity of the kernel patches performed at runtime.",
+    "conditions": "The primary malicious payload is gated by environment checks (GetVersionExA) and requires administrative/SYSTEM privileges to succeed in patching kernel-mode structures. It uses specific Mutex checks ('prkMtx') to prevent multiple instances from running simultaneously.",
+    "sandbox_recommendations": "Run in a kernel-mode debugger-capable environment (e.g., WinDbg). Use a 32-bit Windows environment. Ensure the sample has sufficient privileges (Run as Administrator) to trigger the kernel modification routines."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\DMWI",
+          "description": "Registry key used for persistence or service configuration."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used to ensure single-instance execution."
+        },
+        {
+          "value": "win32k.sys",
+          "description": "System driver targeted for modification."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Performs critical modifications to the kernel service table."
+    },
+    {
+      "address": "0x10009d28",
+      "name": "fcn.10009d28",
+      "description": "Maps kernel modules into memory to perform function hooking/patching."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Resource extraction and process spawning routine."
+    }
+  ]
+}

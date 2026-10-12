@@ -1,0 +1,89 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The file contains functionality for system-wide service hooking, persistence via registry keys, and file system manipulation. It dynamically resolves sensitive system APIs (e.g., NtShutdownSystem, NtQuerySystemInformation, NtQueryObject) from ntdll.dll to perform low-level kernel-mode system manipulations and anti-analysis checks. The presence of internal references to 'prkMtx' and 'lsass' strongly indicates an attempt to interact with protected system processes.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource encryption",
+      "Dynamic API resolution",
+      "String obfuscation"
+    ],
+    "details": "The file uses FindResource/LoadResource to access encrypted data in resources. It uses XOR loops with a key of 0xCD for decoding payload components."
+  },
+  "capabilities": [
+    {
+      "name": "Process/Registry Persistence",
+      "description": "Uses RegCreateKeyExA and RegSetValueExA to ensure the binary runs across reboots."
+    },
+    {
+      "name": "System API Hooking/Manipulation",
+      "description": "Resolves and calls ntdll functions (NtShutdownSystem, NtQuerySystemInformation) to potentially manipulate system behavior or evade monitoring."
+    },
+    {
+      "name": "Process Injection/Enumeration",
+      "description": "Attempts to interact with LSASS and other system processes by manipulating handles and mutexes."
+    },
+    {
+      "name": "File System Modification",
+      "description": "Copies and moves files to system directories; hides its footprint by setting file attributes."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent API usage (NtQuerySystemInformation, NtQueryObject, NtShutdownSystem), direct interaction with system internal components (e.g., KeServiceDescriptorTable), and the attempt to inject or hook into processes like 'lsass' makes this malicious. Benign software installers do not need to resolve internal kernel-mode structures or use mutexes labeled 'prkMtx' (often associated with rootkit-like mutexes).",
+    "general": "High-intent evidence is found in fcn.1000ab6f and fcn.1000b46f, which resolve and attempt to manipulate kernel service tables via NtQuerySystemInformation and similar calls. The code directly references 'lsass' (fcn.100017a0) and utilizes RegSetValueExA to modify persistence registry entries. The use of 'prkMtx' in fcn.1000753a for a mutex suggests it is trying to ensure only one instance of its malicious kernel-modifying logic is active.",
+    "uncertainties": "The exact nature of the encrypted payload in the resource section remains partially obfuscated, but the loading and execution flow is clearly defined in the analyzed functions.",
+    "conditions": "The file requires specific environmental setup, potentially needing to be run with high privileges (as it attempts to modify kernel-related structures) and possibly in a system where certain registry keys or environment variables exist (checked in fcn.1000103b).",
+    "sandbox_recommendations": "Run in an environment with monitoring enabled for registry modifications and low-level kernel API calls. Ensure system integrity check monitoring is active."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Persistence registry key"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "C:\\Windows\\system32\\win32k.sys",
+          "description": "Path accessed by system manipulation functions"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for synchronization"
+        },
+        {
+          "value": "lsass",
+          "description": "Target system process"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Core handler for manipulating kernel-level service tables."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Handles persistence and LSASS-related registry operations."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Main routine for service enumeration and environment checks."
+    }
+  ]
+}

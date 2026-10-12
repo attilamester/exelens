@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to inject malicious code into system processes (lsass.exe, system32) and manipulate kernel structures via undocumented functions. It utilizes resource-based payload storage and implements anti-analysis techniques.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource-based payload storage",
+      "Dynamic API resolution via GetProcAddress",
+      "XOR obfuscation of data/resources"
+    ],
+    "details": "The file contains encrypted/obfuscated resources that are loaded at runtime using FindResourceA, LoadResource, and LockResource. Routines such as fcn.10001697 perform XOR-based decryption (using 0xcd as a key) before executing the payload."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/System Manipulation",
+      "description": "Utilizes CreateProcessA, OpenProcess, and WriteProcessMemory-like functionality to target system processes including lsass.exe."
+    },
+    {
+      "name": "Persistence Mechanism",
+      "description": "Modifies Registry Run keys using RegCreateKeyExA and RegSetValueExA."
+    },
+    {
+      "name": "Anti-Analysis and Evasion",
+      "description": "Checks for debugger presence and uses mutexes (e.g., GlobalRPCMutex, prkMtx) to prevent multiple instances or sandbox interference."
+    },
+    {
+      "name": "Kernel-Level Manipulation",
+      "description": "Attempts to interact with kernel structures (KeServiceDescriptorTable) via system calls and specific driver-like structures."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent malicious actions—specifically targeting the LSASS process, performing registry-based persistence, and manipulating kernel-level tables—cannot be attributed to a benign installer. These are classic indicators of a rootkit/trojan installer designed to gain system-level control.",
+    "general": "High-intent evidence includes targeting 'lsass' (fcn.100017a0), modifying service tables (fcn.1000ab6f), and the use of 'int 2e' for system calls (fcn.1000b46f). The payload decryption (XOR 0xcd in fcn.10001697) confirms active efforts to evade static analysis.",
+    "uncertainties": "While the kernel-level code patterns are clear, some specific configuration data is dynamically decrypted, meaning we only see the loaders, not the full final payload functionality.",
+    "conditions": "The malware requires an environment that matches its hardcoded registry check and mutex expectations. It specifically looks for 'system32' path configurations and checks for specific environment variables.",
+    "sandbox_recommendations": "Run in an environment that intercepts file system and registry API calls. Simulate the presence of a target system process (lsass.exe) and use a tool to monitor registry mutations. Do not run with a debugger attached."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\Lsa",
+          "description": "Registry key targeted for modification"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for process synchronization"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for system-wide synchronization"
+        },
+        {
+          "value": "lsass",
+          "description": "Target process name"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Injects or manipulates target process (lsass.exe)."
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Attempts to modify KeServiceDescriptorTable (kernel-level rootkit activity)."
+    },
+    {
+      "address": "0x10001697",
+      "name": "fcn.10001697",
+      "description": "Decryption routine for the hidden payload."
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains sophisticated logic for interacting with kernel objects, performing direct system call-like operations (int 2e), and potentially modifying kernel-mode structures such as the System Service Descriptor Table (SSDT). It uses obfuscated resource sections, dynamic API resolution via GetProcAddress and LoadLibrary to hide its malicious capabilities, and implements persistence mechanisms by installing itself as a service/driver by name.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource-based payload hiding",
+      "Dynamic API resolution",
+      "XOR-based obfuscation"
+    ],
+    "details": "The file uses FindResourceA/LoadResource to access hidden data in RCDATA (resource 102). Decryption is performed using simple XOR loops (0xcd, 0x3d, etc.) on memory-resident data before execution or usage."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Uses SSDT patching techniques (KeServiceDescriptorTable) and direct interrupts (int 0x2e) to bypass system security."
+    },
+    {
+      "name": "Persistence",
+      "description": "Registers services and modifies registry keys (Run keys) to ensure execution across reboots."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Checks for debugger presence and specific environment artifacts; uses obfuscated code to thwart static analysis."
+    },
+    {
+      "name": "Process Injection/Creation",
+      "description": "Creates processes and potentially performs process hollowing or injection via CreateProcessA/CopyFileA."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of SSDT hooking, manual kernel-mode structure manipulation, and the deliberate use of 'int 0x2e' to trigger syscalls clearly indicates a malicious Rootkit-level intent. While individual functions like GetProcAddress are dual-use, the context in which they are used (to resolve undocumented kernel functions like NtQuerySystemInformation or SSDT-related symbols) confirms a high-intent malicious payload designed to compromise system integrity.",
+    "general": "The function fcn.1000b369 performs SSDT (System Service Descriptor Table) hooking by searching for KeServiceDescriptorTable and modifying system service pointers. The use of int 0x2e in functions like fcn.1000b46f indicates direct kernel interaction. fcn.1000788e actively interacts with security tokens and registry values associated with user permissions.",
+    "uncertainties": "The obfuscation of strings and data makes it difficult to recover specific hardcoded C2 server addresses or URLs without dynamic emulation, although the structure suggests a modular backdoor or downloader architecture.",
+    "conditions": "The malware checks for environmental variables and specific file existence (system32/win32k.sys or similar) to verify if it is running in a target environment. Detonation requires specific registry keys to be present for the payload to fully unpack.",
+    "sandbox_recommendations": "Simulate a full Windows environment. The sample requires specific registry structures to be present in HKLM/SYSTEM to proceed past its initialization checks. It should be monitored for file system modification (driver loading) and unauthorized registry persistence attempts."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for process synchronization and single-instance checks."
+        },
+        {
+          "value": "lsass",
+          "description": "Potential target process or registry key path name."
+        },
+        {
+          "value": "KeServiceDescriptorTable",
+          "description": "Symbol indicating kernel structure modification."
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\",
+          "description": "Registry path used for persistence."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Core engine for SSDT hooking and kernel-mode service modification."
+    },
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Handles system calls using direct interrupts and registry manipulation for persistence."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Handles token manipulation and account permission enumeration."
+    }
+  ]
+}

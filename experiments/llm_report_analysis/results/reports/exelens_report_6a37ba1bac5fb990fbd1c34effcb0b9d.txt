@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable acts as a downloader/dropper that performs system reconnaissance (NIC MAC address, registry-based CPU identification) and communicates with a remote C2 via HTTP to retrieve and potentially execute payloads. It also maintains persistence via the 'RunOnce' registry key.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Custom string obfuscation via XOR",
+      "Dynamic API resolution (GetProcAddress)"
+    ],
+    "details": "The file contains a large overlay with high entropy (7.09) and utilizes custom XOR-based string decryption routines (fcn.00401280) to hide C2 URLs, registry paths, and filenames."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Registers itself to run at startup via SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce"
+    },
+    {
+      "name": "Data Exfiltration / C2 Communication",
+      "description": "Uses WinInet APIs (HttpSendRequestA) to send POST requests and read remote content."
+    },
+    {
+      "name": "System Reconnaissance",
+      "description": "Collects network adapter info (GetAdaptersInfo) and processor identifiers from the registry."
+    },
+    {
+      "name": "File Execution/Dropper",
+      "description": "Capable of creating, writing, and deleting local files; uses CreateProcess-like techniques via dynamic resolution."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistence mechanisms, environmental reconnaissance (MAC/CPU), and network-based payload retrieval strongly indicates malicious intent. The binary's pattern of gathering system info, sending it to an external server, and subsequently writing/executing received content is characteristic of a remote access trojan or downloader.",
+    "general": "fcn.00401000 uses HttpSendRequestA to communicate with a remote host. fcn.00401400 interacts with the RunOnce registry key. Reconnaissance data is processed by iphlpapi.dll and registry queries in fcn.00401a10.",
+    "uncertainties": "The exact nature of the payload retrieved from the C2 is unknown as it depends on runtime network responses, which are not present in the static analysis.",
+    "conditions": "Execution is gated by environment checks including a mutex check (to ensure single instance) and potentially timing loops (Sleep) to evade sandbox analysis.",
+    "sandbox_recommendations": "Simulate network responses from the C2 server (or intercept HTTP traffic), ensure internet connectivity for the sample, and use a monitor to track file creation in the temp directory."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce",
+          "description": "Persistence key"
+        },
+        {
+          "value": "HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0",
+          "description": "CPU identification path"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "POST",
+          "description": "HTTP request method used for C2 communication"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401000",
+      "name": "fcn.00401000",
+      "description": "Handles C2 HTTP communications via WinInet."
+    },
+    {
+      "address": "0x00401400",
+      "name": "fcn.00401400",
+      "description": "Performs persistence by adding the application to the RunOnce registry key."
+    },
+    {
+      "address": "0x00401a10",
+      "name": "fcn.00401a10",
+      "description": "Performs system reconnaissance including adapter and processor information."
+    }
+  ]
+}

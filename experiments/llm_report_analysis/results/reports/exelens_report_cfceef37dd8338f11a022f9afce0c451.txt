@@ -1,0 +1,75 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample demonstrates clear behavior of a modular backdoor. It interacts with the Windows Registry to persist or configure behavior, monitors running processes (Process32FirstW/NextW), and likely communicates with a C2 server via WinInet APIs. It includes custom XOR-based obfuscation routines and dynamically loads system DLLs to resolve functional components, indicating a multi-stage execution model.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR obfuscation/encryption loops",
+      "Dynamic API resolution"
+    ],
+    "details": "The binary exhibits high entropy in the .text section and contains multiple functions involving byte-wise XOR operations (e.g., fcn.1000287e) combined with heap-based allocation of unpacked code blocks. Many API addresses are resolved at runtime via GetProcAddress."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Enumeration",
+      "description": "Uses Process32FirstW/NextW to enumerate running processes, likely to identify injection targets or anti-analysis tools."
+    },
+    {
+      "name": "Registry Manipulation",
+      "description": "Extensive use of Windows Registry APIs (RegSetValueExA, RegCreateKeyExA equivalents via wrapper functions like fcn.10003f2e) to modify Internet Explorer settings or persist."
+    },
+    {
+      "name": "Networking",
+      "description": "Imports WinInet functions; code references User-Agent strings (e.g., Chrome/Safari) and connection strings for HTTP/Keep-Alive."
+    },
+    {
+      "name": "Persistence",
+      "description": "Functions interact with Registry keys related to Internet Explorer and system configuration, typical for persistent malware."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of process enumeration (Process32), persistence via registry key manipulation (Internet Explorer settings), and the presence of networking capabilities (WinInet) strongly points to a malicious backdoor. The use of custom decryption routines and dynamic library loading is a clear evasion attempt typical of advanced malware, distinguishing it from legitimate software protectors which usually have identifiable digital signatures or well-known packers.",
+    "general": "Evidence is found in fcn.100054a0 (process listing), fcn.10003f2e and fcn.10003695 (registry modification targeting IE configuration), and fcn.100018bb (HTTP communication setup using hardcoded User-Agents).",
+    "uncertainties": "While the C2 address is not explicitly hardcoded in the analyzed functions, it is likely stored in the encrypted configuration block accessed by the networking functions.",
+    "conditions": "The malware requires an Internet-connected environment and likely checks for specific Registry values (Internet Explorer configuration) to determine the next stage of its C2 communication.",
+    "sandbox_recommendations": "Detonate in an environment with internet connectivity (or a faked internet response) and monitor for network traffic to unusual domains. Utilize a monitoring tool to capture registry changes made to 'Software\\Microsoft\\Internet Explorer\\InternetRegistry'."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Internet Explorer\\InternetRegistry",
+          "description": "Registry key modified for configuration or persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "Mozilla/5.0 (Windows; U; Windows NT 6.1; en-US) AppleWebKit/525.19 (KHTML, like Gecko) Chrome/1.0.154.36 Safari/525.19",
+          "description": "User-Agent string used for C2 communication."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100054a0",
+      "name": "fcn.100054a0",
+      "description": "Enumerate processes using Process32FirstW/NextW."
+    },
+    {
+      "address": "0x10003f2e",
+      "name": "fcn.10003f2e",
+      "description": "Registry interaction function used to modify IE settings."
+    },
+    {
+      "address": "0x100018bb",
+      "name": "fcn.100018bb",
+      "description": "Networking setup involving HTTP header creation and network requests."
+    }
+  ]
+}

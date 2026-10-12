@@ -1,0 +1,77 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to create a persistent environment variable (jkeyskw.temp) and a registry key, while communicating with an internal DLL (Uploader.dll). It uses heap manipulation and potentially decrypts/deobfuscates payloads to establish persistence and perform file I/O operations.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation",
+      "Dynamic API resolution (GetProcAddress)",
+      "TLS callback usage",
+      "Function pointers decoded at runtime"
+    ],
+    "details": "The sample uses a series of decoding routines (e.g., fcn.10002e1b, fcn.10003d40) to resolve API addresses and decrypt data. The .data section entropy is high (7.66), indicating packed or encrypted data stored in the binary."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Writes to the Windows Registry and creates environment variables to maintain state between reboots."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Uses CreateFileW, ReadFile, and WriteFile to create and manipulate files, specifically in temporary directories."
+    },
+    {
+      "name": "Process Injection/Hooking",
+      "description": "Uses EncodePointer/DecodePointer and potentially hooks system API functions via internal tables to evade detection."
+    },
+    {
+      "name": "Anti-Debugging",
+      "description": "Contains IsDebuggerPresent checks and exception handling routines (UnhandledExceptionFilter) to detect and crash if a debugger is attached."
+    }
+  ],
+  "details": {
+    "reasoning": "While the binary exhibits dual-use capabilities like memory allocation and registry access, the combination of these features (specifically the creation of 'jkeyskw.temp', the use of 'Uploader.dll', and the deliberate anti-debugging/anti-analysis logic) indicates malicious intent consistent with downloader or modular malware. The file actively hides its configuration in environment variables and registry keys, which is classic behavior for persistence modules.",
+    "general": "High-intent evidence includes the use of CreateMutexA for single-instance control (fcn.100011ae), persistent registry modification via RegSetValueExW (fcn.100012cf), and complex dynamic API resolution (fcn.10004610) which bypasses standard import visibility.",
+    "uncertainties": "The exact function of the encrypted/packed payload in the .data section remains partially obscured, though the loader routines (fcn.100021bb, fcn.10004099) confirm it initiates execution of external code.",
+    "conditions": "The malware requires environment-based configuration; specifically, it checks for and writes to the 'jkeyskw.temp' environment variable. Execution may fail if these conditions are not met or if a debugger is detected.",
+    "sandbox_recommendations": "Simulate a standard Windows environment, ensure the user has sufficient permissions to modify HKCU/Run keys, and monitor for file creation in the temporary directory. Set the system time to present date."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKCU\\Software\\Uploader\\",
+          "description": "Registry key path utilized for storing persistence data."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "%TEMP%\\jkeyskw.temp",
+          "description": "File path referenced in environment variables for temporary storage."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100012cf",
+      "name": "fcn.100012cf",
+      "description": "Handles registry key creation and configuration storage."
+    },
+    {
+      "address": "0x100011ae",
+      "name": "fcn.100011ae",
+      "description": "Checks for existing mutex and initializes file/environment persistence."
+    },
+    {
+      "address": "0x10004b77",
+      "name": "fcn.10004b77",
+      "description": "Complex logic handling core payload execution flow."
+    }
+  ]
+}

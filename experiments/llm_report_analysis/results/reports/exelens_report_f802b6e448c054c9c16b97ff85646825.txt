@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable acts as a downloader/dropper and remote administration tool. It connects to a hardcoded IP address (66.155.114.145) to retrieve files or commands, executes them (often via 'cmd.exe' or 'Google.exe'), manages processes, and includes self-deletion routines via shell commands.",
+  "packed": {
+    "status": false,
+    "techniques": [],
+    "details": "The file is not packed; the code logic is visible and directly invokes Windows APIs for networking and process control."
+  },
+  "capabilities": [
+    {
+      "name": "Network Communication",
+      "description": "Utilizes WININET.dll to connect to a remote server, send HTTP requests, and download content."
+    },
+    {
+      "name": "Process Injection/Management",
+      "description": "Uses CreateProcessA, TerminateProcess, and CreateToolhelp32Snapshot to list, monitor, and kill system processes."
+    },
+    {
+      "name": "Persistence/Self-Deletion",
+      "description": "Contains routines to delete its own binary using shell commands and environment variable manipulation."
+    },
+    {
+      "name": "Data Encoding",
+      "description": "Implements base64-like encoding/decoding functions for obfuscating communication with the remote server."
+    }
+  ],
+  "details": {
+    "reasoning": "The application exhibits clear malicious intent through the combination of remote C2 communication (WININET.dll), process termination capabilities (fcn.0040142f), and file downloading/execution patterns. The presence of 'Google.exe' masquerading in the temp directory and the active killing of processes strongly indicate a Trojan/Backdoor functionality, moving it beyond dual-use.",
+    "general": "Evidence includes the connection to '66.155.114.145' using HttpSendRequest (fcn.00401b39), logic for terminating processes (fcn.0040142f) triggered by remote command input, and the use of 'ShellExecuteExA' for self-deletion routines (fcn.004023f8).",
+    "uncertainties": "While the C2 server is hardcoded, it is unreachable without network simulation; the functionality is inferred from string constants like 'KillProcess_Success' and 'Getfile_success'.",
+    "conditions": "Execution requires an active network connection to '66.155.114.145'. The sample expects specific commands (e.g., 'list', 'kill', 'd.exe', 'cmd.exe') via HTTP responses to trigger the backend payloads.",
+    "sandbox_recommendations": "Use a network simulator (e.g., INetSim) to intercept the C2 connection. Respond to requests with crafted HTTP content containing command strings like 'list' or 'd.exe' to observe the malware's parsing and execution logic."
+  },
+  "ioc": [
+    {
+      "type": "ip",
+      "values": [
+        {
+          "value": "66.155.114.145",
+          "description": "Hardcoded C2 server address."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "Google.exe",
+          "description": "File name used for dropping malicious components into temp directories."
+        },
+        {
+          "value": "/c del",
+          "description": "Shell command used for self-deletion."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401b39",
+      "name": "fcn.00401b39",
+      "description": "Main C2 communication function using WININET.dll."
+    },
+    {
+      "address": "0x0040142f",
+      "name": "fcn.0040142f",
+      "description": "Process monitoring and termination logic."
+    },
+    {
+      "address": "0x004023f8",
+      "name": "fcn.004023f8",
+      "description": "Persistence and self-deletion cleanup routine."
+    }
+  ]
+}

@@ -1,0 +1,74 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable modifies the Windows registry to force explorer.exe to run as a 'DesktopProcess' and potentially perform unauthorized file operations, exhibiting behavior consistent with persistence and system-level configuration tampering.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Overlay storage",
+      "Dynamic API resolution"
+    ],
+    "details": "The file contains a 912-byte overlay with high entropy (6.97), and the code resolves imports like 'ExpandEnvironmentStringsA' at runtime using GetProcAddress, suggesting an attempt to hide capabilities."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence via Registry Modification",
+      "description": "Modifies 'SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer' to set 'DesktopProcess', which can force explorer.exe to run in a separate process space."
+    },
+    {
+      "name": "Process Execution",
+      "description": "Uses WinExec to launch 'explorer.exe' after modifying registry keys."
+    },
+    {
+      "name": "Dynamic API Resolution",
+      "description": "Uses GetModuleHandleA and GetProcAddress to resolve internal functions, likely to obfuscate behavior."
+    },
+    {
+      "name": "File Manipulation",
+      "description": "Uses MoveFileA, possibly to drop or relocate payload components."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistent registry modifications (DesktopProcess) and the use of WinExec to restart a critical system process (explorer.exe) demonstrates a clear malicious intent to hijack system behavior. This goes beyond standard installer behavior by specifically targeting Windows Explorer configuration.",
+    "general": "Evidence is found in fcn.00401000, which calls RegOpenKeyExA and RegSetValueExA on the 'SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer' registry key to modify 'DesktopProcess'. This is followed by the use of KERNEL32.dll_WinExec to execute 'explorer.exe' in the modified environment.",
+    "uncertainties": "The exact contents of the high-entropy overlay are not visible, meaning secondary payloads or configurations may be present that were not fully analyzed.",
+    "conditions": "The sample attempts to run its primary logic immediately after standard CRT initialization. No specific arguments were identified in the analysis.",
+    "sandbox_recommendations": "Monitor registry modification attempts under HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer and track processes spawned by WinExec."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer",
+          "description": "Target registry key for persistence"
+        },
+        {
+          "value": "DesktopProcess",
+          "description": "Registry value modified to alter explorer.exe behavior"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "explorer.exe",
+          "description": "System process targeted for modification"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401000",
+      "name": "fcn.00401000",
+      "description": "Handles the malicious registry modifications for system persistence."
+    },
+    {
+      "address": "0x00401100",
+      "name": "main",
+      "description": "Orchestrates the program execution, including environment checks and system manipulation."
+    }
+  ]
+}

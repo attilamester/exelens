@@ -1,0 +1,72 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a downloader. It initializes networking via WinINet, queries a remote server, downloads a binary payload to the temporary directory, and executes it using ShellExecuteExA after setting process priority.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed; the logic flow is clearly visible, including custom Base64-like encoding and RC4-style initialization routines."
+  },
+  "capabilities": [
+    {
+      "name": "Networking (Downloader)",
+      "description": "Utilizes WinINet (InternetOpenA, HttpOpenRequestA, HttpSendRequestA) to connect to a remote server and download data."
+    },
+    {
+      "name": "Process Execution",
+      "description": "Uses ShellExecuteExA to launch downloaded files."
+    },
+    {
+      "name": "Anti-Analysis/Evasion",
+      "description": "Uses loops of Sleep calls to delay execution and evades simple sandboxes."
+    },
+    {
+      "name": "Custom Data Encoding",
+      "description": "Implements custom Base64-like and RC4-like key-schedule algorithms (fcn.0040155b, fcn.00405470) to obfuscate data."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of downloading a file from a URL, saving it to the %TEMP% directory, and executing it using ShellExecuteExA is a classic downloader behavior. The presence of RC4-like and Base64-like routines for processing strings and data buffers is typical of malware used to obfuscate C2 communication and payload delivery.",
+    "general": "High-intent is confirmed by the combination of InternetReadFile and CreateFileA to drop a new .exe file, followed by ShellExecuteExA in fcn.00404e7f, and finally the priority manipulation via SetPriorityClass/SetThreadPriority.",
+    "uncertainties": "No specific C2 URL was found directly in the code (it appears dynamically resolved or passed), but the behavior is conclusive regardless.",
+    "conditions": "The malware uses command line parsing and expects to be called in a specific context. It also has internal delay mechanisms (Sleep) to avoid immediate analysis.",
+    "sandbox_recommendations": "Use a sandbox that supports network simulation (e.g., INetSim) to provide a mock response for the HTTP GET request. The sandbox must monitor process creation (ShellExecuteExA) and file writing to the TEMP folder."
+  },
+  "ioc": [
+    {
+      "type": "domain",
+      "values": [
+        {
+          "value": "zh.lksoftvc.net",
+          "description": "C2 server domain"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "%TEMP%\\*.exe",
+          "description": "Downloaded payload location"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00404445",
+      "name": "fcn.00404445",
+      "description": "Core downloader function using WinINet to perform the HTTP request."
+    },
+    {
+      "address": "0x00404e7f",
+      "name": "fcn.00404e7f",
+      "description": "Payload execution via ShellExecuteExA."
+    },
+    {
+      "address": "0x0040155b",
+      "name": "fcn.0040155b",
+      "description": "RC4-style key scheduling and stream generation."
+    }
+  ]
+}

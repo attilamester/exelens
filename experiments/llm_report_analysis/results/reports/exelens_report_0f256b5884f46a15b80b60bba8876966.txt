@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality consistent with a kernel-mode rootkit component or a sophisticated installer designed to modify low-level system structures. It utilizes process hollowing, registry persistence, and attempts to hook system calls (e.g., KeServiceDescriptorTable modifications).",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation (0xcd, 0xcd)",
+      "Dynamic API resolution",
+      "Resource-based payload extraction"
+    ],
+    "details": "The file uses custom XOR loops (e.g., in fcn.100015f7 and fcn.10001723) to obfuscate resources (ID 101, 102) and registry values. Functions like fcn.100075ee and fcn.100075ce perform data transformation routines. The code is not fully packed but relies on heavy obfuscation and dynamic loading of sensitive symbols."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode Rootkit capability",
+      "description": "Attempts to locate and modify kernel structures like KeServiceDescriptorTable to hook system calls."
+    },
+    {
+      "name": "Process Injection/Hollowing",
+      "description": "Uses CreateProcessA followed by WriteProcessMemory/CreateRemoteThread patterns to inject code into other processes."
+    },
+    {
+      "name": "Persistence",
+      "description": "Manipulates registry keys (Run keys) and installs services to ensure re-execution."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Uses IsDebuggerPresent and mutex checks to evade sandboxes."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent indicators (registry modifications, Service Descriptor Table hooking, process creation with hollowing-like patterns) definitively points to malicious activity. The code explicitly attempts to resolve kernel-level symbols (KeServiceDescriptorTable, KeAddSystemServiceTable) and perform direct memory modification in target processes, exceeding the scope of a legitimate installer.",
+    "general": "High-intent evidence includes calls to ADVAPI32.dll_RegSetValueExA for persistence, fcn.1000ab6f which attempts to locate KeServiceDescriptorTable, and fcn.1000b46f, which performs direct memory writing to hook functions. The usage of nt-related function names (KeRaiseIrqlToDpcLevel) confirms intent to operate at high privilege levels.",
+    "uncertainties": "While the kernel-level hooks are targeted at specific versions, the exact impact on all Windows versions is not fully determinable from static analysis. The file structure is complex with interleaved data and code which might cause minor discrepancies in functional flow analysis.",
+    "conditions": "The malware checks for administrative privileges via fcn.100071d7 and requires execution in an environment where registry and process manipulation are permitted. It uses a GlobalRPCMutex to ensure only one instance is running.",
+    "sandbox_recommendations": "Run with administrative privileges. Monitor registry activity in HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run. Monitor calls to KeServiceDescriptorTable and verify thread creation in system processes."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Primary persistence location"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for process synchronization"
+        },
+        {
+          "value": "lsass",
+          "description": "Targeted process for manipulation"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Performs system call hooking by modifying the Service Descriptor Table."
+    },
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Coordinates payload execution and registry persistence."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Handles process creation and initial resource dumping."
+    }
+  ]
+}

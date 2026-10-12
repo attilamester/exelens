@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a credential stealer, specifically targeting stored credentials from browsers (Firefox, Opera), email clients (Thunderbird), and FTP clients (WinSCP, SmartFTP). It collects system information, captures environment variables, and exfiltrates data via HTTP requests to a hardcoded remote server.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "String obfuscation",
+      "Dynamic API resolution",
+      "Function pointers/Call-stack masking"
+    ],
+    "details": "The sample uses a multi-layered structure with various helper functions (fcn.0040eade, fcn.0040bcae) likely involved in deobfuscating strings and system API paths at runtime. It imports common crypto APIs to handle data protection."
+  },
+  "capabilities": [
+    {
+      "name": "Credential Theft",
+      "description": "Accesses and decrypts browser (Opera/Firefox) and FTP (WinSCP) credentials using system crypto functions."
+    },
+    {
+      "name": "System Reconnaissance",
+      "description": "Collects system information, computer name, username, display settings, and network configuration."
+    },
+    {
+      "name": "Data Exfiltration",
+      "description": "Sends collected information via HTTP POST requests to a hardcoded URL (http://82.146.51.22/dir.php)."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Contains checks for debuggers (IsDebuggerPresent) and VM environments (via registry or timing checks)."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of specific credential-harvesting code targeting known applications (WinSCP, Firefox, Opera, Thunderbird) and the exfiltration of this data to a remote server (82.146.51.22) confirms malicious intent. The dual-use nature of crypto functions (CryptUnprotectData) is mitigated by the fact that they are used here explicitly to decrypt stored user credentials.",
+    "general": "The function fcn.00403b3d and fcn.00409b2c iterate through browser profile directories to extract login data. fcn.0040da3b specifically constructs an HTTP request string containing the IP and directory structure, targeting 82.146.51.22.",
+    "uncertainties": "The obfuscation makes it difficult to determine if all exfiltrated data is accounted for, or if there is secondary payload functionality.",
+    "conditions": "The execution triggers automatically on start, though it performs environmental checks and registry queries. If specific browser profiles or configuration files (e.g., prefs.js) are absent, some data-theft modules may terminate early.",
+    "sandbox_recommendations": "Simulate a realistic Windows environment with installed browsers (Firefox/Opera) and at least one saved credential to observe the full exfiltration flow. Redirect outgoing traffic to a controlled listener to capture exfiltrated data."
+  },
+  "ioc": [
+    {
+      "type": "url",
+      "values": [
+        {
+          "value": "http://82.146.51.22/dir.php",
+          "description": "Remote C2 server address used for exfiltration."
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Martin Prikryl\\WinSCP 2\\Sessions",
+          "description": "WinSCP registry key targeted for credential theft."
+        },
+        {
+          "value": "Software\\Skype\\ProtectedStorage",
+          "description": "Skype registry key targeted for credential theft."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00409b2c",
+      "name": "fcn.00409b2c",
+      "description": "Handles decryption and extraction of Skype credentials from registry."
+    },
+    {
+      "address": "0x00403b3d",
+      "name": "fcn.00403b3d",
+      "description": "Handles exfiltration logic for harvested credentials."
+    },
+    {
+      "address": "0x0040da3b",
+      "name": "fcn.0040da3b",
+      "description": "Primary network communication handler that performs the HTTP POST."
+    }
+  ]
+}

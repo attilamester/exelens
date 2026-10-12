@@ -1,0 +1,89 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample exhibits capabilities of a kernel-mode rootkit loader. It attempts to bypass kernel integrity protections (e.g., modifying KeServiceDescriptorTable), interacts with system-critical files, modifies registry values to achieve persistence, and communicates with kernel drivers or system processes.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation of resources",
+      "Dynamic API resolution (GetProcAddress)",
+      "Dynamic loading of libraries"
+    ],
+    "details": "Resources are XORed with 0xcd. The sample dynamically resolves numerous APIs from ntdll.dll and other system libraries at runtime to hinder static analysis."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Modifies registry keys (e.g., RegSetValueExA, RegCreateKeyExA) to maintain execution."
+    },
+    {
+      "name": "Privilege Escalation / Rootkit",
+      "description": "Manipulates kernel structures (KeServiceDescriptorTable) and attempts to load/modify kernel-mode drivers (system32/win32k.sys)."
+    },
+    {
+      "name": "Process Injection / Hollowing",
+      "description": "Creates processes and modifies their memory (CreateProcessA, WriteProcessMemory-like behavior observed in resource handlers)."
+    },
+    {
+      "name": "File System Modification",
+      "description": "Creates, modifies, and deletes system files (CopyFileA, DeleteFileA, SetFileAttributesA)."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode manipulation techniques (modifying KeServiceDescriptorTable), registry-based persistence, and the targetting of system-critical files like 'win32k.sys' strongly indicates malicious intent. While individual APIs like VirtualAlloc or CreateMutex are dual-use, their usage within this context for rootkit-like kernel patching demonstrates malicious functionality rather than legitimate protection.",
+    "general": "High-intent indicators: RVA 0x1000ab6f performs KeServiceDescriptorTable patching. RVA 0x1000a0fc attempts to overwrite 'win32k.sys'. RVA 0x1000788e performs complex security token manipulation typical of privilege escalation.",
+    "uncertainties": "The truncated analysis of large functions may hide specific command-and-control logic or encryption keys, but the core malicious behavior of kernel-level subversion is evident.",
+    "conditions": "Requires administrative or SYSTEM-level privileges to perform kernel-mode operations. It checks for specific environments via GetEnvironmentVariable and likely requires a specific OS version (GetVersionExA) to apply patches successfully.",
+    "sandbox_recommendations": "Run in an isolated kernel-mode-enabled sandbox. Monitor registry changes at 'HKLM\\SYSTEM\\CurrentControlSet\\Services' and kernel-mode API calls. Use a virtualized Windows environment with kernel debugging enabled."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Targeted for persistence."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "system32/win32k.sys",
+          "description": "System file targetted for modification."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for process synchronization/locking."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Additional mutex used by the process."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Performs kernel integrity bypass via SSDT patching."
+    },
+    {
+      "address": "0x1000a0fc",
+      "name": "fcn.1000a0fc",
+      "description": "Writes to system files, likely performing driver hijacking."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Performs complex security descriptor and token manipulation for privilege escalation."
+    }
+  ]
+}

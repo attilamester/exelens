@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains code designed to perform kernel-level modifications, including manipulation of the system service descriptor table (SSDT), and includes functionality to copy and modify system files (e.g., win32k.sys, ntkrnlpa.exe). It uses mutexes to ensure single instance execution and performs environment checks to evade analysis.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation",
+      "Resource-based payload hiding"
+    ],
+    "details": "The file uses resources (e.g., 0x65, 0x66) to store encrypted payloads, which are decrypted using XOR routines (e.g., 0xcd constant) and mapped into memory."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Attempts to interact with KeServiceDescriptorTable and modify system kernel structures."
+    },
+    {
+      "name": "System File Modification",
+      "description": "Uses CopyFile and UpdateResource on system files like ntkrnlpa.exe and win32k.sys."
+    },
+    {
+      "name": "Persistence/Registry Manipulation",
+      "description": "Modifies system registry keys to ensure execution."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Includes mutex checks and environment variable checks to prevent execution in a sandbox."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level hooking (SSDT modification), tampering with critical system files, and the use of obfuscated resources indicates malicious intent, specifically consistent with kernel-mode rootkit behavior.",
+    "general": "High-intent evidence includes functions like fcn.1000b369 (manipulating KeServiceDescriptorTable) and fcn.100017a0 (modifying system files), which are not characteristic of standard installers or legitimate protectors.",
+    "uncertainties": "The exact nature of the final payload depends on decrypted resources, but the loader logic itself is clearly malicious.",
+    "conditions": "Execution likely requires elevated administrative privileges to modify kernel structures and system files.",
+    "sandbox_recommendations": "Use a kernel-mode debugger, monitor registry operations, and log file system modifications on critical system paths (C:\\Windows\\System32)."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\lsass",
+          "description": "Potential persistence registry key"
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Used for single instance check"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Process synchronization mutex"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Performs SSDT hooking/patching"
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Modifies and updates system resources/files"
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Creates persistence processes"
+    }
+  ]
+}

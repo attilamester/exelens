@@ -1,0 +1,72 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample is a kernel-mode driver (importing functions from HAL.dll and ntoskrnl.exe) that performs system service hooking by modifying protected kernel memory via MDL mapping. It hooks NtDeviceIoControlFile and NtSetQuotaInformationFile to intercept I/O and perform direct modification of kernel structures, indicating a rootkit-like intent.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Dynamic API resolution",
+      "Manual function patching in kernel memory",
+      "Inline hooking (JMP hijacking)"
+    ],
+    "details": "The sample performs manual I/O operation hooking at runtime by locating function pointers and overwriting code with JMP instructions. It uses MmMapLockedPagesSpecifyCache to gain write access to kernel code sections."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode I/O Hooking",
+      "description": "Hooks NtDeviceIoControlFile and NtSetQuotaInformationFile to intercept system operations."
+    },
+    {
+      "name": "Memory Manipulation",
+      "description": "Maps kernel memory pages into a writable state using MDLs to patch live kernel code."
+    },
+    {
+      "name": "System Information Querying",
+      "description": "Uses ZwQuerySystemInformation to enumerate processes/modules, typical for hidden activity or detection."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Utilizes KeBugCheckEx to trigger a BSOD (Blue Screen of Death) if integrity checks or specific conditions fail."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode operation, direct modification of system function pointers via KeRaiseIrqlToDpcLevel, and deliberate overwriting of kernel-mode functions (NtDeviceIoControlFile, NtSetQuotaInformationFile) strongly indicates a rootkit behavior. The presence of integrity-check logic (KeBugCheckEx) and manual patch-point scanning (fcn.00010c48) is not characteristic of standard drivers.",
+    "general": "High-intent indicators include: the use of MmBuildMdlForNonPagedPool combined with MmMapLockedPagesSpecifyCache to modify read-only kernel code in fcn.00011030, and the manual byte-patching found in fcn.00011b82 (e.g., writing 0xE9 JMP instructions into system APIs).",
+    "uncertainties": "The sample's full functionality is contingent on specific system versions, as identified by the NtBuildNumber checks in multiple functions (e.g., fcn.0001088e, fcn.000117bc), which may result in different behaviors or failure to activate on modern OS builds.",
+    "conditions": "Execution is gated by internal version checks (NtBuildNumber) and successful hook placement (NtDeviceIoControlFile, NtSetQuotaInformationFile). It also appears to rely on a Mutex (KeInitializeMutex) to manage exclusive access during installation.",
+    "sandbox_recommendations": "Deploy in a kernel-mode debugger (WinDbg) environment. Set breakpoints on MmMapLockedPagesSpecifyCache to observe kernel memory patching. Ensure the target environment matches common Windows build versions to trigger the payload."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "\\\\Device\\\\",
+          "description": "Registry or device path prefix for communication."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00011b82",
+      "name": "fcn.00011b82",
+      "description": "Core hooking function that patches kernel memory with jumps."
+    },
+    {
+      "address": "0x00011030",
+      "name": "fcn.00011030",
+      "description": "Helper that elevates IRQL and maps memory for patching."
+    },
+    {
+      "address": "0x00010c48",
+      "name": "fcn.00010c48",
+      "description": "Initializes I/O hooks for NtDeviceIoControlFile."
+    },
+    {
+      "address": "0x00010ce8",
+      "name": "fcn.00010ce8",
+      "description": "Initializes I/O hooks for NtSetQuotaInformationFile."
+    }
+  ]
+}

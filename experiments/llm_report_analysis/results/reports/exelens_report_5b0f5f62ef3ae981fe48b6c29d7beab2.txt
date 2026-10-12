@@ -1,0 +1,75 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a sophisticated dropper/loader that performs kernel-mode service modifications, process injection, and persistence through registry manipulation. It uses custom XOR-based obfuscation to hide its payload and dynamically resolves APIs to bypass static analysis. It also attempts to load drivers and manipulate kernel-mode structures (`KeServiceDescriptorTable`).",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR obfuscation of payload data in resources",
+      "Dynamic API resolution (GetProcAddress/LoadLibrary)",
+      "Dynamic structure modification (hooking kernel functions)"
+    ],
+    "details": "The sample uses FindResource/LoadResource/LockResource to access an embedded payload. A decryption routine (e.g., fcn.10001697) performs a simple XOR 0xCD operation to reveal the payload before execution or injection."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Attempts to interact with KeServiceDescriptorTable (SSDT) to hook system calls."
+    },
+    {
+      "name": "Process Persistence",
+      "description": "Uses RegSetValueExA to modify Registry 'Run' keys for auto-start execution."
+    },
+    {
+      "name": "Resource Modification",
+      "description": "Uses BeginUpdateResourceA/UpdateResourceA to modify its own or other resources."
+    },
+    {
+      "name": "Process Injection",
+      "description": "Uses CreateProcessA and writes to memory/handles to potentially inject code into legitimate processes (e.g., lsass.exe)."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode interaction (SSDT modification, KeRaiseIrqlToDpcLevel usage), persistence via registry keys, and the use of explicit malicious target process names (lsass.exe, ntoskrnl.exe) definitively indicates malicious intent rather than a legitimate installer or protector.",
+    "general": "High-intent evidence includes calls to KeServiceDescriptorTable (fcn.1000b369), modifications to 'lsass.exe' (fcn.100017a0), and the use of hardcoded strings like 'lsass' for registry injection, which are classic behaviors for credential dumping or system-level compromise.",
+    "uncertainties": "The exact nature of the final payload injected into kernel space is unknown due to runtime obfuscation, though its functions (KeRaiseIrqlToDpcLevel) suggest rootkit-like capabilities.",
+    "conditions": "The malware checks for administrative privileges via Sid authentication (fcn.10006cfb) and registry access. Execution likely fails on non-elevated user accounts.",
+    "sandbox_recommendations": "Run in an isolated environment with kernel debugging capabilities enabled. The sample requires elevated privileges (Administrator). Monitor registry modifications in HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run and kernel-mode callback registrations."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for single-instance execution"
+        },
+        {
+          "value": "lsass",
+          "description": "Target process for registry injection"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name for synchronization"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Performs SSDT (System Service Descriptor Table) hooking/manipulation."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Handles persistence and registry-based process injection."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Primary resource decryption routine using XOR 0xCD."
+    }
+  ]
+}

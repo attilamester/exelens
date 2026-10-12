@@ -1,0 +1,88 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple functionalities typical of kernel-level rootkits or persistent malware. It performs registry-based persistence, checks for system versions and environment variables to target specific OS versions, and contains complex code for interacting with kernel objects (e.g., NtQuerySystemInformation, NtQueryObject, NtShutdownSystem). It uses custom obfuscation/decryption loops to mask strings and resources.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based string/data obfuscation",
+      "Dynamic API resolution (GetProcAddress/LoadLibrary)"
+    ],
+    "details": "The file uses several obfuscation techniques, including XOR loops (seen in fcn.100015f7, fcn.100075ce, and fcn.10002d02) and custom decryption routines for internal strings and configuration data. API resolution is dynamic, likely to avoid static analysis detection of suspicious imports."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Modifies system registry keys to ensure re-execution."
+    },
+    {
+      "name": "Kernel Interaction",
+      "description": "Interacts with internal Windows APIs (NtQuerySystemInformation, NtQueryObject, KeServiceDescriptorTable) typical of rootkits."
+    },
+    {
+      "name": "File/Resource Manipulation",
+      "description": "Uses CreateFile, CopyFile, and UpdateResource to modify or replace system files."
+    },
+    {
+      "name": "Environment Awareness",
+      "description": "Uses GetEnvironmentVariable and GetVersionEx to identify the target OS and system environment."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level API calls, registry manipulation for persistence, and explicit checks for OS-specific artifacts (e.g., 'ntoskrnl.exe', 'win32k.sys') constitutes high-intent behavior consistent with advanced persistent threats or rootkit software. These are not dual-use in a standard application context.",
+    "general": "High-intent evidence includes calls to NtQuerySystemInformation (fcn.1000c932), KeServiceDescriptorTable interaction (fcn.1000b369), and the use of 'lsass' as a process target in registry manipulation (fcn.100017a0).",
+    "uncertainties": "While the functionality is clearly malicious, the specific payload decrypted by the XOR routines was not fully observed in the assembly extracts, though its existence is confirmed by the loader behavior.",
+    "conditions": "The main execution path relies on the presence of specific environment variables and registry keys. It appears to check for existing mutexes ('GlobalRPCMutex', 'prkMtx') to prevent multiple instances.",
+    "sandbox_recommendations": "Run in a controlled Windows environment (XP/7) with kernel-level monitoring. Simulate environment variables if the malware fails to execute, and use a debugger to step over the initial decryption loops."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Targeted for persistence."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "_system32",
+          "description": "Directory often used for dropping malicious files."
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for process synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for process synchronization."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Performs registry manipulation, possibly for persistence, targeting 'lsass'."
+    },
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Interacts with KeServiceDescriptorTable, indicative of a kernel-level hook."
+    },
+    {
+      "address": "0x100043d2",
+      "name": "fcn.100043d2",
+      "description": "Contains complex obfuscated strings and decryption logic for malicious configuration."
+    }
+  ]
+}

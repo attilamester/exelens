@@ -1,0 +1,88 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The file is a modular malware component that performs system-level modifications, including modifying system drivers/processes (lsass.exe, ntkrnlpa.exe) and persistent registry keys. It uses custom resource-based payload injection and anti-debugging/anti-VM techniques.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR decryption loop",
+      "Resource-based payload injection"
+    ],
+    "details": "The file uses FindResourceA, LoadResource, and a subsequent XOR loop with 0xcd to decrypt payloads stored in resources 0x65, 0x66, etc."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Modification",
+      "description": "Modifies system binaries or injects code into system processes (e.g., lsass.exe via RegSetValueExA, CopyFileA)."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies registry keys (e.g., Run keys, service configuration) to ensure execution across reboots."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Checks for debugger presence and uses timing loops (Sleep, WaitForSingleObject) to bypass sandboxes."
+    },
+    {
+      "name": "System Internals Access",
+      "description": "Directly accesses system kernel tables (e.g., KeServiceDescriptorTable, KeGetCurrentIrql, NtQuerySystemInformation) to perform kernel-mode manipulation."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode API calls, modification of critical Windows system processes (lsass), and persistence mechanisms confirms high malicious intent. The dual-use nature of packers is superseded by the clear attempt to hook system calls and hide its footprint via registry manipulation.",
+    "general": "High-intent evidence is seen in fcn.100017a0 (registry manipulation of lsass), fcn.10009bd3 (kernel-mode hook attempts), and fcn.1000b73a (NtShutdownSystem hook). The use of 0xcd XOR routine in fcn.100015f7 acts as a clear loader for secondary malicious payloads.",
+    "uncertainties": "The exact nature of the encrypted resource payload is not fully visible due to dynamic decryption and the size of the payload, but its functional purpose is clearly related to system manipulation.",
+    "conditions": "The payload requires administrative privileges to interact with system drivers and registry keys (e.g., HKLM\\SYSTEM\\CurrentControlSet). It checks for environment variables and specific file paths like 'win32k.sys' before proceeding.",
+    "sandbox_recommendations": "Provide an environment with administrative privileges, simulate the existence of common Windows system directories, and ensure the sandbox can handle kernel-level API calls."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Targeted for persistence."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "system32\\win32k.sys",
+          "description": "Targeted for modification."
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for process synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used to ensure single instance execution."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Payload decryption and loader function."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Performs registry manipulation for persistence on lsass.exe."
+    },
+    {
+      "address": "0x1000b73a",
+      "name": "fcn.1000b73a",
+      "description": "Hooks kernel functions such as NtShutdownSystem."
+    }
+  ]
+}

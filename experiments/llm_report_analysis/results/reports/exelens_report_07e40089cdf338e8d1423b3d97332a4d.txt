@@ -1,0 +1,67 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The file is a kernel-mode driver that performs manual PE image loading, process injection, and hooks system functions to hide or persist. It uses APC injection to execute code in foreign processes, targets the kernel environment, and includes anti-analysis measures.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Custom shellcode/loader",
+      "Manual PE mapping",
+      "Dynamic API resolution"
+    ],
+    "details": "The file contains a large overlay with high entropy (7.36) and manual PE parsing logic (fcn.000112e2), indicating it dynamically maps and executes an embedded driver or system payload."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "Uses KeInitializeApc and KeInsertQueueApc to inject code into target processes."
+    },
+    {
+      "name": "Manual PE Mapping",
+      "description": "Parses and maps PE headers in kernel memory using ZwAllocateVirtualMemory (fcn.000112e2)."
+    },
+    {
+      "name": "Kernel Hooking",
+      "description": "Modifies system function pointers (e.g., fcn.0001204e, fcn.00012c24) to intercept or redirect execution."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Contains DbgPrint calls, custom timing loops, and hardware breakpoints/checks to evade debugging."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode API usage (ntoskrnl.exe), manual PE loading (ZwAllocateVirtualMemory, header parsing), and cross-process APC injection (KeInsertQueueApc) is characteristic of malicious rootkit or loader behavior rather than legitimate system software. The deliberate use of kernel functions to hide processes and redirect execution provides clear intent.",
+    "general": "The function fcn.000112e2 manually maps a PE file into kernel memory. The function fcn.00011a1a performs APC injection into a target process handle using ObOpenObjectByPointer. The driver also hooks system objects to mask its presence.",
+    "uncertainties": "The exact payload contents within the overlay are obscured, but the loader logic is clearly identified.",
+    "conditions": "The driver requires a kernel-mode execution environment and likely targets specific processes by name or ID which are checked during the initialization routine.",
+    "sandbox_recommendations": "Deploy in a kernel-mode debugger (e.g., WinDbg) on a separate guest VM. Monitor for modifications to system service tables and attempts to access protected process memory."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "CONNECT %s:%d HTTP/1.1",
+          "description": "Network-related string often found in command-and-control logic."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x000112e2",
+      "name": "fcn.000112e2",
+      "description": "Manual PE mapper that allocates memory in the kernel and performs relocations."
+    },
+    {
+      "address": "0x00011a1a",
+      "name": "fcn.00011a1a",
+      "description": "APC injection engine targeting cross-process execution."
+    },
+    {
+      "address": "0x00012c24",
+      "name": "fcn.00012c24",
+      "description": "Kernel function hook/redirection routine used to maintain persistence or hide behavior."
+    }
+  ]
+}

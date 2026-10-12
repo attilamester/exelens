@@ -1,0 +1,72 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a service that performs process injection. It extracts an embedded resource, identifies the 'EXPLORER.EXE' process, and utilizes 'CreateProcessAsUserA' to execute the extracted payload within the context of the user's session.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The file is not packed; the code and imports are fully visible and standard."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "Uses CreateToolhelp32Snapshot/Process32First/Next to find target PIDs and CreateProcessAsUserA to spawn processes in user context."
+    },
+    {
+      "name": "Resource Extraction",
+      "description": "Reads embedded binary data (RCDATA/resource 111) and writes it to a temporary file via CreateFile/WriteFile."
+    },
+    {
+      "name": "Service Installation",
+      "description": "Utilizes ADVAPI32 service management APIs to install and manage itself as a persistent system service."
+    }
+  ],
+  "details": {
+    "reasoning": "While service management APIs are common in legitimate software, the combination of searching for explorer.exe, extracting an embedded binary resource, and invoking CreateProcessAsUserA is a classic pattern for stealthy persistence and process injection. The code contains no legitimate UI components or business logic, confirming malicious intent.",
+    "general": "The function fcn.1000128d extracts a resource ('111') to disk, and fcn.100010fc handles the injection workflow by locating 'EXPLORER.EXE' and calling 'ADVAPI32.dll_CreateProcessAsUserA' to execute the payload.",
+    "uncertainties": "The content of the extracted resource (111) is unknown, but its purpose is clearly to be executed as part of the injection chain.",
+    "conditions": "The code operates as a Windows service; it requires installation into the Service Control Manager (SCM) to reach its primary execution loop (ServiceMain/ServiceCtrlHandler).",
+    "sandbox_recommendations": "Run in an environment that allows service installation. Monitor process creation events, specifically look for processes spawned by this service that claim to be 'EXPLORER.EXE' or reside in temporary directories."
+  },
+  "ioc": [
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "%TEMP%\\_regsvr.exe",
+          "description": "Temporary file path where the extracted resource is written."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "EXPLORER.EXE",
+          "description": "Target process for injection."
+        },
+        {
+          "value": "winsta0\\default",
+          "description": "Window station/desktop used in CreateProcessAsUserA parameters."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000128d",
+      "name": "fcn.1000128d",
+      "description": "Extracts embedded resource '111' to a file named _regsvr.exe in the temp folder."
+    },
+    {
+      "address": "0x100010fc",
+      "name": "fcn.100010fc",
+      "description": "Main logic function that identifies the target process and calls CreateProcessAsUserA."
+    },
+    {
+      "address": "0x100011ed",
+      "name": "fcn.100011ed",
+      "description": "Helper to enumerate processes and locate the PID of EXPLORER.EXE."
+    }
+  ]
+}

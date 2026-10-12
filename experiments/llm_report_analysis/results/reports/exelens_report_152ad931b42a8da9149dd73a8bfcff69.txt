@@ -1,0 +1,88 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to perform kernel-level operations by attempting to modify the KeServiceDescriptorTable (SSDT) and interacting with system drivers. It includes capabilities for process manipulation, file modification, and persistence via registry manipulation.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based payload obfuscation",
+      "Dynamic API resolution (GetProcAddress)"
+    ],
+    "details": "Resource-based payload decryption is evident in functions like fcn.100015f7 and fcn.10001b34, where `FindResourceA`/`LoadResource` is followed by an XOR routine using 0xcd."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode modification",
+      "description": "Attempts to locate and modify KeServiceDescriptorTable to hook system calls."
+    },
+    {
+      "name": "Process/Service manipulation",
+      "description": "Uses CreateProcess, OpenProcess, and service-related APIs to manage processes or drivers."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies registry keys (e.g., Run keys, system services) to ensure execution across reboots."
+    },
+    {
+      "name": "File system manipulation",
+      "description": "Can copy, move, and delete system files including potential driver components (e.g., win32k.sys)."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level modifications (fcn.1000b369, fcn.1000ab6f), such as patching the SSDT, combined with the presence of multiple persistence mechanisms in the registry and the attempt to drop/load drivers or system files, confirms malicious intent. While individual APIs are dual-use, their application here is characteristic of a rootkit or advanced persistent threat.",
+    "general": "High-intent evidence includes SSDT patching in fcn.1000b369, modification of system components through fcn.1000a0fc (targeting win32k.sys), and use of `CreateProcess` to launch hidden components. The XOR decryption of embedded resources (fcn.100015f7) suggests active effort to bypass static detection.",
+    "uncertainties": "The exact function of the encrypted resources could only be confirmed if the full payload were extracted, but the loader-like behavior is sufficient for classification.",
+    "conditions": "Execution likely requires elevated privileges (Administrator/SYSTEM) due to the nature of kernel-level hooking attempts. It may also perform checks for specific environment variables or files in System32.",
+    "sandbox_recommendations": "Run in an isolated environment with monitoring for registry writes, file system changes in System32, and kernel-mode driver loading. Intercept calls to `RegSetValueExA` and `CreateFileA`."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\",
+          "description": "Common target for persistence modification"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "C:\\Windows\\System32\\win32k.sys",
+          "description": "Targeted for modification"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for synchronization"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for process synchronization"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Performs SSDT patching by locating KeServiceDescriptorTable."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Decrypts and loads embedded resources using an XOR routine."
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Kernel-mode service setup or modification function."
+    }
+  ]
+}

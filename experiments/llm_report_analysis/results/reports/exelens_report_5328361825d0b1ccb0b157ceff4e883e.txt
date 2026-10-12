@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple high-intent indicators including system-level privilege manipulation, process injection/hollowing (via CreateProcessA with process modification/hollowing-like behavior), persistence via Registry Run keys, and anti-analysis checks. It also contains routines for kernel-mode operations such as interacting with ntoskrnl.exe and system service tables.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR obfuscation (0xCD byte-wise XOR in multiple routines)",
+      "Resource-based payload hiding"
+    ],
+    "details": "The file uses FindResourceA/LoadResource to retrieve and XOR-decrypt (using 0xCD) data from resources (e.g., 102/101). It also contains functions performing memory operations (VirtualAlloc, CopyFileA) that suggest dynamic loading of an encrypted payload."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Hollowing",
+      "description": "Utilizes CreateProcessA, potentially combined with file writing and process manipulation, to execute hidden code."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies Registry keys using RegSetValueExA, typical for establishing persistence."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Uses GetTickCount or similar timing checks and mutex checks (GlobalRPCMutex, prkMtx) to thwart sandbox execution."
+    },
+    {
+      "name": "Kernel-Level Manipulation",
+      "description": "References KeServiceDescriptorTable, KeAddSystemServiceTable, and interacts with ntoskrnl.exe/ntkrnlpa.exe, indicating capability for rootkit-like activity."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent actions—specifically direct interaction with the System Service Descriptor Table (SSDT), attempts to unregister system classes, and process modification—points towards a malicious rootkit/loader. The XOR decryption (0xCD key) of embedded resources is characteristic of malware loaders. Legitimate software rarely interacts with the kernel service tables directly.",
+    "general": "High-intent evidence includes calls to ADVAPI32.dll_RegSetValueExA in fcn.10001000 for persistence, and fcn.1000b369/fcn.1000ab6f interacting with the kernel service tables (KeServiceDescriptorTable). The use of fcn.10001b34 to write files and call CreateProcessA suggests a loader that executes an unpacked or decrypted payload.",
+    "uncertainties": "The exact nature of the payload decrypted from resources is not fully observable statically. However, the kernel-hooking behavior is highly anomalous.",
+    "conditions": "Requires specific system conditions to evade anti-sandbox checks; specifically, it checks for the existence of GlobalRPCMutex and prkMtx. It likely requires administrative privileges to modify system-level registry keys and SSDT.",
+    "sandbox_recommendations": "Simulate a fully populated Windows environment. Use a system that allows registry monitoring (e.g., ProcMon). Ensure the sandbox does not trigger the mutexes if the binary relies on them as a 'gate' for execution."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Common persistence path for modifications"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for synchronization/anti-sandbox"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for kernel synchronization"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Loader routine: writes resource payload to disk and initiates process execution"
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Kernel manipulation: accesses KeServiceDescriptorTable for potential hooking"
+    },
+    {
+      "address": "0x10002109",
+      "name": "fcn.10002109",
+      "description": "Mutex check and environment validation for main execution"
+    }
+  ]
+}

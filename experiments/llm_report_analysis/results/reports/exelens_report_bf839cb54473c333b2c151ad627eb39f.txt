@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to harvest saved credentials from various applications (WinSCP, FTP clients, web browsers, and mail clients). It exhibits classic information-stealing behavior, including process enumeration, registry access to credential stores, and data exfiltration via HTTP.",
+  "packed": {
+    "status": "false",
+    "techniques": [
+      "String obfuscation",
+      "Dynamic API resolution"
+    ],
+    "details": "The code contains several XOR-based string obfuscation routines (e.g., fcn.00401b89, fcn.0040554d) and dynamic API loading/resolution to hide its functionality."
+  },
+  "capabilities": [
+    {
+      "name": "Credential Dumping",
+      "description": "Extracts passwords and configuration data from registry keys (WinSCP, Total Commander, etc.) and application data directories (Firefox, Thunderbird, Opera)."
+    },
+    {
+      "name": "Networking/Exfiltration",
+      "description": "Initiates HTTP requests to a remote server ('http://82.146.51.22') using URLDownloadToFileA and custom HTTP POST-like headers."
+    },
+    {
+      "name": "Environment Enumeration",
+      "description": "Gathers system information, including OS version, network configurations, screen resolution, and running processes."
+    },
+    {
+      "name": "Persistence/Anti-Analysis",
+      "description": "Attempts to drop and run temporary files (e.g., .bat files via CreateNamedPipe/CreatePipe) and performs checks to detect debugger or virtualization environments."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of multiple credential harvesting capabilities (WinSCP, FTP clients, Firefox, Thunderbird) targeting specific application-storage paths in the registry and filesystem, followed by immediate network exfiltration to a hard-coded IP, confirms malicious intent. This behavior is inconsistent with any legitimate system utility or software protector.",
+    "general": "High-intent evidence is seen in functions like fcn.00403b47 (targeting mail accounts), fcn.00406c3b (harvesting browser cookies/history), and fcn.0040e400 (exfiltrating stolen data via HTTP to 82.146.51.22). Registry path access to 'Software\\Martin Prikryl\\WinSCP 2\\Sessions' and 'Software\\Mozilla\\Firefox' further confirms the intent.",
+    "uncertainties": "While the binary is identified as an info-stealer, some routines might be part of an older or broader framework; however, the malicious objective remains clear.",
+    "conditions": "The malware performs environment checks and credential scraping upon execution. It requires internet access to reach the command-and-control server and access to the user's local application data to successfully harvest credentials.",
+    "sandbox_recommendations": "Run in an isolated environment with network redirection/sniffing. Pre-populate the environment with fake credential files in standard locations (e.g., Firefox profile, WinSCP registry keys) to trigger the harvesting logic."
+  },
+  "ioc": [
+    {
+      "type": "url",
+      "values": [
+        {
+          "value": "http://82.146.51.22",
+          "description": "Hard-coded Command and Control (C2) server."
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Martin Prikryl\\WinSCP 2\\Sessions",
+          "description": "Registry key targeted for WinSCP credential harvesting."
+        },
+        {
+          "value": "Software\\Mozilla\\Firefox",
+          "description": "Registry/path targeted for Firefox data."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x0040e400",
+      "name": "fcn.0040e400",
+      "description": "Primary network exfiltration function used for sending harvested data to the C2."
+    },
+    {
+      "address": "0x00403b47",
+      "name": "fcn.00403b47",
+      "description": "Parses configuration files to harvest email account credentials."
+    },
+    {
+      "address": "0x00406c3b",
+      "name": "fcn.00406c3b",
+      "description": "Main routine for harvesting browser-related credentials and cookies."
+    }
+  ]
+}

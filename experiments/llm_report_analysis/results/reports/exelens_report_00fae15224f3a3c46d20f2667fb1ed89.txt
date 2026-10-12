@@ -1,0 +1,75 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality consistent with a kernel-mode rootkit installer, including mechanisms to hook system services by modifying the System Service Descriptor Table (SSDT), bypass security descriptors, and persistence via registry manipulation.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR encoding of resources",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress"
+    ],
+    "details": "Resources containing driver/payload data are XORed with 0xcd. The code dynamically resolves kernel and system APIs at runtime."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode service modification",
+      "description": "Uses SSDT hooking techniques via NtQuerySystemInformation and modifications to KeServiceDescriptorTable."
+    },
+    {
+      "name": "Persistence and Evasion",
+      "description": "Modifies system registry keys to persist and uses mutexes for single-instance execution."
+    },
+    {
+      "name": "File and Attribute Manipulation",
+      "description": "Copies files to system directories and sets attributes (hidden, system)."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of specific capabilities—SSDT hooking (fcn.1000b369), manipulation of kernel structures like KeServiceDescriptorTable, and the use of 'lsass' related registry persistence—demonstrates clear malicious intent associated with rootkits, rather than standard software protection.",
+    "general": "The function fcn.1000b369 performs SSDT hooking by resolving KeServiceDescriptorTable and modifying memory offsets. The function fcn.100017a0 contains logic to manipulate 'lsass' registry keys for persistence, and fcn.1000b46f shows direct modification of system files/drivers. These are high-intent indicators.",
+    "uncertainties": "While the core malicious intent is clear, the exact payload being dropped/hooked depends on decrypted resources not fully unpacked in the static analysis.",
+    "conditions": "Execution likely requires elevated (Administrator/System) privileges given the attempts to modify kernel structures and system registry keys. It checks for specific environment variables and mutexes (e.g., 'prkMtx') to gate its activation.",
+    "sandbox_recommendations": "Run in a virtual machine environment with kernel debugging enabled, as the sample performs environment checks. Monitor registry and file system changes for persistence attempts."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Persistence via service modification"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for process isolation"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name possibly used for kernel-level protection"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Implements SSDT hooking logic."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Manipulates registry keys for persistence, specifically targeting 'lsass'."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Performs lookup and security checks on system accounts."
+    }
+  ]
+}

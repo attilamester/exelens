@@ -1,0 +1,83 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as an information stealer/downloader that gathers system information, including CPU, OS, and network adapter details, hashes them, base64 encodes the data, and attempts to download a remote payload using URLDownloadToFileA.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Overlay utilization",
+      "Dynamic API resolution/obfuscation"
+    ],
+    "details": "The file contains a 2776-byte overlay with high entropy (7.08), suggesting an encrypted or compressed payload. The main executable code is present, but it uses custom encoding routines (e.g., base64 in fcn.00401040) and decryption loops to process configuration and network activity."
+  },
+  "capabilities": [
+    {
+      "name": "Data Collection",
+      "description": "Retrieves computer name, username, OS version, processor name, and network adapter info using RegQueryValueExA and GetAdaptersInfo."
+    },
+    {
+      "name": "Network Communication",
+      "description": "Downloads files from a remote URL using URLDownloadToFileA."
+    },
+    {
+      "name": "Persistence/Mutex",
+      "description": "Creates a named mutex to ensure single-instance execution via CreateMutexA."
+    },
+    {
+      "name": "Obfuscation",
+      "description": "Implements base64 encoding and custom XOR-based decryption logic for strings and data transmission."
+    }
+  ],
+  "details": {
+    "reasoning": "While parts of the code mimic standard system utility behavior (e.g., registry queries, mutexes), the combination of active environment fingerprinting (CPU/NIC/OS), base64-encoding this data, building a formatted string, and passing that data to URLDownloadToFileA indicates malicious intent. It acts as an automated agent reporting host information to a C2 server and attempting to download additional payloads.",
+    "general": "The function fcn.00401690 is the primary controller. It collects system info, performs XOR encryption (fcn.00401f20), base64 encoding (fcn.00401040), and eventually calls URLDownloadToFileA to interact with an external HTTP resource. The use of strings like 'http:___s_s_a1_sa2_sa3_s' points to C2 interaction.",
+    "uncertainties": "The exact C2 URL structure is not fully resolved as it is constructed dynamically at runtime from local system identifiers, but the behavior is unambiguously C2-related.",
+    "conditions": "The execution flow requires the system to be configured with standard registry keys for processor and OS version. It also requires an active network connection to perform the URL download.",
+    "sandbox_recommendations": "Provide an internet-simulated environment (e.g., INetSim) to observe the HTTP request construction and the attempted payload download. Ensure the registry keys like 'HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0' are populated."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0",
+          "description": "Registry key queried for processor identification."
+        },
+        {
+          "value": "SYSTEM\\CurrentControlSet\\Control\\Nls\\Language",
+          "description": "Registry key queried for language/locale info."
+        },
+        {
+          "value": "SOFTWARE\\MICROSOFT\\WINDOWS_NT\\CurrentVersion",
+          "description": "Registry key queried for Windows versioning."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "http:___s_s_a1_sa2_sa3_s",
+          "description": "C2 URL template found in memory."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401160",
+      "name": "main",
+      "description": "Main execution entry point that initializes the process and mutex."
+    },
+    {
+      "address": "0x00401690",
+      "name": "fcn.00401690",
+      "description": "Coordinates data collection, encryption, and the network download flow."
+    },
+    {
+      "address": "0x00401040",
+      "name": "fcn.00401040",
+      "description": "Base64 encoding routine used to prepare exfiltrated data."
+    }
+  ]
+}

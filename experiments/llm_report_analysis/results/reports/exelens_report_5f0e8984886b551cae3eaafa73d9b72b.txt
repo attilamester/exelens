@@ -1,0 +1,89 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to perform kernel-mode operations, including modifying the System Service Descriptor Table (SSDT) and interacting with drivers. It implements persistence and system-level stealth techniques, such as registry modification, file attribute hiding (e.g., 'lsass'), and potentially injecting code into system processes.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR encoding for resource data",
+      "Dynamic API resolution (GetProcAddress)",
+      "System service function patching"
+    ],
+    "details": "The binary contains encrypted/encoded data in its .rsrc section (RVA 0x100015f7). It manually resolves imports from ntdll.dll and ntoskrnl.exe at runtime. It performs XOR operations with a constant (0xcd) on resource data."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Modifies Windows registry keys (Run keys) to maintain execution across reboots."
+    },
+    {
+      "name": "Kernel-mode Patching",
+      "description": "Uses SSDT hooking to intercept and manipulate system calls (e.g., KeServiceDescriptorTable patching)."
+    },
+    {
+      "name": "System File Manipulation",
+      "description": "Copies files into system directories, sets file attributes (e.g., Hidden/System), and manipulates resources."
+    },
+    {
+      "name": "Mutex-based synchronization",
+      "description": "Uses 'GlobalRPCMutex' and 'prkMtx' to ensure single-instance execution and avoid conflicts."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of SSDT modification (KeServiceDescriptorTable), manual kernel API resolution, and registry manipulation to hide files under names like 'lsass' constitutes clear malicious intent. The dual-use nature of packers and dynamic loading is superseded by the specific intent to patch kernel-mode memory structures and persist via system-level registry keys.",
+    "general": "High-intent evidence includes SSDT hooking observed in fcn.1000b369 (KeServiceDescriptorTable), registry manipulation in fcn.100017a0 (lsass persistence), and manual kernel-level function resolution (fcn.10009d28, KeGetCurrentIrql).",
+    "uncertainties": "The exact nature of the payload being decrypted from the resources is not visible, though the code reveals it is targeting system-level driver functionality.",
+    "conditions": "The file requires administrative privileges to successfully perform SSDT hooking and registry modification. Execution flow is driven by the presence of specific environment variables and registry keys (e.g., 'prkMtx' mutex check).",
+    "sandbox_recommendations": "Run in an environment with a kernel-mode debugger (e.g., WinDbg) attached to monitor SSDT modifications. Use a fake registry hive and monitor file creation in System32 directories."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\lsass",
+          "description": "Persistence mechanism disguising the malicious service as the legitimate lsass process."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "%SYSTEM32%\\win32k.sys",
+          "description": "Target of file modification operations."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for process synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for kernel-mode synchronization."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Performs SSDT hooking and system call interception."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Writes persistence entries to the registry, specifically targeting 'lsass'."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Drops and executes a payload/process from embedded resources."
+    }
+  ]
+}

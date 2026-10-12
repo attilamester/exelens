@@ -1,0 +1,59 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains a dropped payload (a PDF file) and uses ShellExecute to launch it after dropping an 'iexplore.exe' file in the current directory. It shows typical downloader/dropper behavior.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed; however, it utilizes custom resource extraction logic to access and write embedded files to the filesystem."
+  },
+  "capabilities": [
+    {
+      "name": "Resource Dropper",
+      "description": "Extracts embedded data from the resource section and writes it to the local filesystem using CreateFileA and WriteFile."
+    },
+    {
+      "name": "Execution Proxying",
+      "description": "Uses ShellExecuteA/W to launch dropped files, potentially mimicking legitimate software paths."
+    }
+  ],
+  "details": {
+    "reasoning": "The application exhibits clear malicious intent by combining resource extraction (dropping files to disk) with the immediate execution of those dropped files via ShellExecuteA/W. Specifically, the 'main' function identifies resources, writes them as 'iexplore.exe' and a PDF file, then executes them, which is a classic dropper mechanism.",
+    "general": "In 'main' (0x00401000), the code calls fcn.004010af to extract resources. It specifically references 'iexplore.exe' and a PDF file named 'INDEPENDENT_COST_ASSESSMENT_OF_THE_SPACE_LAUNCH_SYSTEM_...'. The use of CreateFileA, WriteFile, and ShellExecuteA to launch these files is a high-intent indicator of a malicious dropper.",
+    "uncertainties": "The exact nature of the 'iexplore.exe' payload is not visible as it is stored in the .rsrc section, but its filename is a common technique to masquerade as a legitimate browser process.",
+    "conditions": "The sample executes immediately upon launching. It expects to have write permissions in the working directory to drop the payload files.",
+    "sandbox_recommendations": "Monitor file system writes in the current directory, intercept ShellExecute calls, and capture the dropped PDF and executable files for further analysis."
+  },
+  "ioc": [
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "iexplore.exe",
+          "description": "File name used for the dropped executable payload."
+        },
+        {
+          "value": "INDEPENDENT_COST_ASSESSMENT_OF_THE_SPACE_LAUNCH_SYSTEM_MULTI_PURPOSE_CREW_VEHICLE_AND_21ST_CENTURY_GROUND_SYSTEMS_PROGRAMS.PDF",
+          "description": "File name used for the dropped PDF decoy document."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401000",
+      "name": "main",
+      "description": "Entry point that coordinates resource extraction and subsequent execution."
+    },
+    {
+      "address": "0x004010af",
+      "name": "fcn.004010af",
+      "description": "Handles the finding, loading, and writing of embedded resources to disk."
+    },
+    {
+      "address": "0x0040113e",
+      "name": "fcn.0040113e",
+      "description": "Handles the execution of dropped files using ShellExecuteW."
+    }
+  ]
+}

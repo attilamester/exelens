@@ -1,0 +1,89 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple high-intent capabilities targeting both user-mode and kernel-mode environments. It performs process hollowing/injection (CreateProcess, WriteFile/CopyFile on sensitive files), registry modification for persistence, and interacts with system drivers (KeServiceDescriptorTable, NtQuerySystemInformation). It contains obfuscated strings and uses custom XOR routines to hide its functionality.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based string/data obfuscation",
+      "Dynamic API resolution via GetProcAddress",
+      "Resource-based loading of secondary payloads"
+    ],
+    "details": "The file uses custom XOR loops (e.g., 0xcd, 0x5a) to decrypt embedded resources. It dynamically loads libraries (like ntdll.dll, user32.dll) and resolves functions at runtime using custom obfuscated string decryption routines."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Hollowing",
+      "description": "Utilizes CreateProcess, WriteFile, and GetFileTime/SetFileTime to manipulate external executables."
+    },
+    {
+      "name": "Persistence Mechanism",
+      "description": "Modifies Windows Registry Run keys (RegSetValueExA, RegCreateKeyExA) to maintain presence across reboots."
+    },
+    {
+      "name": "Kernel-Mode Interaction",
+      "description": "Attempts to interact with the kernel by manipulating the SSDT (KeServiceDescriptorTable) and querying system information (NtQuerySystemInformation, NtQueryObject)."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Uses GetTickCount-like loops, GetSystemTime, and mutexes (CreateMutexA) to detect sandboxes and prevent multiple instances."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level hooking (SSDT modification), persistent registry modifications, and the manipulation of system files (lsass, system32) demonstrates clear malicious intent. The dual-use features (e.g., LoadLibrary) are clearly utilized in a chain to facilitate the primary malicious behavior of payload deployment and system evasion.",
+    "general": "High-intent evidence found in fcn.1000b46f (SSDT manipulation via int 2e/NtQuerySystemInformation), fcn.100028d6 (registry-based persistence), and fcn.10001b34 (file hollowing/dropping).",
+    "uncertainties": "The exact nature of the decrypted resource payload is unknown, as it relies on custom decryption at runtime; however, the loader's behavior is overtly malicious.",
+    "conditions": "Requires administrative privileges to perform SSDT hooking and registry modifications. The binary likely checks for environment variables or specific file paths in SYSTEM32.",
+    "sandbox_recommendations": "Run in a kernel-aware sandbox. Ensure the system is configured to log registry and file system activities. Provide a standard Windows environment to trigger potential environmental checks."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Potential persistence location."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "system32\\win32k.sys",
+          "description": "Target file for manipulation."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for instance tracking."
+        },
+        {
+          "value": "lsass",
+          "description": "Targeted process name."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Handles file dropping, creation, and process execution."
+    },
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Implements kernel-mode hooks by interacting with the SSDT."
+    },
+    {
+      "address": "0x100075ee",
+      "name": "fcn.100075ee",
+      "description": "Primary XOR decryption routine for obfuscated strings/data."
+    }
+  ]
+}

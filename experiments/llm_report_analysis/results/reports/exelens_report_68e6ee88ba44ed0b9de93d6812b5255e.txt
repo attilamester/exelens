@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to manipulate system internals, including bypassing protection mechanisms for system process modification and kernel-level interaction (e.g., KeServiceDescriptorTable). It uses resource-based obfuscation and performs anti-analysis checks, including mutex-based instance management and registry modification to ensure persistence.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR encoding",
+      "Resource-based loading",
+      "API name obfuscation"
+    ],
+    "details": "The sample uses XOR encoding (e.g., 0xcd XOR in fcn.10001723) for sections and resources. It dynamically loads libraries and resolves API functions at runtime to hide its malicious intent."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Modifies registry keys (e.g., Run keys via RegSetValueExA) to maintain presence across reboots."
+    },
+    {
+      "name": "Kernel-mode/System Internals Manipulation",
+      "description": "Attempts to access/modify system tables (KeServiceDescriptorTable, KeAddSystemServiceTable) using NtQuerySystemInformation and related APIs."
+    },
+    {
+      "name": "Resource Decryption",
+      "description": "Extracts and decrypts (XOR) embedded resources (102, 101, etc.) for further execution or injection."
+    },
+    {
+      "name": "Mutex Protection",
+      "description": "Uses global mutexes (GlobalRPCMutex, prkMtx) to prevent multiple instances from running."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level system table manipulation (KeServiceDescriptorTable), registry-based persistence, and the dynamic loading/decryption of resources strongly indicates malicious intent rather than simple protection. The presence of routines to modify system service descriptors is a high-intent indicator for rootkit or backdoor behavior.",
+    "general": "Functions fcn.1000b46f and fcn.1000ab6f directly interact with system internals and service tables. fcn.100017a0 modifies registry keys for persistence. The XOR routine in fcn.10001723 and resource loading in fcn.10001b34 confirm active evasion of static analysis.",
+    "uncertainties": "While the kernel-table modification code is clear, the exact payload being injected or the nature of the communication with the kernel remains partially abstracted due to the dynamic API resolution.",
+    "conditions": "Execution likely requires specific administrative privileges to interact with registry keys and kernel tables. It checks for the presence of a mutex (prkMtx) which acts as a gatekeeper.",
+    "sandbox_recommendations": "Run with administrative privileges. Monitor for registry activity related to 'DMWH' or 'DMWI' keys. Allow the sample to sleep for the observed intervals (Sleep is used frequently) to see if it triggers the decryption routines."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Suspected location for persistence registry modifications."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for single-instance enforcement."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used in kernel-related operations."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Initializes and manages registry persistence and system checks."
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Performs system table hooking (KeServiceDescriptorTable)."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Extracts resources and creates processes for malicious components."
+    }
+  ]
+}

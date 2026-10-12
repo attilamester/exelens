@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality consistent with a kernel-mode driver installer/injector. It extracts an embedded resource (likely a driver or kernel component), performs system-level registry modifications, sets file attributes to hidden/system, and uses direct system calls (int 0x2e) to interact with kernel structures, including potential modification of the system service descriptor table (SSDT) to evade detection.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource encryption",
+      "Dynamic API resolution (GetProcAddress)",
+      "System service hooking logic"
+    ],
+    "details": "Resources 101, 102, and 103 are used for storing payloads. The binary contains custom XOR-based decryption routines (e.g., 0xcd XOR loop in fcn.10001697) to unpack data from these resources."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode service manipulation",
+      "description": "Uses functions to interact with the SSDT (System Service Descriptor Table) and attempts to modify it."
+    },
+    {
+      "name": "Process/Driver injection",
+      "description": "Utilizes KERNEL32!CreateProcess and file system operations to install payloads."
+    },
+    {
+      "name": "Evasion",
+      "description": "Uses low-level APIs and direct int 0x2e calls to bypass traditional Windows API monitoring."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies Windows registry keys (Run/Service keys) to ensure execution across reboots."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of SSDT modification (fcn.1000b369, fcn.1000ab6f), direct kernel-mode system call interaction (int 0x2e), and the specific targeting of system files (ntoskrnl, win32k.sys) is indicative of a rootkit or kernel-level malware. Legitimate software rarely attempts to patch the kernel service table. The use of custom XOR loops and resource-based payload storage confirms this is not standard, documented software functionality.",
+    "general": "High-intent evidence includes the SSDT modification logic (fcn.1000b369, searching for KeServiceDescriptorTable) and the use of int 0x2e to bypass standard API call hooking. Function fcn.1000b46f demonstrates direct kernel structure manipulation.",
+    "uncertainties": "While the specific final payload is encrypted and not fully visible without runtime detonation, the installer logic is sufficiently malicious to warrant a definitive classification.",
+    "conditions": "The file contains a mutex check ('prkMtx') and likely requires administrator privileges to perform the kernel-level modifications it intends. It may also look for specific system versions based on calls to GetVersionExA.",
+    "sandbox_recommendations": "Use a kernel-aware debugger (e.g., WinDbg) on a snapshot-enabled VM. Monitor registry writes, specifically in HKLM\\SYSTEM\\CurrentControlSet, and monitor file system activity for drivers being dropped into System32."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for synchronization/anti-re-execution"
+        },
+        {
+          "value": "lsass",
+          "description": "Potentially targeting LSASS process"
+        },
+        {
+          "value": "DMWI__",
+          "description": "Possible registry key or internal marker"
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet",
+          "description": "Targeted registry root for persistence"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Handles SSDT (System Service Descriptor Table) lookup and patching."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Handles resource loading, writing to disk, and file attribute manipulation."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Regitsry modification routine for service persistence."
+    }
+  ]
+}

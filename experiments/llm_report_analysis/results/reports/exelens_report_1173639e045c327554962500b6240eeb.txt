@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is an installer-like loader that performs environment checks, decrypts an embedded resource using an XOR routine, and uses dynamic API resolution (GetProcAddress/LoadLibrary) to interact with internal kernel structures or drivers, suggesting rootkit or process-injection capabilities.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based payload decryption",
+      "Dynamic API resolution (GetProcAddress/LoadLibrary)",
+      "Dynamic kernel/system function resolution"
+    ],
+    "details": "The sample uses a custom XOR routine (fcn.10001697) to decrypt embedded resources. It heavily relies on GetProcAddress to resolve functions from ntdll.dll and other system libraries at runtime, which is typical for hiding imports and potential rootkit behavior."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/System Hooking",
+      "description": "Utilizes functions like IoAllocateMdl and MmMapLockedPagesSpecifyCache, which are commonly used in rootkits for kernel-mode memory manipulation or hooking."
+    },
+    {
+      "name": "Persistence",
+      "description": "Uses RegCreateKeyExA and RegSetValueExA to manipulate registry keys associated with system persistence."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Employs mutex checks (CreateMutexA) and potentially other environment-gating techniques to hinder analysis."
+    }
+  ],
+  "details": {
+    "reasoning": "While the file exhibits some installer-like boilerplate code, the high concentration of kernel-mode related API calls (e.g., IoAllocateMdl, MmMapLockedPagesSpecifyCache) and the direct manipulation of system structures (e.g., KeServiceDescriptorTable via memory mapping) indicates clear malicious intent, likely targeting kernel integrity or process hiding.",
+    "general": "High-intent indicators include the dynamic resolution and calling of 'KeServiceDescriptorTable' and 'KeAddSystemServiceTable' (fcn.1000ab6f, fcn.1000a2cd), which are core targets for system service hooking. The XOR loop at 0x1000167b confirms the use of encrypted payloads.",
+    "uncertainties": "Due to the complexity of the dynamic calls and kernel-related imports, the full operational impact requires dynamic analysis in a kernel-aware sandbox, as the static view may miss the specific configuration of the injected driver or hook.",
+    "conditions": "The payload requires specific registry keys to be present and potentially administrative privileges to successfully map kernel memory areas or modify system services.",
+    "sandbox_recommendations": "Use a kernel-aware debugger and sandbox environment. Monitor registry keys specifically under HKLM\\SYSTEM\\CurrentControlSet. Simulate a system environment with driver loading capabilities."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for kernel-mode synchronization."
+        },
+        {
+          "value": "KeServiceDescriptorTable",
+          "description": "Targeted kernel structure for hooking."
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Typical path for service persistence modification."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001697",
+      "name": "fcn.10001697",
+      "description": "Primary decryption routine using XOR."
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Function responsible for interacting with the KeServiceDescriptorTable."
+    },
+    {
+      "address": "0x1000c492",
+      "name": "fcn.1000c492",
+      "description": "Memory manipulation routine using IoAllocateMdl/MmMapLockedPagesSpecifyCache for kernel-level access."
+    }
+  ]
+}

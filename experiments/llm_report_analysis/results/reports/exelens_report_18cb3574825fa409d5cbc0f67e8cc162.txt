@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to manipulate system internals, specifically targeting the kernel and kernel-mode structures (`KeServiceDescriptorTable`, `KeAddSystemServiceTable`), likely to achieve persistence or evasion. It performs dynamic API resolution through `GetProcAddress` and `LoadLibrary` to access sensitive functions like `NtShutdownSystem`, and performs process hollowing/injection routines.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR encoding",
+      "Dynamic API resolution",
+      "Resource-based payload storage"
+    ],
+    "details": "The executable stores encrypted payloads in RSRC resources (RVA 0x100015f7). It uses XOR loops (0xCD) to decode these payloads (RVA 0x1000167b) and then uses `GetProcAddress` to map its internal functionality."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel Mode Manipulation",
+      "description": "Attempts to interact with kernel-mode structures such as `KeServiceDescriptorTable` and `KeAddSystemServiceTable`."
+    },
+    {
+      "name": "Process Injection/Hollowing",
+      "description": "Uses `CreateProcessA` and likely memory manipulation to inject code into other processes."
+    },
+    {
+      "name": "Dynamic API Resolution",
+      "description": "Resolves APIs at runtime from `ntdll.dll` and other system DLLs, including `NtShutdownSystem` and `NtQuerySystemInformation`."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies Windows registry keys to likely maintain persistence."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel structure modification (`KeServiceDescriptorTable` manipulation), process hollowing routines, and the dynamic loading of sensitive system APIs (specifically related to kernel and system shutdown) constitutes clear malicious intent. Legitimate software does not need to probe or modify the Service Descriptor Table or use custom XOR routines to patch these structures.",
+    "general": "High-intent indicators: `fcn.1000b369` and `fcn.1000ab6f` contain logic to patch `KeServiceDescriptorTable`. `fcn.10001b34` uses `CreateProcessA` with flags commonly used for hollowing. Dynamic loading of `NtShutdownSystem` and `NtQuerySystemInformation` occurs in `fcn.1000c8af` and `fcn.1000c932`.",
+    "uncertainties": "The truncated nature of the `fcn.1000d556` call suggests some kernel-side code is dynamically generated or mapped, which could hold additional payload logic that is not explicitly present in the provided disassembly.",
+    "conditions": "The malware requires an environment with standard Windows system architecture to resolve its kernel hooks successfully. It performs environment checks using `GetComputerNameA` and registry checks (e.g., `o_JYXpY___EoYHHUR_O`) to gate its primary execution.",
+    "sandbox_recommendations": "Run in a hardened Windows x86 environment with kernel-mode monitoring tools enabled. Specifically, monitor for unauthorized modifications to `ntoskrnl.exe` and `win32k.sys` or the System Service Descriptor Table (SSDT)."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "o_JYXpY___EoYHHUR_O",
+          "description": "Registry key used for configuration or persistence."
+        },
+        {
+          "value": "xYZ_IPH",
+          "description": "Registry key used for configuration."
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for single-instance execution."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for process synchronization."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Primary function responsible for manipulating the SSDT (KeServiceDescriptorTable)."
+    },
+    {
+      "address": "0x1000c8af",
+      "name": "fcn.1000c8af",
+      "description": "Handles dynamic resolution and potential modification of system service tables."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Handles process creation and potential hollowing."
+    }
+  ]
+}

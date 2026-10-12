@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to search for and disable security-related services/processes by interacting with the system service descriptor table (SSDT) and performing process injection. It also maintains a persistence mechanism by modifying Windows registry keys.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom encryption/obfuscation routine",
+      "Resource-based payload hiding"
+    ],
+    "details": "The file contains an encrypted/obfuscated payload in the .rsrc section (resource 102). It uses a custom XOR-based decryption routine (e.g., in fcn.100015f7) to unpack data into memory."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "Utilizes VirtualAlloc, CreateRemoteThread, and WriteProcessMemory patterns (often masked via driver-level hooks in this sample) to inject code."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies Registry Run keys and system configurations to execute upon boot."
+    },
+    {
+      "name": "Evasion/Anti-Analysis",
+      "description": "Checks for debugger presence and system configuration to tailor behavior; uses dynamic API resolution."
+    },
+    {
+      "name": "Kernel-Level Manipulation",
+      "description": "Attempts to interact with KeServiceDescriptorTable to hide processes or intercept system calls."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level hooking capabilities (SSDT manipulation, NtQuerySystemInformation, etc.), registry persistence, and anti-analysis triggers confirms malicious intent. The code specifically looks for security software by name (e.g., 'lsass') and attempts to manipulate system file attributes, which is characteristic of malware seeking to survive removal.",
+    "general": "The function fcn.1000ab6f and fcn.1000a2cd demonstrate deliberate modification of the KeServiceDescriptorTable. Furthermore, fcn.100017a0 shows clear intent to persist by modifying registry keys to point to injected malicious modules in processes like lsass.exe.",
+    "uncertainties": "While the binary is clearly a dropper/rootkit component, the exact C2 server infrastructure is not visible as the networking code is heavily obfuscated and relies on dynamic loading.",
+    "conditions": "The sample requires specific environmental variables or existing registry keys (e.g., those matching patterns like 'DMWI') to activate its full payload. It also performs timing checks using Sleep to delay execution.",
+    "sandbox_recommendations": "Run in a controlled Windows environment with kernel-level monitoring. Ensure network interception is active to capture encrypted beaconing traffic. Pre-configure registry keys to simulate an already-infected state to trigger the secondary payload."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Persistence key target"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "lsass",
+          "description": "Targeted process for injection"
+        },
+        {
+          "value": "KeServiceDescriptorTable",
+          "description": "Targeted kernel structure"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "SSDT modification/hooking logic"
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Registry-based persistence and file modification"
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Resource decryption and extraction"
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable performs manual PE parsing and dynamic API resolution, specifically targeting Windows API functions related to process control and file operations, likely as part of a custom loader or injection routine.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom PE Loader",
+      "Dynamic API Resolution"
+    ],
+    "details": "The code uses manual PE parsing (traversing the Export Directory via fcn.0004d996) and a custom hashing algorithm (fcn.0004d11c) to resolve function names from DLLs, which is a classic indicator of a custom packer or malware loader."
+  },
+  "capabilities": [
+    {
+      "name": "Dynamic API Resolution",
+      "description": "The binary resolves functions at runtime using custom string hashing instead of the Import Address Table."
+    },
+    {
+      "name": "Manual PE Parsing",
+      "description": "Locates the Export Directory of loaded modules (likely kernel32.dll) to manually find function addresses."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of manual PE header traversal (fcn.0004d996), custom string hashing for API resolution (fcn.0004d11c), and the reconstruction of specific API strings (like 'LoadLibraryA' and 'GetProcAddress' reconstructed on the stack in fcn.0004d643) provides clear evidence of malicious intent to obfuscate behavior and bypass static analysis detection. These are not standard patterns for benign software.",
+    "general": "fcn.0004d643 dynamically constructs function names on the stack ('LoadLibraryA', 'GetProcAddress') and calls fcn.0004d996 to locate their addresses in memory. This demonstrates a clear intent to hide API usage from static analysis.",
+    "uncertainties": "While the specific final payload is not explicitly visible, the loader behavior is highly indicative of malicious intent. The exact targets of the loaded functions remain obfuscated until runtime.",
+    "conditions": "The sample performs manual PE parsing, meaning it requires a valid Windows environment where common system DLLs (kernel32.dll) are mapped in the process address space.",
+    "sandbox_recommendations": "Use a debugger to monitor calls resolved through the hashing routine in fcn.0004d11c. Set breakpoints on the return addresses of the dynamically resolved calls to observe the final API interaction."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "LoadLibraryA",
+          "description": "Dynamically resolved API name"
+        },
+        {
+          "value": "GetProcAddress",
+          "description": "Dynamically resolved API name"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x0004d643",
+      "name": "fcn.0004d643",
+      "description": "Entrypoint logic that constructs API names on the stack and initiates dynamic resolution."
+    },
+    {
+      "address": "0x0004d996",
+      "name": "fcn.0004d996",
+      "description": "Locates the export directory of a DLL in memory and performs name searching."
+    },
+    {
+      "address": "0x0004d11c",
+      "name": "fcn.0004d11c",
+      "description": "Implements the custom hashing algorithm used to verify function names."
+    }
+  ]
+}

@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable performs network-based communication, collects hardware configuration information (MAC addresses, processor IDs), and persists itself via registry modifications. It implements a custom decryption routine to process data received from a command-and-control server and writes the resulting payload to the disk.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation",
+      "Dynamic API resolution"
+    ],
+    "details": "The file uses a custom XOR routine (fcn.00401280) to obfuscate configuration data and strings. The overlay contains high-entropy data (7.07), suggesting an encrypted payload or resources accessed at runtime."
+  },
+  "capabilities": [
+    {
+      "name": "Network Communication",
+      "description": "Utilizes WININET.dll (HttpSendRequestA, HttpOpenRequestA) for C2 communication."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies the RunOnce registry key (SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce) to ensure execution after reboot."
+    },
+    {
+      "name": "System Profiling",
+      "description": "Queries network adapters via IPHLPAPI.dll and CPU information from the registry (HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0)."
+    },
+    {
+      "name": "File Manipulation",
+      "description": "Creates, reads, writes, and deletes files, typical of dropper behavior."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistence, network callbacks to dynamic hosts, and the decryption of remote data confirms malicious intent. While individual APIs like RegSetValueExA are dual-use, their usage here within the flow of setting up persistent execution and retrieving external payloads points to a malware dropper/botnet component.",
+    "general": "High-intent indicators include: persistence via RegCreateKeyExA (fcn.00401400), C2 communication using WININET APIs (fcn.00401000), and the use of GetAdaptersInfo combined with XOR decryption of data (fcn.00401b50).",
+    "uncertainties": "The exact nature of the final payload decrypted from the server is unknown as it is fetched dynamically at runtime.",
+    "conditions": "The sample performs environment checks (sleep loops and file existence checks) and specifically checks for adapter information and registry keys; it requires network connectivity to a server to proceed with payload decryption.",
+    "sandbox_recommendations": "Run in an isolated environment with network simulation (fake DNS/HTTP server). Intercept HTTP requests to analyze the returned content that the malware expects to decrypt."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce",
+          "description": "Persistence mechanism used for autostart."
+        },
+        {
+          "value": "HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0",
+          "description": "Registry key queried for system profiling."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "E______E._iqrstf.1rkbf.__3VFvW.dflqfreje",
+          "description": "Opaque filename likely used for temporary file operations."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401000",
+      "name": "fcn.00401000",
+      "description": "Primary network communication handler using WinInet."
+    },
+    {
+      "address": "0x00401400",
+      "name": "fcn.00401400",
+      "description": "Registry modification function for achieving persistence."
+    },
+    {
+      "address": "0x00401b50",
+      "name": "fcn.00401b50",
+      "description": "Data processing and XOR-decryption routine."
+    }
+  ]
+}

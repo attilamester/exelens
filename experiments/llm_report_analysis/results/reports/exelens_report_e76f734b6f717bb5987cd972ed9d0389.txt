@@ -1,0 +1,75 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a kernel-mode driver installer/loader. It performs anti-analysis checks, modifies system drivers, and uses custom encryption for its internal resource payload (likely the driver), which it then installs and interacts with.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR obfuscation of resources",
+      "Dynamic API resolution (GetProcAddress/LoadLibrary)"
+    ],
+    "details": "The file uses a custom XOR routine (XOR 0xcd) to decrypt resources (RVA 0x1000167b) stored in the .rsrc section. These resources are later loaded and potentially injected or mapped into the system."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode driver interaction",
+      "description": "The binary references 'ntoskrnl.exe', 'ntkrnlpa.exe', 'win32k.sys' and uses functions like KeRaiseIrqlToDpcLevel and NtQuerySystemInformation."
+    },
+    {
+      "name": "Persistence and Evasion",
+      "description": "It creates registry keys and values (likely persistence) and checks for its own existence using mutexes ('prkMtx'). It also uses anti-debugging and anti-analysis techniques."
+    },
+    {
+      "name": "Resource Modification",
+      "description": "Uses BeginUpdateResourceA and UpdateResourceA, likely to patch its own embedded driver or configuration."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode driver interaction (NtQuerySystemInformation, KeRaiseIrqlToDpcLevel), deliberate attempts to modify kernel structures, and the use of hardcoded system paths suggests malicious intent, specifically rootkit behavior. The presence of XOR decryption on embedded resources and the use of Ordinal imports from a custom DLL further confirm non-standard, likely malicious behavior.",
+    "general": "The function fcn.10009d28 directly probes kernel-mode structures and modifies driver dispatch tables ('KeRaiseIrqlToDpcLevel'). fcn.1000ab6f and fcn.1000a2cd are high-intent functions that perform registry modifications and manipulate system drivers (e.g., 'win32k.sys').",
+    "uncertainties": "The exact content of the XOR-encrypted resources is not fully visible, though analysis confirms they are linked to kernel-mode operations.",
+    "conditions": "The malware checks for existing mutexes ('prkMtx', 'GlobalRPCMutex') and likely requires administrator or system-level privileges to modify kernel components and registry keys.",
+    "sandbox_recommendations": "Run in a kernel-mode debugger (e.g., WinDbg) on a virtual machine. Monitor registry changes (especially Run keys) and disk writes to system32 drivers. Ensure the sandbox is not using a hardened/monitored kernel that might trigger the anti-analysis gates found in fcn.10009801."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\",
+          "description": "Persistence via service modification"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for process synchronization"
+        },
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Primary driver installation and registry manipulation logic."
+    },
+    {
+      "address": "0x100043d2",
+      "name": "fcn.100043d2",
+      "description": "Handles resource decryption and driver-related string operations."
+    },
+    {
+      "address": "0x10009bd3",
+      "name": "fcn.10009bd3",
+      "description": "Kernel driver mapping and initialization."
+    }
+  ]
+}

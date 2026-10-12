@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a complex installer or loader that decrypts embedded resources using a custom XOR-based routine, manipulates the Windows registry for persistence, and demonstrates kernel-level interaction techniques including modifying system service descriptors (KeServiceDescriptorTable).",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based resource decryption",
+      "Dynamic API resolution (GetProcAddress/LoadLibrary)"
+    ],
+    "details": "The file contains encrypted resources (offset 0x1000167b: XOR 0xcd loop) which are decrypted at runtime into memory. It also uses dynamic API resolution, a common technique for both legitimate protectors and malware."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-Level Service Manipulation",
+      "description": "Uses techniques like NtQuerySystemInformation and access to KeServiceDescriptorTable to interact with the OS kernel."
+    },
+    {
+      "name": "Registry Persistence",
+      "description": "Uses RegCreateKeyExA and RegSetValueExA to modify system registry keys, likely to ensure persistence or load components."
+    },
+    {
+      "name": "Process Injection/System File Manipulation",
+      "description": "Checks for specific system files (e.g., win32k.sys) and performs file copy and attribute modification operations."
+    },
+    {
+      "name": "Evasion/Anti-Analysis",
+      "description": "Utilizes Mutex checks (GlobalRPCMutex) and environmental checks (GetEnvironmentVariable) to prevent multiple instances or sandbox execution."
+    }
+  ],
+  "details": {
+    "reasoning": "While the binary shares some characteristics with legitimate software protectors, the combination of modifying the System Service Descriptor Table (SSDT), accessing kernel symbols (e.g., KeRaiseIrqlToDpcLevel), and the high-intent nature of the registry modifications points clearly to malicious behavior. It explicitly targets system files and environment variables to hook or modify standard Windows operations.",
+    "general": "The function fcn.1000b369 performs direct manipulation of the KeServiceDescriptorTable, a classic rootkit behavior. Additionally, fcn.10009d28 and fcn.100096ce demonstrate logic to bypass or interact with kernel-level protections by resolving and potentially patching kernel function addresses.",
+    "uncertainties": "The exact nature of the payload being decrypted and injected remains partially hidden due to the depth of dynamic obfuscation, but the structural indicators are consistent with high-intent malicious software.",
+    "conditions": "The execution flow is gated by a Mutex (GlobalRPCMutex) to prevent concurrent execution and environment-specific checks (e.g., win32k.sys presence, specific registry keys).",
+    "sandbox_recommendations": "Ensure the sandbox provides a full Windows environment. The malware likely expects specific file system structures and may require administrator privileges to successfully modify system registry keys and kernel tables."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for process synchronization/exclusion."
+        },
+        {
+          "value": "win32k.sys",
+          "description": "System file specifically targeted for access."
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Targeted registry path for service manipulation."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Performs critical manipulation of kernel-level structures like the KeServiceDescriptorTable."
+    },
+    {
+      "address": "0x10009d28",
+      "name": "fcn.10009d28",
+      "description": "Resolves kernel functions (e.g., KeRaiseIrqlToDpcLevel) for advanced system interaction."
+    },
+    {
+      "address": "0x100028d6",
+      "name": "fcn.100028d6",
+      "description": "Orchestrates network-like requests or command-and-control logic using low-level sockets."
+    }
+  ]
+}

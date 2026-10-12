@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a kernel-level rootkit/driver loader. It checks system versioning, manipulates kernel structures (KeServiceDescriptorTable), performs file masking/cloaking by hooking Windows APIs, and establishes persistence.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based payload decryption",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress"
+    ],
+    "details": "Resources 101, 102, and 103 appear to contain encrypted payloads. Functions like fcn.100015f7 perform resource loading, followed by XOR-based decryption (0xcd) in fcn.10001697."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Attempts to locate and modify the KeServiceDescriptorTable (SSDT) to hook system calls."
+    },
+    {
+      "name": "File cloaking",
+      "description": "Uses RegSetValueExA/RegQueryValueExA to hide specific registry values and manipulates system files via CopyFile/DeleteFile."
+    },
+    {
+      "name": "Mutex-based anti-analysis",
+      "description": "Uses specific mutex names like 'GlobalRPCMutex' and 'prkMtx' to ensure only one instance is running and to signal state."
+    },
+    {
+      "name": "Persistence",
+      "description": "Manipulates registry keys to ensure re-execution upon boot."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level API hooking (SSDT), string references to 'ntkrnlpa.exe', 'ntoskrnl.exe', 'KeServiceDescriptorTable', and the specific logic in fcn.1000ab6f and fcn.1000a2cd targeting system call tables is characteristic of rootkits. While it uses legitimate Windows APIs, their orchestrated use to modify kernel memory and hook system functions is unequivocally malicious intent.",
+    "general": "High-intent indicators include the modification of KeServiceDescriptorTable (fcn.1000b369), the use of 'PsGetCurrentProcess' (fcn.10009936), and the deliberate attempt to hide from system processes using file system and registry manipulation.",
+    "uncertainties": "The exact nature of the decrypted resource payloads (101, 102) remains partially obscured, though fcn.10001b34 suggests they are injected/executed as secondary processes.",
+    "conditions": "Execution is likely conditional on specific OS versions (checked via GetVersionExA). The rootkit functionality triggers if the environment is a compatible NT system.",
+    "sandbox_recommendations": "Run in a kernel-mode debugging environment (e.g., WinDbg attached). Simulate a system with admin privileges and specific registry environments as the malware queries registry keys extensively."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for execution synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for system synchronization."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "_system32",
+          "description": "Target directory for file persistence/cloaking."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Core function that attempts to hook the KeServiceDescriptorTable."
+    },
+    {
+      "address": "0x10001697",
+      "name": "fcn.10001697",
+      "description": "Decryption routine for encrypted resource data."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Loads and executes secondary payloads from resources."
+    }
+  ]
+}

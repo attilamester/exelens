@@ -1,0 +1,92 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to manipulate system internals, specifically the System Service Descriptor Table (SSDT), and performs registry manipulation and process hollowing/injection techniques.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Custom XOR obfuscation (0xcd key)",
+      "Resource-based payload loading (FindResourceA, LoadResource)"
+    ],
+    "details": "The file uses a custom XOR routine (RVA 0x1000167b) to decrypt payloads hidden in resources. The use of multiple resource-loading APIs and dynamic API resolution suggests an attempt to hide its primary logic."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection / Hollowing",
+      "description": "Functions like fcn.10001b34 use CreateProcessA followed by WriteFile/SetFileTime, indicating a potential process hollowing or dropper pattern."
+    },
+    {
+      "name": "Kernel-mode Manipulation / SSDT Hooking",
+      "description": "The presence of code accessing 'KeServiceDescriptorTable' and 'KeAddSystemServiceTable' (e.g., fcn.1000b369) strongly indicates an intent to hook system services to achieve persistence or evasion."
+    },
+    {
+      "name": "Registry Manipulation",
+      "description": "Frequent use of RegCreateKeyExA, RegSetValueExA, and RegEnumKeyExA for maintaining persistence in standard run keys (e.g., 'DMWI', 'lsass')."
+    },
+    {
+      "name": "System Evasion",
+      "description": "Checks for debugger presence and uses mutexes (e.g., 'GlobalRPCMutex', 'prkMtx') to ensure only one instance of the malicious payload runs."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode structures (SSDT) access, process creation, and registry manipulation for persistence is indicative of a sophisticated rootkit or persistent loader. The code does not exhibit the characteristics of legitimate software protectors or installers, which typically do not interact with SSDT or manipulate kernel service tables.",
+    "general": "The function fcn.1000b369 explicitly targets 'KeServiceDescriptorTable'. Combined with the process creation logic in fcn.10001b34 and registry persistence routines in fcn.1000202a, this aligns with high-intent malicious behavior rather than dual-use protection.",
+    "uncertainties": "While the kernel-mode interaction is clear, the full extent of the payload (the decrypted resource) was not statically visible, but the identified loader behavior is sufficient for a malicious verdict.",
+    "conditions": "The sample requires specific environment conditions for full execution, such as the absence of specific mutexes ('prkMtx') and potential environment variables like '_system32'. It also checks for the operating system version before executing kernel-mode hooks.",
+    "sandbox_recommendations": "Run in an isolated environment that allows kernel-level debugging. Ensure the sandbox is configured with administrative privileges, as the code explicitly attempts to interact with system-level registry keys and kernel tables."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "DMWI",
+          "description": "Used as a registry key/value name for persistence."
+        },
+        {
+          "value": "lsass",
+          "description": "Used as a registry key/value name for persistence, likely to masquerade as the LSASS process."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "_system32",
+          "description": "Associated with system-path manipulation or file dropping."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for process synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for kernel-mode synchronization."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Targeting of SSDT (KeServiceDescriptorTable) for hooking."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Process creation logic potentially involved in hollowing."
+    },
+    {
+      "address": "0x1000202a",
+      "name": "fcn.1000202a",
+      "description": "Registry manipulation for persistence."
+    }
+  ]
+}

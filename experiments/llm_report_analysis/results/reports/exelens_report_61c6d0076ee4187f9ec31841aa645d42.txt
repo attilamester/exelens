@@ -1,0 +1,89 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains multiple high-intent indicators of credential theft, including modules for PStore (Outlook Express), password autocomplete stealing, and system-level credential access. It possesses capabilities to interact with the Windows Service Control Manager, manipulate registry keys for persistence/evasion, and communicates with a hardcoded server.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom packing/encryption detected in .data section",
+      "Dynamic API resolution (GetProcAddress)"
+    ],
+    "details": "The high entropy (7.95) in the .data section suggests encrypted data, while function calls such as fcn.0041cfc0 suggest a custom decryption or unpacking mechanism used for runtime resolution."
+  },
+  "capabilities": [
+    {
+      "name": "Credential Theft",
+      "description": "Evidence of PStore access (fcn.0040923c) and credential enumeration (fcn.00408f36)."
+    },
+    {
+      "name": "Registry Manipulation",
+      "description": "Functions fcn.00406940 and fcn.00406798 perform registry enumeration and deletion, likely for persistence or removing competitor components."
+    },
+    {
+      "name": "Service Manipulation",
+      "description": "Imports include ADVAPI32 service APIs like OpenSCManagerW and StartServiceW, suggesting persistence as a service."
+    },
+    {
+      "name": "Networking",
+      "description": "fcn.0040749e performs HTTP requests to '64.18.143.90', characteristic of command and control communication."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of specific, high-intent modules targeting Windows credential stores (PStore, Internet Explorer, Outlook Express) and the presence of service management and exfiltration routines provides clear evidence of malicious intent that cannot be explained by legitimate software.",
+    "general": "Evidence is found in fcn.0040923c (dig_protected_storage), fcn.00408f36 (dig_credentials), and fcn.0040a45f (dig_ie7_autocomplete). These indicate targeted collection of sensitive data. Additionally, fcn.00406d80 (main) calls GetUserNameW, further supporting the identity-focused nature of this malware.",
+    "uncertainties": "The presence of truncated function bodies limits visibility into the full decryption routine, but the IOCs provided are sufficient to confirm the malicious nature.",
+    "conditions": "The sample executes environment checks (fcn.004060d5 for OS and VM detection). Successful execution relies on these checks passing (not running in a virtual machine) and potential network connectivity to the hardcoded C2 server.",
+    "sandbox_recommendations": "Simulate a live internet connection to '64.18.143.90'. Run in a non-virtualized, bare-metal analysis environment if possible, or use a high-interaction sandbox to bypass VM detection (fcn.004060d5)."
+  },
+  "ioc": [
+    {
+      "type": "ip",
+      "values": [
+        {
+          "value": "64.18.143.90",
+          "description": "Hardcoded C2 server for modular data exchange."
+        }
+      ]
+    },
+    {
+      "type": "url",
+      "values": [
+        {
+          "value": "http://64.18.143.90/modules/en/app.class.php",
+          "description": "URL for modular request handling."
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SOFTWARE\\Microsoft\\Internet Explorer\\IntelliForms\\Storage2",
+          "description": "Key accessed to steal IE autocomplete passwords."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x0040923c",
+      "name": "fcn.0040923c",
+      "description": "Handles protected storage (PStore) credential theft."
+    },
+    {
+      "address": "0x00408f36",
+      "name": "fcn.00408f36",
+      "description": "Enumerates system credentials."
+    },
+    {
+      "address": "0x0040749e",
+      "name": "fcn.0040749e",
+      "description": "Primary network communication routine to the C2 server."
+    },
+    {
+      "address": "0x004060d5",
+      "name": "fcn.004060d5",
+      "description": "Environment/Sandbox detection routine."
+    }
+  ]
+}

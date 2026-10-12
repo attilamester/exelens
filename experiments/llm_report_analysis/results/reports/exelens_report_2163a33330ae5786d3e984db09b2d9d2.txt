@@ -1,0 +1,67 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a modular backdoor/trojan that performs system reconnaissance, screen capture, and persistence via registry modifications. It uses dynamic API resolution, code injection via Remote Thread, and network-based C2 communication.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Dynamic API Resolution via hash-based lookup",
+      "Staged payload loading (fcn.10001399)",
+      "In-memory module loading (Reflective-like)"
+    ],
+    "details": "The binary includes multiple functions (e.g., fcn.100027c6, fcn.1000281e) that implement hash-based API resolution to hide its imports. The core functionality is dynamically loaded into memory."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "Utilizes CreateRemoteThread, VirtualAllocEx, and WriteProcessMemory to inject code into other processes."
+    },
+    {
+      "name": "Screen Capture",
+      "description": "Uses Gdiplus to capture and save screenshots (GdipSaveImageToStream)."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies Windows Registry keys (RegSetValueExA) to ensure execution on system startup."
+    },
+    {
+      "name": "C2 Communication",
+      "description": "Employs WinInet (HttpSendRequestA) for beaconing and data exfiltration."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of dynamic API resolution, reflective code loading (CreateRemoteThread into memory regions), system reconnaissance (GetSystemInfo, GetVersionExA), and clipboard/screen capture capabilities strongly indicates malicious intent. The binary's structure aligns with modular banking trojans or backdoors that exfiltrate data after infecting the host.",
+    "general": "High-intent evidence includes fcn.1000169b (CreateRemoteThread), fcn.100041fb (GDIplus-based capture), and the use of RegSetValueExA for persistence. The code logic inside fcn.1000281e and fcn.10002b17 demonstrates manual parsing of the PE header for reflective loading.",
+    "uncertainties": "While the C2 address/URL logic is obfuscated and requires dynamic execution to fully extract, the capabilities themselves are unambiguous for this file type.",
+    "conditions": "Requires network connectivity to contact C2 endpoints and standard Windows permissions to modify registry keys and inject threads into processes.",
+    "sandbox_recommendations": "Monitor network traffic to external IPs/domains initiated via WinInet. Use a debugger to breakpoint at fcn.10001399 to inspect the decrypted payload, and set registry monitors on 'Software\\Microsoft\\Windows\\CurrentVersion\\Run'."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Targeted for persistence."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000169b",
+      "name": "fcn.1000169b",
+      "description": "Core loader function responsible for process injection/remote thread creation."
+    },
+    {
+      "address": "0x100041fb",
+      "name": "fcn.100041fb",
+      "description": "Implements screen capture and image processing routines."
+    },
+    {
+      "address": "0x10004897",
+      "name": "fcn.10004897",
+      "description": "Handles C2 communication using WinInet APIs."
+    }
+  ]
+}

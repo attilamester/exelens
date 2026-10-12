@@ -1,0 +1,89 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to search for, modify, and inject itself into system files and processes, specifically targeting 'lsass.exe' and system registry keys. It uses custom resource encryption and dynamic API resolution to evade detection.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based resource obfuscation",
+      "Dynamic API resolution",
+      "Dynamic shellcode injection (KeRaiseIrqlToDpcLevel / DpcLevel injection)"
+    ],
+    "details": "The sample contains encrypted payloads in resources (RVA 0x100015f7). It uses XOR loops with a key of 0xCD to decrypt resources at runtime. It also dynamically resolves system APIs from kernel-mode DLLs (ntdll.dll, ntkrnlpa.exe) using GetProcAddress to perform stealthy operations."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "The malware exhibits capability to inject code into system processes (e.g., targetting lsass.exe via registry modification and memory writing)."
+    },
+    {
+      "name": "Persistence",
+      "description": "Utilizes registry modification (RegCreateKeyExA/RegSetValueExA) to maintain presence across system reboots."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Contains code to detect debuggers and virtual environments, and utilizes obfuscation to hide its core logic."
+    },
+    {
+      "name": "Kernel-level interaction",
+      "description": "Attempts to interact with system internals, specifically looking for service tables (KeServiceDescriptorTable) and modifying system files like 'win32k.sys'."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of high-intent malicious capabilities—specifically targeting 'lsass.exe' for modification and patching kernel-mode structures like the system service descriptor table—constitutes clear malicious intent. Legitimate software does not need to inject code into LSASS or modify 'win32k.sys'. While some routines use common dual-use functions (VirtualAlloc, RegCreateKey), the context of these actions (targeting sensitive system files and processes) confirms they are part of a malicious infection chain.",
+    "general": "High-intent indicators include: the modification of 'lsass.exe' in the registry (fcn.100017a0), the use of 'KeRaiseIrqlToDpcLevel' and similar kernel-level techniques (fcn.10009d28) for code execution, and direct file modification of 'win32k.sys' (fcn.1000a0fc).",
+    "uncertainties": "While the code structure indicates it is a sophisticated modular threat, the full payload activation sequence is dependent on specific registry keys and file environment existence, meaning behavioral analysis in a restricted sandbox might not trigger the complete infection routine.",
+    "conditions": "Execution flow is heavily dependent on environment variables ('system32') and specific registry keys being present. The malware also performs mutex checks (e.g., 'GlobalRPCMutex', 'prkMtx') to ensure only one instance is active.",
+    "sandbox_recommendations": "The sandbox should be configured with a standard Windows installation including 'lsass.exe'. The environment variable 'system32' should be correctly populated. Since the malware uses mutexes for control, avoid running multiple instances simultaneously."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa",
+          "description": "Targeted registry path for persistence or modification."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "C:\\Windows\\System32\\win32k.sys",
+          "description": "System file targeted for modification."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for process synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for inter-process communication."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Responsible for registry modifications related to LSASS persistence."
+    },
+    {
+      "address": "0x10009d28",
+      "name": "fcn.10009d28",
+      "description": "Kernel-mode injection routine using IRQL-based evasion techniques."
+    },
+    {
+      "address": "0x1000a0fc",
+      "name": "fcn.1000a0fc",
+      "description": "Contains logic to interact with and modify system files like win32k.sys."
+    }
+  ]
+}

@@ -1,0 +1,90 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a modular rootkit/kernel-mode driver installer that performs privilege escalation checks, disables security mechanisms (such as DbgPrint), and attempts to install or manipulate system drivers by directly interacting with kernel structures like the Service Descriptor Table (SSDT).",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation of resource data",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress",
+      "Resource-based loading of secondary payloads"
+    ],
+    "details": "The file contains encrypted/packed data in RSRC section resources (ID 102). It uses custom XOR loops (e.g., 0xcd key in fcn.100017a0) to decrypt these payloads at runtime before execution or installation."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-Mode Driver Manipulation",
+      "description": "Utilizes IoAllocateMdl, MmBuildMdlForNonPagedPool, and MmMapLockedPagesSpecifyCache to manipulate kernel-mode memory."
+    },
+    {
+      "name": "SSDT Hooking/Modification",
+      "description": "Targets KeServiceDescriptorTable and KeAddSystemServiceTable to potentially intercept system calls."
+    },
+    {
+      "name": "Evasion/Anti-Debugging",
+      "description": "Uses DbgPrint/DbgPrintEx suppression and checks for specific environment variables to avoid analysis."
+    },
+    {
+      "name": "Persistence/Registry Manipulation",
+      "description": "Extensive registry interaction (RegCreateKeyExA, RegSetValueExA) to establish persistence and configuration."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode memory manipulation (MDL APIs), SSDT modification (KeServiceDescriptorTable), and the explicit intent to load drivers (LoadLibrary/GetProcAddress on kernel symbols) is strongly indicative of malicious rootkit behavior rather than standard system software. The file explicitly attempts to bypass normal OS integrity checks.",
+    "general": "High-intent evidence includes direct modification of the SSDT in fcn.1000b369 and fcn.1000ab6f. The function fcn.100096ce specifically looks for NT kernel functions like KeRaiseIrqlToDpcLevel, indicating deep kernel-level hooking logic.",
+    "uncertainties": "While the overall behavior is malicious, the full extent of the rootkit's payload is hidden within encrypted resources, making the specific ultimate goal (e.g., banking theft vs. ransomware) indeterminate from static analysis alone.",
+    "conditions": "The file performs environment checks (GetSystemDirectoryA, GetVersionExA). It requires administrative privileges for the registry keys and driver installation functions to succeed.",
+    "sandbox_recommendations": "Run in a kernel-aware sandbox environment (e.g., Cuckoo with KVM/VirtualBox kernel monitoring). Ensure the system is configured to allow unsigned driver loading if necessary to trigger the behavior."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\lsass",
+          "description": "Persistence registry path identified during string analysis."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "_system32",
+          "description": "Path segment used in file/environment manipulation."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used to ensure single instance."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Modifies the System Service Descriptor Table (SSDT)."
+    },
+    {
+      "address": "0x1000c492",
+      "name": "fcn.1000c492",
+      "description": "Handles Memory Descriptor List (MDL) allocation and mapping for driver injection."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Updates system resources and potentially patches files on disk."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Extracts/drops driver files from resources to disk."
+    }
+  ]
+}

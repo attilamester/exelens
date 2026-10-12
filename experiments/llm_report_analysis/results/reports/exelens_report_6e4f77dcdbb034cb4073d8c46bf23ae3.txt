@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a sophisticated rootkit/system-level tool designed to manipulate kernel objects, specifically targeting 'win32k.sys' and 'ntoskrnl.exe'. It employs anti-analysis techniques, dynamic module loading, and kernel-mode memory manipulation to potentially hide or persist.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource-based payload extraction",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress",
+      "XOR-based obfuscation of internal strings and resource data"
+    ],
+    "details": "The sample uses a resource (ID 102) which is decrypted using a simple XOR loop in fcn.100015f7. The decrypted data appears to be a secondary module or driver component."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Uses functions like KeServiceDescriptorTable, NtQuerySystemInformation, and MmMapLockedPagesSpecifyCache to modify kernel structures."
+    },
+    {
+      "name": "Persistence and Evasion",
+      "description": "Manipulates registry keys (e.g., Run keys, system services) to ensure persistence, and attempts to hide files/processes."
+    },
+    {
+      "name": "Mutex-based synchronization",
+      "description": "Checks for/creates a mutex (GlobalRPCMutex, prkMtx) to prevent multiple instances and avoid detection."
+    }
+  ],
+  "details": {
+    "reasoning": "While some components (e.g., packing, dynamic loading) are dual-use, the clear intent demonstrated by functions such as fcn.1000b46f and fcn.1000ab6f—which explicitly attempt to hook or manipulate kernel-level service tables (KeServiceDescriptorTable) and bypass kernel protections—characterizes the sample as high-intent malware.",
+    "general": "The function fcn.1000b46f and fcn.1000ab6f demonstrate clear malicious intent by performing low-level memory writes into kernel address space and interacting with system drivers ('win32k.sys'). The sequence starting at fcn.100096ce specifically looks for kernel function addresses like 'KeGetCurrentIrql' to facilitate hijacking.",
+    "uncertainties": "The exact nature of the payload inside the resource is inferred from the code's behavior (driver/kernel manipulation) rather than a full analysis of the extracted bytes, as the payload logic itself is likely obfuscated further.",
+    "conditions": "Requires administrative privileges to successfully perform kernel-mode memory mapping and service modification. It checks for system directory existence and environment variables (e.g., 'system32') to ensure it is running in a standard Windows context.",
+    "sandbox_recommendations": "Run in an environment with Kernel Debugger monitoring enabled (e.g., WinDbg on a separate VM) to observe the kernel-mode memory modification attempts. Do not run on a production system."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Registry path where services are modified or added for persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used to synchronize execution and prevent multiple instances."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Secondary mutex observed in kernel-related operations."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Performs critical modifications to system kernel tables and registry keys."
+    },
+    {
+      "address": "0x100096ce",
+      "name": "fcn.100096ce",
+      "description": "Locates kernel function pointers required for hooking or manipulation."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Decryption routine for resources containing the malicious payload."
+    }
+  ]
+}

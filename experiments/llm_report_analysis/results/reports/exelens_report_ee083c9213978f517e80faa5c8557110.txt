@@ -1,0 +1,83 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This sample is a complex kernel-mode rootkit dropper that uses process hollowing, registry manipulation, and direct system calls to gain persistence and inject malicious code into critical system processes (e.g., lsass).",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR decryption loop",
+      "Resource-based payload hiding"
+    ],
+    "details": "The file uses RCDATA resources (102) which are locked and decrypted using a custom XOR routine (XOR byte 0xcd) within fcn.100015f7 and fcn.10001b34. The payload is then injected or executed."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Hollowing",
+      "description": "Utilizes CreateProcessA and subsequent operations to inject malicious code into system processes like lsass."
+    },
+    {
+      "name": "Kernel-mode Rootkit Persistence",
+      "description": "Modifies system drivers and registry keys (e.g., 'prkMtx' mutex and service keys) to maintain execution."
+    },
+    {
+      "name": "Anti-Analysis / Stealth",
+      "description": "Uses IsDebuggerPresent, registry mutex checks, and dynamic API resolution to avoid detection."
+    },
+    {
+      "name": "System Modification",
+      "description": "Accesses and modifies critical system drivers (win32k.sys, ntoskrnl.exe) via direct memory manipulation."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level API hooking (KeServiceDescriptorTable), process injection into lsass, and the use of hard-coded, obfuscated system file names demonstrates high-intent malicious behavior typical of rootkit malware, far exceeding legitimate software protectors or installers.",
+    "general": "The function fcn.1000b46f performs direct memory manipulation of kernel structures. fcn.1000b369 hooks the system service descriptor table. The presence of 'lsass' string injection in fcn.100017a0 is a clear indicator of credential theft or process subversion.",
+    "uncertainties": "While the core malicious logic is identified, the specific payload decrypted from the RCDATA resource could contain additional, undocumented modular functionality.",
+    "conditions": "The malware requires an environment with specific registry keys and likely administrative privileges to perform kernel-mode hooks. It performs environmental checks via GetVersionExA to determine the OS version before proceeding.",
+    "sandbox_recommendations": "Run in an environment that monitors kernel-level activities and registry modifications. The sample may require high-integrity (Admin) tokens to execute its malicious branch."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for synchronization."
+        },
+        {
+          "value": "lsass",
+          "description": "Target process for injection."
+        },
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Global mutex used to check for existing infection."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "win32k.sys",
+          "description": "Targeted system driver for memory modification."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Performs system service table modifications."
+    },
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Hooks KeServiceDescriptorTable to intercept system calls."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Injects or registers malicious components into system persistence mechanisms."
+    }
+  ]
+}

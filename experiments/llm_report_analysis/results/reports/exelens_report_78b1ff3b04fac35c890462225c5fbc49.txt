@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to manipulate system internals, including kernel-level structures like 'KeServiceDescriptorTable' (SSDT), bypass security descriptors, and perform process hollowing or injection. It masquerades as a driver installer to gain high-privilege execution.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR decryption loop",
+      "Resource-based payload hiding"
+    ],
+    "details": "The file uses a custom XOR decryption routine (0xcd key) during resource extraction (fcn.100015f7, fcn.10001697) to unpack its primary payload, which is stored in the .rsrc section."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-Level Hooking",
+      "description": "Uses 'KeServiceDescriptorTable' and 'KeAddSystemServiceTable' to potentially modify system call handlers."
+    },
+    {
+      "name": "Process Injection/Persistence",
+      "description": "Utilizes 'CopyFileA', 'CreateProcessA', and registry key manipulation to maintain execution and launch hidden processes."
+    },
+    {
+      "name": "Privilege Escalation",
+      "description": "Attempts to gain 'SeDebugPrivilege' or duplicate process tokens (ADVAPI32.dll_DuplicateTokenEx) to perform operations with higher privileges."
+    },
+    {
+      "name": "Evasion",
+      "description": "Checks for debugger presence and uses mutexes to prevent concurrent execution."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode API imports (KeServiceDescriptorTable, KeAddSystemServiceTable) and high-intent malicious actions like modifying security descriptors, performing process injection, and hooking system calls confirms malicious intent. While these functions are dual-use, the context of them being used alongside payload decryption and persistence mechanisms in an installer-like structure indicates a rootkit-like or advanced backdoor behavior.",
+    "general": "High-intent evidence includes calls to 'ADVAPI32.dll_AccessCheck', 'ADVAPI32.dll_SetSecurityDescriptorDacl' for privilege manipulation, and the usage of 'KeAddSystemServiceTable' (fcn.1000b369) which is classic rootkit behavior. Additionally, 'fcn.10009d28' identifies kernel symbols and performs binary modification/patching of kernel functions.",
+    "uncertainties": "The truncated nature of the assembly code makes it difficult to definitively map all target IP addresses or URLs, though the presence of HTTP-related strings in 'fcn.10003c04' suggests C2 communication capabilities.",
+    "conditions": "The sample performs environment checks ('GetVersionExA', 'GetComputerNameA') and requires specific registry keys or system configurations to be present before the primary payload is decrypted and executed. It also uses a mutex ('GlobalRPCMutex') to ensure only one instance is active.",
+    "sandbox_recommendations": "Use a kernel-mode debugger (e.g., WinDbg) in a virtualized Windows 7 or 10 environment. Enable monitoring for registry modifications, specifically under 'HKLM\\System\\CurrentControlSet', and watch for new services or driver loads."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet",
+          "description": "Targeted registry hive for persistence and configuration"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used to ensure single instance execution"
+        },
+        {
+          "value": "KeServiceDescriptorTable",
+          "description": "Kernel symbol targeted for hooking"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Attempts to locate and hook KeServiceDescriptorTable (SSDT) to intercept system calls."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Resource decryption and loading function."
+    },
+    {
+      "address": "0x10009d28",
+      "name": "fcn.10009d28",
+      "description": "Kernel memory analysis and potential patching routine."
+    }
+  ]
+}

@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a downloader/loader that uses kernel-level techniques, including process hollowing (via registry-based payload storage), anti-debugging, and kernel structure manipulation. It searches for specific system environment variables and files, then decrypts and executes an embedded payload.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR decryption loop",
+      "Resource-based payload storage"
+    ],
+    "details": "The file contains encrypted resources (ID 101, 102, 103) which are decrypted at runtime using a XOR operation with 0xCD. Routine fcn.10001697 initiates the unpacking process."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection / Hollowing",
+      "description": "Utilizes CreateProcessA, WriteFile, and GetFileTime to replace legitimate system file content or perform process hollowing."
+    },
+    {
+      "name": "Kernel-Level Manipulation",
+      "description": "Attempts to manipulate kernel structures (KeServiceDescriptorTable) and uses direct syscalls (int 0x2e)."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Checks for debugger presence and uses mutexes to prevent concurrent execution (GlobalRPCMutex)."
+    },
+    {
+      "name": "Registry Persistence",
+      "description": "Modifies Windows Registry keys to maintain persistence (RegSetValueExA, RegCreateKeyExA)."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode structures access (KeServiceDescriptorTable), usage of undocumented system APIs (NtShutdownSystem, NtQuerySystemInformation), and the specific technique of replacing system file attributes and names strongly indicates high malicious intent rather than a legitimate installer or protector.",
+    "general": "High-intent evidence includes calls to fcn.1000b369 (which probes KeServiceDescriptorTable), the use of int 0x2e for system calls in fcn.1000b46f, and the decryption of embedded resources using an XOR key of 0xCD. The code specifically targets lsass and system32 directories for malicious modification.",
+    "uncertainties": "While the main malicious payload's secondary behavior depends on environmental triggers (e.g., registry settings, OS version), the primary loader mechanism is fully confirmed.",
+    "conditions": "Execution is gated by the existence of a specific mutex (GlobalRPCMutex), the presence of specific system files, and successful registry value lookups (e.g., 'cnFormSyncExFBC').",
+    "sandbox_recommendations": "Run in a controlled environment with network isolation. The sample likely requires a specific Windows version (e.g., WinXP/Server 2003) and needs certain registry keys to exist in the hive."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for synchronization."
+        },
+        {
+          "value": "cnFormSyncExFBC",
+          "description": "Registry/Class name used in loader logic."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "C:\\Windows\\system32",
+          "description": "Target directory for file manipulation."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001697",
+      "name": "fcn.10001697",
+      "description": "Primary unpacking and loading routine."
+    },
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Performs kernel structure manipulation (KeServiceDescriptorTable)."
+    },
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Executes malicious actions via direct syscalls (int 0x2e)."
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The file is a malicious kernel-mode driver that performs inline hook/patching of system objects to facilitate stealthy modification of I/O request packets (IRPs) or device object function pointers, typical of rootkit functionality.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "overlay data",
+      "custom obfuscation/encryption"
+    ],
+    "details": "The file contains a 6KB overlay with high entropy (7.33), suggesting an encrypted payload. The entrypoint routine initializes memory references that are used throughout to decrypt or de-obfuscate data structures at runtime."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode I/O hook",
+      "description": "Uses IoGetDeviceObjectPointer and patches major function pointers (e.g., in fcn.00012ea4 and fcn.00012504) to intercept or redirect system I/O."
+    },
+    {
+      "name": "Direct Kernel Object Manipulation (DKOM)",
+      "description": "Modifies system device object structures, including function dispatch tables and I/O request packet (IRP) handlers."
+    },
+    {
+      "name": "Memory Manipulation",
+      "description": "Uses MmMapLockedPagesSpecifyCache and MmBuildMdlForNonPagedPool to bypass memory protections and overwrite protected kernel memory."
+    }
+  ],
+  "details": {
+    "reasoning": "The code explicitly implements kernel-mode hooking techniques by locating system device objects, allocating MDLs (Memory Descriptor Lists) to gain write access to locked pages, and patching dispatch function pointers (found in fcn.00012ea4/fcn.00012504). This behavior is not consistent with legitimate driver development, which relies on documented kernel APIs rather than inline patching of kernel memory structures.",
+    "general": "High-intent malicious activity is observed in fcn.00012504 (RVA: 0x12504), where the driver uses MmMapLockedPagesSpecifyCache to map and overwrite dispatch table function pointers. The code also uses KeStackAttachProcess to perform context-dependent memory modification, which is a classic rootkit indicator for hiding files or processes.",
+    "uncertainties": "The exact target of the hook (the specific device being intercepted) is likely provided by the encrypted overlay or an external configuration, which is not fully decrypted in the visible assembly.",
+    "conditions": "The driver requires a kernel-mode environment and executes its main logic upon initializing the device object via IoCreateDevice. It is likely designed to be loaded by a separate user-mode loader that passes configuration data.",
+    "sandbox_recommendations": "Deploy in a kernel-mode debugger (WinDbg) environment. Monitor for IoCreateDevice calls and set breakpoints on MmMapLockedPagesSpecifyCache to identify which system device objects are being targeted for patching."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "DevicePNTFILTER",
+          "description": "Device name string identified in code, likely the target of the I/O interception."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00012504",
+      "name": "fcn.00012504",
+      "description": "Primary driver routine that performs memory mapping and object patching to facilitate hooking."
+    },
+    {
+      "address": "0x00012ea4",
+      "name": "fcn.00012ea4",
+      "description": "Initializes the hook routine and target configuration, likely preparing the kernel environment for the malicious payload."
+    },
+    {
+      "address": "0x00011c08",
+      "name": "fcn.00011c08",
+      "description": "Memory mapping utility used to prepare kernel pages for unauthorized write access."
+    }
+  ]
+}

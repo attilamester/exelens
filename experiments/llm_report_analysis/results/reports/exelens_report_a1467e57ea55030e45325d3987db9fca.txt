@@ -1,0 +1,67 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable performs process hollowing by launching 'Mercuria.exe' in a suspended state, injecting malicious code via WriteProcessMemory, and controlling the thread context to hijack the process execution flow.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Process hollowing",
+      "Dynamic API resolution (GetProcAddress/LoadLibrary equivalent)",
+      "Code obfuscation (XOR-based decryption)"
+    ],
+    "details": "The file contains a large encrypted/compressed overlay and uses self-modifying code patterns to decrypt and inject a payload into another process."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "Uses CreateProcessW, WriteProcessMemory, and SetThreadContext to hijack the execution flow of a secondary process."
+    },
+    {
+      "name": "Anti-Debugging",
+      "description": "Calls IsDebuggerPresent and uses custom exception handling (SetUnhandledExceptionFilter) to detect and crash if a debugger is attached."
+    },
+    {
+      "name": "Persistence/Environmental Check",
+      "description": "Checks for the existence of 'Mercuria.exe' and sets specific environment variables (e.g., __COMPAT_LAYER) to ensure the target process runs in the intended environment."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of process creation in a suspended state (CreateProcessW), writing to the memory of that process (WriteProcessMemory), and hijacking the thread context (SetThreadContext) constitutes clear evidence of process hollowing. These capabilities are not dual-use in this context; they are standard techniques for malicious code injection, confirmed by the code structure in fcn.004012f0 and fcn.00401270.",
+    "general": "The function fcn.004012f0 explicitly calls CreateProcessW, followed by DebugActiveProcess. fcn.00401270 performs WriteProcessMemory and SetThreadContext on the child process, indicating active code injection into the Mercuria.exe process.",
+    "uncertainties": "The exact nature of the injected payload remains partially obscured due to its dynamic decryption at runtime, but the delivery mechanism is clearly malicious.",
+    "conditions": "The malware requires 'Mercuria.exe' to be present in the same directory and the execution environment must allow the creation and debugging of child processes.",
+    "sandbox_recommendations": "Place a legitimate dummy file named 'Mercuria.exe' in the same directory as the sample. Run the malware in a debugger-aware sandbox that allows inter-process communication."
+  },
+  "ioc": [
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "Mercuria.exe",
+          "description": "Target process for code injection/hollowing."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "Couldnt_find_Mercuria.exe__please_put_this_exe_in_the_game_folder.",
+          "description": "Error message indicating the dependency."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x004012f0",
+      "name": "fcn.004012f0",
+      "description": "Primary controller that manages process creation and initiates the debugging/injection process."
+    },
+    {
+      "address": "0x00401270",
+      "name": "fcn.00401270",
+      "description": "Performs the memory write operations (WriteProcessMemory) and context switching (SetThreadContext) for the injected code."
+    }
+  ]
+}

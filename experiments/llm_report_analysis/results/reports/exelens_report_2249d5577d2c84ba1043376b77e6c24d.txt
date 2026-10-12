@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample exhibits capabilities to modify system registry keys, manipulate system files (possibly targeting 'lsass'), inject code via kernel-mode memory manipulation (IoAllocateMdl, MmProbeAndLockPages), and includes logic to bypass security checks through system driver or kernel-mode function hooking.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation",
+      "Dynamic API resolution"
+    ],
+    "details": "The sample uses a custom XOR-based obfuscation (0xcd, 0x65, etc.) on resource data. It also performs dynamic API resolution using LoadLibrary/GetProcAddress, which is common in packed or obfuscated binaries."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode memory manipulation",
+      "description": "Utilizes IoAllocateMdl, MmProbeAndLockPages, and MmMapLockedPagesSpecifyCache to modify kernel-mode memory structures."
+    },
+    {
+      "name": "Persistence and Evasion",
+      "description": "Modifies Windows Registry keys and uses file manipulation techniques, including set/get file attributes and modifying system file contents."
+    },
+    {
+      "name": "System modification",
+      "description": "Targets system files like 'system32' and potentially 'win32k.sys' or kernel components to hook functions (e.g., NtShutdownSystem, KeServiceDescriptorTable)."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode memory manipulation APIs (MmProbeAndLockPages, etc.), attempts to hook system functions (NtShutdownSystem, KeServiceDescriptorTable), and modification of system paths (system32) provides clear evidence of malicious intent beyond simple protection mechanisms.",
+    "general": "The functions fcn.1000ab6f and fcn.1000a2cd demonstrate deliberate efforts to hook kernel functions via KeServiceDescriptorTable modification. The use of IoAllocateMdl in fcn.1000c492 combined with the ability to overwrite system file components (via fcn.100010a1, fcn.100017a0) confirms malicious intent to compromise system integrity.",
+    "uncertainties": "While the kernel-level hooking logic is present, the ultimate payload executed after successful hooking may vary based on external environment checks, which were not fully reconstructed.",
+    "conditions": "The execution requires the file to be run on specific Windows versions (checks against SystemDirectory, GetVersionExA). It checks for the existence of specific mutexes ('prkMtx', 'GlobalRPCMutex') and environment variables before proceeding.",
+    "sandbox_recommendations": "Ensure the sandbox provides a realistic Windows environment with system32 access. Monitor Registry write operations and file access to system directories. The malware may require multiple restarts or specific timing triggers."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for process synchronization."
+        },
+        {
+          "value": "lsass",
+          "description": "Target process name likely used for credential dumping or process injection."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for thread/process protection."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "system32",
+          "description": "Target directory for file replacement or injection."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Hooks kernel system tables (KeServiceDescriptorTable)."
+    },
+    {
+      "address": "0x1000c492",
+      "name": "fcn.1000c492",
+      "description": "Performs memory-mapped file/memory manipulation (IoAllocateMdl, MmMapLockedPagesSpecifyCache)."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Registry modification and system file attribute manipulation."
+    }
+  ]
+}

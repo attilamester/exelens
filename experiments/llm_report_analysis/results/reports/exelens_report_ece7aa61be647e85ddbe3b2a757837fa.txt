@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to inject code into system processes (lsass.exe), modify system files, install registry persistence, and perform kernel-level hook installation via Service Descriptor Table modification.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR encoding",
+      "Dynamic API resolution via GetProcAddress",
+      "Resource-based payload hiding"
+    ],
+    "details": "The file uses XOR operations on embedded resources (RCDATA). Multiple core functions (e.g., fcn.10001697) handle the decryption and extraction of hidden payloads (e.g., bitmaps or driver-like files) for later execution or injection."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "Uses WriteProcessMemory/CopyFileA and process-specific registry manipulation to target 'lsass.exe'."
+    },
+    {
+      "name": "Persistence",
+      "description": "Installs registry keys to automatically run components upon system startup."
+    },
+    {
+      "name": "Kernel-mode Modification",
+      "description": "Attempts to locate and hook the Service Descriptor Table (KeServiceDescriptorTable), a high-intent indicator for rootkit behavior."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Includes checks for system versions and anti-debugging code snippets to prevent analysis."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level Service Descriptor Table hooking (fcn.1000ab6f) and the explicit targeting of critical system processes (lsass.exe) with registry-based persistence provides clear evidence of malicious intent beyond simple dual-use utility.",
+    "general": "The function fcn.1000ab6f performs manual lookups of 'KeServiceDescriptorTable'. fcn.100017a0 copies files into locations associated with system security processes and adds registry keys to influence them, indicating a high-intent attempt to compromise the OS core.",
+    "uncertainties": "While the kernel-level hooks are visible, the specific payloads encrypted within resources 101-103 could contain additional unknown functionality.",
+    "conditions": "Execution is likely triggered by the system installer (sym.dll_installer.dll) or via direct command-line arguments. The code checks for environment variables and specific system state markers before initiating the injection or hooking procedures.",
+    "sandbox_recommendations": "Run in an isolated environment with full system auditing enabled. Monitor for registry changes to Run keys and process handle requests to lsass.exe."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\lsass",
+          "description": "Persistence path manipulation."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "C:\\Windows\\System32\\win32k.sys",
+          "description": "Targeted for modification."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Performs kernel service table modification (Rootkit behavior)."
+    },
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Handles process injection into critical system files and registry manipulation."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Payload execution via CreateProcessA."
+    }
+  ]
+}

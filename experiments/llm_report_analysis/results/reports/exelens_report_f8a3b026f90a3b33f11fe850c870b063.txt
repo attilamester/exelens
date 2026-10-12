@@ -1,0 +1,91 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable extracts embedded binary resources (IDR_ICOFILE1/2) to the filesystem (likely temp directories), applies a custom XOR-based obfuscation/decryption routine, and uses ShellExecuteExA to perform actions, likely setting process priority and persistence-related modifications.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource-based obfuscation",
+      "XOR-based transformation"
+    ],
+    "details": "The file contains binary resources (ICOFILE) that are accessed, written to disk, and processed using fcn.00401440, which performs XOR operations on data, suggesting the payload is hidden within the resource section."
+  },
+  "capabilities": [
+    {
+      "name": "Resource Extraction",
+      "description": "Uses FindResourceA, LoadResource, and LockResource to extract embedded data."
+    },
+    {
+      "name": "File System Operations",
+      "description": "Uses CreateDirectoryA and CreateFileA to prepare drop locations."
+    },
+    {
+      "name": "Process Manipulation",
+      "description": "Uses SetPriorityClass and SetThreadPriority to influence execution characteristics."
+    },
+    {
+      "name": "Persistence/Execution Evasion",
+      "description": "Uses ShellExecuteExA and SHChangeNotify to likely register files or trigger execution."
+    },
+    {
+      "name": "Custom Obfuscation",
+      "description": "Uses a custom XOR decryption routine (fcn.00401440) to process resource data."
+    }
+  ],
+  "details": {
+    "reasoning": "The application is not a standard utility. While it uses API calls commonly seen in installers (CreateDirectory, Resource extraction), it combines these with custom XOR-based decryption (fcn.00401440) and specific process/thread priority manipulation (SetPriorityClass, SetThreadPriority). The presence of mutex creation ('mark01') and the attempt to run specific resource-derived binaries indicates malicious intent to drop and execute a payload covertly.",
+    "general": "fcn.00401600 calls ShellExecuteExA to execute a dropped resource. fcn.00401440 contains a XOR loop (instruction 'xor al, dl') which decrypts resource data. The use of 'DaumCleans.exe' as a potential target name indicates a specific evasion or masquerading strategy.",
+    "uncertainties": "The exact content of the decrypted payload remains unknown without dynamic memory dumping of the extracted resource at runtime.",
+    "conditions": "Requires the ability to create directories in the environment (c:\\tmp, c:\\temp, c:\\intel) and the presence of the embedded resources IDR_ICOFILE1/2.",
+    "sandbox_recommendations": "Monitor file system activity in c:\\temp and c:\\intel. Observe the result of ShellExecuteExA to identify the secondary payload. Ensure the sandbox is not running with low-privileged restrictions that would prevent file creation."
+  },
+  "ioc": [
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "c:\\tmp",
+          "description": "Attempted directory creation"
+        },
+        {
+          "value": "c:\\temp",
+          "description": "Attempted directory creation"
+        },
+        {
+          "value": "c:\\intel",
+          "description": "Attempted directory creation"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "mark01",
+          "description": "Mutex name used to prevent multiple instances"
+        },
+        {
+          "value": "DaumCleans.exe",
+          "description": "Referenced executable file name"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401440",
+      "name": "fcn.00401440",
+      "description": "Custom XOR decryption routine for processing resource data."
+    },
+    {
+      "address": "0x00401600",
+      "name": "fcn.00401600",
+      "description": "Handles process priority and triggers execution via ShellExecuteExA."
+    },
+    {
+      "address": "0x00401320",
+      "name": "fcn.00401320",
+      "description": "Attempts to create directories in c:\\ for staging."
+    }
+  ]
+}

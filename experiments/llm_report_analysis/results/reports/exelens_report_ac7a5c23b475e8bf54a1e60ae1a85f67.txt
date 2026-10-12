@@ -1,0 +1,98 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a complex dropper/installer that performs system-level modifications, including driver-loading preparation, process injection, and persistence establishment via registry keys. It uses resource-based obfuscation (XOR `0xcd`) to hide payloads and manipulates sensitive OS structures like the System Service Descriptor Table (SSDT).",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR encoding",
+      "Resource-based payload hiding",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress"
+    ],
+    "details": "The sample uses resources (type 102/103) as storage for embedded payloads. A custom XOR routine (looping with key `0xcd`) is used in `fcn.100015f7` and `fcn.10001723` to decode these resources before use."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection",
+      "description": "Utilizes CreateProcess and memory manipulation to execute injected code in a new process."
+    },
+    {
+      "name": "Kernel-Level Interference",
+      "description": "Attempts to interact with or modify the System Service Descriptor Table (SSDT) via NtQuerySystemInformation and direct memory access."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies Windows Registry keys (e.g., Run keys or custom keys) to ensure execution on boot."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Drops files into system directories, hides them, and manipulates file attributes."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode interaction (SSDT manipulation), registry-based persistence, and the use of obfuscated embedded payloads points to high-intent malicious behavior rather than a standard installer. The inclusion of functions like `KeServiceDescriptorTable` lookup and `KeRaiseIrqlToDpcLevel` indicates deep system modification capabilities typical of rootkits or advanced malware.",
+    "general": "High-intent evidence includes SSDT hook functions (`fcn.1000b369`), mutex-based anti-analysis (`fcn.10002109` for `GlobalRPCMutex`), and process hollowing/injection techniques in `fcn.10001b34` and `fcn.1000b46f`.",
+    "uncertainties": "The exact nature of the payload dropped remains partly obscured by the custom XOR routine; however, the surrounding logic confirms its malicious role.",
+    "conditions": "The file requires administrative privileges to perform SSDT modification and registry writes. It specifically checks for OS environment variables (`GetEnvironmentVariableA`) to determine its path and likely expects to be run in a standard Windows environment with specific system versions (e.g., Windows XP/7/10 checked via `GetVersionExA`).",
+    "sandbox_recommendations": "Run in a controlled VM with kernel debugging enabled. Monitor registry activity for modifications to 'Run' keys and observe file system writes to `system32` folders. Ensure the clock is set to a standard current date/time to avoid environment-based execution failures."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "DMWI",
+          "description": "Registry key/value used for persistence or storage."
+        },
+        {
+          "value": "HKLM\\Software\\...",
+          "description": "General registry persistence pattern observed in the code."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "system32win32k.sys",
+          "description": "Target file for system-level manipulation."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used to ensure single-instance execution."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for synchronization."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Primary dispatcher for registry-based configuration and component management."
+    },
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Modifies the System Service Descriptor Table (SSDT)."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Handles process creation and payload writing to disk."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Decryption/Unpacking routine for embedded resources."
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable demonstrates malicious persistence mechanisms by installing itself as a Windows service and modifying system registry keys, specifically targeting the 'netsvcs' service group. It includes code for dropping and executing a batch file to finalize registry modifications.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code appears to be compiled with standard MSVC libraries and does not exhibit signs of obfuscation or packing."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence via Windows Service",
+      "description": "Utilizes CreateServiceA to install a component as a system service."
+    },
+    {
+      "name": "Registry Modification",
+      "description": "Modifies 'SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Svchost' and system registry keys to ensure persistence."
+    },
+    {
+      "name": "File Dropping/Execution",
+      "description": "Writes a temporary batch file (temp.bat) to disk and executes it via WinExec."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of creating a persistent Windows service, modifying critical system registry keys associated with the 'netsvcs' svchost group, and dropping/executing batch scripts for system configuration changes clearly indicates malicious intent (backdoor/worm-like behavior) rather than benign software installation. The file's logic is explicitly designed to manipulate the Windows service control manager to ensure it remains active on system startup.",
+    "general": "High-intent malicious behavior is confirmed in 'fcn.00401160', which performs direct registry operations (RegOpenKeyExA, RegSetValueExA) on 'SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Svchost'. It calls CreateServiceA (loaded dynamically via GetProcAddress) and writes to 'temp.bat' to execute service registration via WinExec.",
+    "uncertainties": "While the binary appears to be a standalone tool, the possibility of it being part of a larger, multi-stage delivery chain remains, though the current behavior is sufficient for classification.",
+    "conditions": "The file executes immediately upon launch. It specifically checks for an existing mutex '_INSTALL_SERVICES_NOW_' in the main entry point to ensure a single instance is running.",
+    "sandbox_recommendations": "Run in a controlled Windows environment with procmon/regmon enabled to observe the registry key modifications. Allow the creation of the temporary file 'temp.bat'. Monitor for service creation events."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Svchost",
+          "description": "Registry key modified for svchost group persistence."
+        },
+        {
+          "value": "SYSTEM\\CurrentControlSet\\Services\\",
+          "description": "Base path for service registration."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "temp.bat",
+          "description": "Temporary batch script dropped for persistence."
+        },
+        {
+          "value": "_systemconfig_shenghai.dat",
+          "description": "File path referenced in configuration logic."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401160",
+      "name": "fcn.00401160",
+      "description": "Primary malicious routine performing service installation and registry persistence."
+    },
+    {
+      "address": "0x00401080",
+      "name": "main",
+      "description": "Entry point: mutex check and initialization of malicious logic."
+    },
+    {
+      "address": "0x00401780",
+      "name": "fcn.00401780",
+      "description": "Handles service status and configuration file updates."
+    }
+  ]
+}

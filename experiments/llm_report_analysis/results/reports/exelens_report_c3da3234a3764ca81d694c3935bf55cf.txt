@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample performs system-level modifications, including registry manipulation and payload execution, indicative of an installer or dropper for malicious components, possibly a rootkit or privilege escalation tool.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation (0xCD)",
+      "Resource-based loading",
+      "Dynamic API resolution via GetProcAddress and custom loading"
+    ],
+    "details": "Resource sections are used to hide payloads, which are decrypted at runtime via simple XOR operations (0xCD) and then mapped or executed. API resolution is performed dynamically to evade simple static import analysis."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection / Execution",
+      "description": "Utilizes CreateProcessA and potentially manual mapping to execute hidden payloads."
+    },
+    {
+      "name": "Registry Persistence",
+      "description": "Modifies system registry keys (e.g., Run keys or service configurations) using RegCreateKeyExA and RegSetValueExA."
+    },
+    {
+      "name": "File System Manipulation",
+      "description": "Creates, copies, and deletes system files (e.g., system32 components) using CopyFileA and DeleteFileA."
+    },
+    {
+      "name": "Anti-Debugging/Detection",
+      "description": "Checks for debugger presence and uses mutexes (prkMtx, GlobalRPCMutex) to ensure singleton execution."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of dynamic API resolution, XOR-encrypted resources, and direct manipulation of kernel-related structures (e.g., KeServiceDescriptorTable, KeGetCurrentIrql) strongly indicates high-intent malicious behavior typical of rootkits or kernel-mode drivers. The file attempts to copy files into system32 and manipulate registry keys, which confirms malicious intent rather than a legitimate software installation routine.",
+    "general": "Specific indicators include: 1) fcn.100017a0 calling RegCreateKeyExA and RegSetValueExA for persistence; 2) fcn.1000b46f attempting to access and modify kernel structures (KeServiceDescriptorTable); 3) fcn.10006f75 performing OS version checks and privilege-based logic for system modification.",
+    "uncertainties": "The exact nature of the decrypted resource remains hidden without memory acquisition during execution, but the high-level intent (persistence/injection) is clear.",
+    "conditions": "Requires administrative privileges. It checks for the existence of specific mutexes (GlobalRPCMutex, prkMtx) to control execution flow.",
+    "sandbox_recommendations": "Run in an environment with administrative privileges, monitor registry operations closely, and simulate a standard Windows environment with system-level access to allow the logic to progress past mutex checks."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\",
+          "description": "Common path for persistence via service creation."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for process synchronization."
+        },
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for process synchronization."
+        },
+        {
+          "value": "lsass",
+          "description": "String reference indicating potential credential harvesting or process mimicry."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100017a0",
+      "name": "fcn.100017a0",
+      "description": "Registry manipulation and file attribute modification."
+    },
+    {
+      "address": "0x1000b46f",
+      "name": "fcn.1000b46f",
+      "description": "Kernel-mode structure access and modification (KeServiceDescriptorTable)."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Payload creation and process execution."
+    }
+  ]
+}

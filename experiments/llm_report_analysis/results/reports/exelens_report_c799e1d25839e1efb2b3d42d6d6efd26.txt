@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample acts as a remote administration tool (RAT) that installs itself as a Windows service and establishes a command-and-control connection to exfiltrate system data and execute shell commands via cmd.exe.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code appears to be compiled standard C++ with no evidence of packers or obfuscators."
+  },
+  "capabilities": [
+    {
+      "name": "Service Installation",
+      "description": "Uses ADVAPI32.dll_CreateServiceA to persist as a background service named 'Microsoft .NET and Windows COM Integration with SOAP'."
+    },
+    {
+      "name": "Command Execution",
+      "description": "Utilizes CreateProcessAsUserA and CreateProcessA to spawn cmd.exe and redirect output via pipes for remote control."
+    },
+    {
+      "name": "Networking/C2",
+      "description": "Uses WININET.dll functions to communicate with a remote server, supporting file downloads and command-and-control functionality."
+    },
+    {
+      "name": "Persistence",
+      "description": "Copies itself to the Windows directory as 'svchost.exe' and installs as a service."
+    }
+  ],
+  "details": {
+    "reasoning": "The application exhibits clear malicious intent: it masquerades as a legitimate system process ('svchost.exe'), installs a service for persistence with deceptive naming, and implements a remote shell capability using pipes for command redirection. These behaviors are characteristic of a backdoored RAT, not legitimate software.",
+    "general": "Evidence includes the use of 'svchost.exe' in fcn.00402c03 for CopyFileA, the creation of a service 'Microsoft .NET and Windows COM Integration with SOAP' in ADVAPI32.dll_CreateServiceA, and the implementation of a remote command shell in fcn.00401ba9 using cmd.exe and pipes.",
+    "uncertainties": "The exact remote C2 URL/IP is not fully visible as it is passed as a dynamic parameter, though the sample contains multiple hardcoded strings related to HTTP headers.",
+    "conditions": "The sample expects the '_install' or '_uninstall' command-line arguments to trigger its setup or removal logic. The core backdoor logic executes when the binary is run as a service.",
+    "sandbox_recommendations": "Provide network connectivity to a simulated C2 server and execute with the '_install' parameter to observe the service creation process."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "svchost.exe",
+          "description": "Masqueraded file name used for installation"
+        },
+        {
+          "value": "Microsoft .NET and Windows COM Integration with SOAP",
+          "description": "Deceptive service display name"
+        },
+        {
+          "value": ".Net_CLR",
+          "description": "Internal service name"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "c:\\windows\\svchost.exe",
+          "description": "Target installation path"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00402c03",
+      "name": "fcn.00402c03",
+      "description": "Handles service installation and self-copying to Windows directory"
+    },
+    {
+      "address": "0x00401ba9",
+      "name": "fcn.00401ba9",
+      "description": "Implements command execution via cmd.exe and CreateProcessA"
+    },
+    {
+      "address": "0x00401406",
+      "name": "fcn.00401406",
+      "description": "Main C2/RAT loop managing communication and command processing"
+    }
+  ]
+}

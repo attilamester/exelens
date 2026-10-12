@@ -1,0 +1,89 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample performs sophisticated credential theft, registry manipulation, and persistence mechanisms. It uses dynamic API loading and anti-VM techniques to evade detection.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Dynamic API Resolution",
+      "Control Flow Obfuscation"
+    ],
+    "details": "The sample uses a complex multi-stage approach with dynamic loading of system APIs (e.g., GetProcAddress) and likely encrypted or compressed data blocks in the .data section (entropy 7.95) and large overlay (entropy 0.65). It uses internal dispatchers for various operations."
+  },
+  "capabilities": [
+    {
+      "name": "Credential Harvesting",
+      "description": "The binary is designed to extract saved passwords from Internet Explorer (IntelliForms/Storage) and Protected Storage (PStore)."
+    },
+    {
+      "name": "Persistence & System Modification",
+      "description": "Capable of managing services, modifying registry keys, and creating temporary batch files for self-deletion."
+    },
+    {
+      "name": "Anti-VM/Evasion",
+      "description": "Checks for VM-related strings (e.g., 'VMWHORE') and checks system environment to detect virtualization."
+    },
+    {
+      "name": "Process Injection/Execution",
+      "description": "Contains routines for creating process snapshots, searching for modules, and copying/executing files."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of credential-stealing capabilities (dig_ie7_autocomplete, dig_protected_storage, dig_credentials) with persistence routines and sandbox evasion (VM check) confirms malicious intent. While individual functions like file operations are dual-use, the assembly-level logic clearly orchestrates a multi-stage exfiltration attack.",
+    "general": "High-intent evidence found in 'fcn.0040a45f' (IE password theft), 'fcn.0040923c' (PStore access), and 'fcn.00408f36' (Credential Manager enumeration). The 'fcn.004060d5' function demonstrates explicit VM detection logic checking for 'VMWHORE'.",
+    "uncertainties": "The presence of a massive 4.7MB overlay with low entropy (0.65) suggests it might be a packed resource or a data container for exfiltration, which is not fully decoded in this static analysis.",
+    "conditions": "The file expects to operate in a Windows environment and will attempt to check for the presence of existing instances via Mutex ('fcn.00406af9'). It requires administrative privileges or token elevation to perform specific service and registry modifications.",
+    "sandbox_recommendations": "Run in a Windows environment, simulate Internet Explorer user activity (saved passwords), and monitor registry changes in 'SOFTWARE\\Microsoft\\Internet Explorer\\IntelliForms' and 'Credential Manager'."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SOFTWARE\\Microsoft\\Internet Explorer\\IntelliForms\\Storage2",
+          "description": "Registry path target for IE password harvesting."
+        }
+      ]
+    },
+    {
+      "type": "url",
+      "values": [
+        {
+          "value": "http://64.18.143.90/modules/en/app.class.php",
+          "description": "Hard-coded C2 communication URL observed in 'make_data_request' and 'make_first_request'."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "VMWHORE",
+          "description": "String used in VM detection check."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x0040a45f",
+      "name": "dig_ie7_autocomplete",
+      "description": "Main function for harvesting stored passwords from Internet Explorer."
+    },
+    {
+      "address": "0x0040923c",
+      "name": "dig_protected_storage",
+      "description": "Harvests sensitive data from Windows Protected Storage."
+    },
+    {
+      "address": "0x004060d5",
+      "name": "fcn.004060d5",
+      "description": "Performs system environment checks, including VM detection."
+    },
+    {
+      "address": "0x0040749e",
+      "name": "make_data_request",
+      "description": "Handles network communication with the C2 server."
+    }
+  ]
+}

@@ -1,0 +1,87 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable extracts an embedded binary payload (snetmgr.exe/dll) from its own file, writes it to disk, and uses COM objects to potentially execute or manipulate system components. It performs environment checks for the presence of security software (Kaspersky Lab) and uses an XOR decryption routine (0x3e) to deobfuscate configuration data.",
+  "packed": {
+    "status": "false",
+    "techniques": [
+      "Custom XOR-based deobfuscation of embedded data"
+    ],
+    "details": "The file is not packed with a standard packer but contains embedded data that is deobfuscated using a custom XOR routine (fcn.0040168d) with the key 0x3e before being written to disk via KERNEL32.dll_WriteFile."
+  },
+  "capabilities": [
+    {
+      "name": "File System Manipulation",
+      "description": "Creates files, writes data, and sets file attributes using CreateFileA, WriteFile, and SetFileAttributesA."
+    },
+    {
+      "name": "Process/Service Management",
+      "description": "Uses CreateProcessA to launch external executables and uses SHGetSpecialFolderLocation to locate system paths."
+    },
+    {
+      "name": "Security Evasion / Environment Awareness",
+      "description": "Scans the file system (FindFirstFileA/FindNextFileA) for specific directories (Kaspersky Lab) to detect potential security products."
+    },
+    {
+      "name": "COM Object Utilization",
+      "description": "Uses CoCreateInstance to initialize COM objects for high-level system interaction."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of extracting hidden files from its own body, searching for antivirus software (Kaspersky Lab), and subsequently using CreateProcessA indicates malicious intent. While individual functions like WriteFile or CoCreateInstance are dual-use, their use here to drop and potentially execute a payload in the context of an AV-avoidance scan points clearly to a malicious loader.",
+    "general": "High-intent evidence includes the scan for 'Kaspersky_Lab' in fcn.00401bcb, the XOR-decryption routine at fcn.0040168d, and the subsequent dropping of 'snetmgr.exe' and 'snetmgr.dll' using KERNEL32.dll_WriteFile in the main function flow.",
+    "uncertainties": "The exact functionality of the dropped 'snetmgr.exe' payload is unknown as it exists only as an embedded blob, but the loader behavior is clearly identified.",
+    "conditions": "The file checks for specific file system conditions and requires successful write permissions to local directories. It specifically checks for the existence of 'C:\\Program Files\\Kaspersky Lab'.",
+    "sandbox_recommendations": "The sample should be run in a sandbox that allows file system monitoring. Ensure the directory path 'C:\\Program Files\\Kaspersky Lab' is simulated to see if the malware alters its execution path upon detecting security software."
+  },
+  "ioc": [
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "C:\\Program Files\\Kaspersky Lab",
+          "description": "Directory searched for potential AV detection"
+        },
+        {
+          "value": "_snetmgr.exe",
+          "description": "Embedded payload file dropped to disk"
+        },
+        {
+          "value": "_snetmgr.dll",
+          "description": "Embedded payload library dropped to disk"
+        },
+        {
+          "value": "_sperf2012.ini",
+          "description": "Configuration file created/modified"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x004010b1",
+      "name": "main",
+      "description": "Orchestrates payload extraction, file system writing, and execution flow."
+    },
+    {
+      "address": "0x004016af",
+      "name": "fcn.004016af",
+      "description": "Handles file I/O, extraction of embedded configuration data, and decryption."
+    },
+    {
+      "address": "0x0040168d",
+      "name": "fcn.0040168d",
+      "description": "XOR decryption routine used to deobfuscate configuration/data."
+    },
+    {
+      "address": "0x00401bcb",
+      "name": "fcn.00401bcb",
+      "description": "Performs anti-AV detection by checking for Kaspersky Lab on the file system."
+    },
+    {
+      "address": "0x004015d3",
+      "name": "fcn.004015d3",
+      "description": "Initializes and interacts with COM objects."
+    }
+  ]
+}

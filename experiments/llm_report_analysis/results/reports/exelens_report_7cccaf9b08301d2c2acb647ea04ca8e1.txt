@@ -1,0 +1,85 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This file is a sophisticated backdoor/rootkit installer that employs advanced evasion techniques, including dynamic API resolution, process injection, persistence through registry manipulation, and kernel-mode driver exploitation. It checks for specific system environments and attempts to gain high-level privileges.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR encoding for resource data",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress",
+      "Kernel-mode driver exploitation",
+      "Registry obfuscation"
+    ],
+    "details": "The file contains encrypted/encoded resources and dynamically loads functions at runtime to hide its capabilities. It explicitly uses XOR loops to decrypt data (e.g., in fcn.100015f7) and dynamically resolves imports at runtime."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/System modification",
+      "description": "Utilizes CreateProcess and memory manipulation to interact with or inject into system processes."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies registry keys (e.g., Run keys, system configurations) to ensure re-execution."
+    },
+    {
+      "name": "Kernel Exploitation",
+      "description": "Attempts to interact with kernel drivers (e.g., ntkrnlpa.exe) and uses functions like NtQuerySystemInformation and KeServiceDescriptorTable manipulation techniques."
+    },
+    {
+      "name": "Persistence/Anti-Forensics",
+      "description": "Uses mutexes and file system operations to prevent multiple instances and detect sandbox environments."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level hooking (KeServiceDescriptorTable manipulation), registry manipulation for persistence, and dynamic resolution of sensitive system APIs (NtQuerySystemInformation, etc.) is consistent with high-intent malicious behavior typical of rootkits. While some components like installers use these techniques, the combination and target processes (e.g., lsass, ntkrnlpa.exe) indicate a clear malicious intent to compromise system integrity.",
+    "general": "High-intent indicators include fcn.1000b46f (modifying kernel structures), fcn.1000ab6f (KeServiceDescriptorTable hooking), and the use of CreateProcess/RegSetValueExA in the persistence logic. The file also uses code fragments found in known rootkit implementations.",
+    "uncertainties": "The exact nature of the payload inside the resource section 102 could not be fully statically decrypted, but the loader logic surrounding it confirms malicious intent.",
+    "conditions": "The execution flow is triggered by standard OS startup processes. It uses specific mutexes (GlobalRPCMutex, prkMtx) to ensure single-instance execution. It checks environment variables to determine its target system path.",
+    "sandbox_recommendations": "Run in a virtualized environment with a kernel-mode debugger active. Monitor registry keys for changes in Run, RunOnce, and Windows services. Simulate a standard user environment with administrative privileges."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\...",
+          "description": "Persistence mechanisms via registry modification"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for single-instance control"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name for synchronization"
+        },
+        {
+          "value": "lsass",
+          "description": "Target process for persistence"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Responsible for file creation and process spawning."
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Performs critical kernel-mode hook/SSDT modification."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Handles registry key enumeration and potential credential persistence."
+    }
+  ]
+}

@@ -1,0 +1,67 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable performs malicious post-infection activity by downloading a secondary payload from a remote URL, establishing persistence via registry keys, and executing the downloaded binary.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code structure appears to be compiled C/C++ without additional packers. Complex constant data tables are used for obfuscated logic, but the binary is not packed."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Writes to the Windows Run registry key to ensure persistence."
+    },
+    {
+      "name": "Networking",
+      "description": "Uses WININET.dll to download files from an external web server."
+    },
+    {
+      "name": "Process Execution",
+      "description": "Downloads and executes a remote binary using URLDownloadToFileA and CreateProcessA."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistence via registry modification (ADVAPI32.dll_RegSetValueExA), network-based payload delivery (WININET.dll_InternetOpenUrlA, urlmon.dll_URLDownloadToFileA), and subsequent execution (KERNEL32.dll_CreateProcessA) constitutes clear malicious intent to infect the system. The file functions as a downloader/dropper.",
+    "general": "The function fcn.004055b4 explicitly sets up a registry run key (str.SoftwareMicrosoftWindowsCurrentVersionRun) and attempts to download a file from http://www.rbaparts.com/images/li.gif. It then uses KERNEL32.dll_CreateProcessA to execute the downloaded file.",
+    "uncertainties": "The exact nature of the payload hosted at the provided URL remains unknown as it was not part of the analyzed file.",
+    "conditions": "The malware begins its primary execution flow in fcn.004055b4 after a hardcoded 30-second Sleep command. It attempts to download a file from a hardcoded URL to the system's temporary directory.",
+    "sandbox_recommendations": "Run in an isolated environment with network traffic interception enabled to monitor the payload download. The analyst should ensure the environment can resolve external domains."
+  },
+  "ioc": [
+    {
+      "type": "url",
+      "values": [
+        {
+          "value": "http://www.rbaparts.com/images/li.gif",
+          "description": "Source URL for the secondary malicious payload."
+        }
+      ]
+    },
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Registry key used for persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "IMSCMig.exe",
+          "description": "Target file name for the downloaded payload."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x004055b4",
+      "name": "fcn.004055b4",
+      "description": "Primary driver function that manages the download, persistence, and execution flow."
+    }
+  ]
+}

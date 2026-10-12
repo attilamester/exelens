@@ -1,0 +1,81 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable performs environment reconnaissance, persistence via registry keys, and communicates system information to a remote server. It includes anti-analysis techniques and uses a custom XOR-based obfuscation/encryption for its communication data.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based encoding/decryption",
+      "Dynamic API resolution through function wrappers",
+      "Overlaid encrypted/compressed data"
+    ],
+    "details": "The file contains a large overlay with high entropy (~7.20), suggesting an encrypted payload. Core strings, particularly those related to networking and registry keys, are obfuscated and decoded at runtime using a character-shifting or XOR-like routine (e.g., fcn.0040214f)."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Writes to the Windows Registry 'Run' key to ensure execution on system startup."
+    },
+    {
+      "name": "Network Communication",
+      "description": "Uses WININET to send POST requests (likely exfiltrating collected data) to a remote C2 server."
+    },
+    {
+      "name": "Reconnaissance",
+      "description": "Collects system information, including computer name, username, OS version, processor type, and network configuration via iphlpapi."
+    },
+    {
+      "name": "Process/Mutex checking",
+      "description": "Uses CreateMutexA to ensure single instance execution and enumerates processes."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistent registry modification, exfiltration of sensitive system identifiers, and the use of WININET for automated HTTP POST requests to remote servers constitutes high-intent malicious behavior. The presence of XOR-obfuscated network endpoints and hardcoded registry paths confirms this is not legitimate system software.",
+    "general": "Main execution flow triggers at RVA 0x00401b4f. Malicious intent is evidenced by calling Advapi32!RegSetValueExA to add entries to 'SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run' and using WinInet's HttpSendRequestA to communicate with external hosts. Specific obfuscated strings are decoded via fcn.0040214f to hide URLs and registry targets.",
+    "uncertainties": "The exact contents of the high-entropy overlay could not be fully decrypted statically; however, the functional logic clearly orchestrates a C2 beaconing cycle.",
+    "conditions": "Requires network connectivity to contact the hardcoded C2 infrastructure, administrative permissions for registry modification, and specific system environment configurations (e.g., Windows NT/CurrentVersion registry path availability) for payload activation.",
+    "sandbox_recommendations": "Run in an isolated environment with network simulation (e.g., INetSim) to capture outgoing POST traffic. Monitor registry access for modifications to the 'Run' key. Ensure the system clock and environment simulate a standard Windows workstation."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Used for persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "POST",
+          "description": "Method used for exfiltrating data."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401b4f",
+      "name": "main",
+      "description": "Entry point: initiates reconnaissance, persistence, and C2 communication loops."
+    },
+    {
+      "address": "0x00402e1b",
+      "name": "fcn.00402e1b",
+      "description": "Implements network communication via WININET (POST requests)."
+    },
+    {
+      "address": "0x0040214f",
+      "name": "fcn.0040214f",
+      "description": "Decryption routine for obfuscated strings and C2 configurations."
+    },
+    {
+      "address": "0x004020c5",
+      "name": "fcn.004020c5",
+      "description": "Handles registry persistence operations."
+    }
+  ]
+}

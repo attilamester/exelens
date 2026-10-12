@@ -1,0 +1,71 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a loader that drops a copy of itself into a system or application directory and establishes persistence by modifying the Windows Run registry key. It utilizes dynamic API calls and exhibits self-replication behavior typical of trojans or droppers.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Dynamic API resolution",
+      "Section entropy variance"
+    ],
+    "details": "The .data section shows high entropy (7.94), while the .text section is relatively low. The code structure in fcn.00401550 and fcn.004015b0 suggests data transformation or decryption operations, although the primary malicious intent (persistence and file dropping) is clearly visible in the code."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Modifies the registry to ensure execution on system startup via SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run."
+    },
+    {
+      "name": "File System Operations",
+      "description": "Uses CopyFileA to replicate itself into different system paths."
+    },
+    {
+      "name": "Environment Interaction",
+      "description": "Queries environment variables like SystemRoot and ALLUSERSPROFILE."
+    }
+  ],
+  "details": {
+    "reasoning": "While the executable uses MFC, which is common in legitimate GUI applications, the presence of code that specifically copies the binary to system directories and registers it in the 'Run' registry key is a classic indicator of malicious dropper behavior. The use of 'AppServerDisplay.exe' as a target name is a masquerading attempt to hide the dropped binary.",
+    "general": "The function fcn.004010b0 clearly implements persistence. It calls RegCreateKeyA and RegSetValueExA on the 'SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run' key. It also uses CopyFileA to move copies of the binary, providing clear evidence of malicious intent beyond simple GUI functionality.",
+    "uncertainties": "The exact contents of the high-entropy .data section are not fully analyzed, but the main logic is visible and sufficient for classification.",
+    "conditions": "The code retrieves the process path via GetModuleFileNameA and environment variables via getenv, suggesting it relies on standard Windows directory structures to determine where to place the copy for persistence.",
+    "sandbox_recommendations": "Run in a sandbox with monitoring for file system modifications and registry key writes. Monitor the 'Run' keys in the registry to observe the persistence mechanism."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Persistence registry key modified by the malware."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "AppServerDisplay.exe",
+          "description": "File name used for the dropped persistent copy."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x004010b0",
+      "name": "fcn.004010b0",
+      "description": "Primary logic for persistence (registry modification) and self-replication (CopyFileA)."
+    },
+    {
+      "address": "0x004013d0",
+      "name": "fcn.004013d0",
+      "description": "Orchestration function that initiates the persistence routine and potential payload processing."
+    },
+    {
+      "address": "0x00401550",
+      "name": "fcn.00401550",
+      "description": "Routines handling data transformation/decryption, likely preparing the payload."
+    }
+  ]
+}

@@ -1,0 +1,92 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a modular rootkit installer or system-level implant. It dynamically resolves kernel APIs (including NtQuerySystemInformation, KeGetCurrentIrql), modifies kernel service tables, performs process injection, and employs obfuscated configuration data stored in resources. It sets up persistence by creating services and modifying registry keys.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation of internal strings and resources",
+      "Dynamic API resolution through kernel-level structures"
+    ],
+    "details": "The sample uses custom XOR loops (e.g., fcn.100075ce) to decrypt strings, resources, and configuration data at runtime. It also uses dynamic kernel memory patching, as evidenced by functions interacting with KeServiceDescriptorTable."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Modifies system service tables (e.g., fcn.1000b369) and interacts with ntoskrnl/ntdll structures."
+    },
+    {
+      "name": "Persistence",
+      "description": "Modifies registry keys (RegSetValueExA, RegCreateKeyExA) to ensure execution across system reboots."
+    },
+    {
+      "name": "Resource-based payload injection",
+      "description": "Extracts payloads from RCDATA resources and writes them to files (fcn.10001b34)."
+    },
+    {
+      "name": "Process manipulation",
+      "description": "Capable of creating and managing processes, potentially for process hollowing or injection."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level API hooking (KeServiceDescriptorTable), the usage of low-level kernel functions (NtQuerySystemInformation), and the implementation of persistence through registry and system file manipulation (e.g., copying itself into system32/win32k.sys paths) provides strong evidence of malicious intent consistent with a rootkit or advanced backdoor.",
+    "general": "The function fcn.1000b369 and fcn.1000b46f explicitly target KeServiceDescriptorTable to hook system services. fcn.10001b34 extracts encrypted resources and writes them to the disk, while fcn.100017a0 modifies registry entries linked to system components (lsass).",
+    "uncertainties": "The exact nature of the decrypted resource content (102, 101) cannot be fully analyzed statically as it is likely secondary code/payload.",
+    "conditions": "Execution likely requires elevated privileges (administrator/system) to interact with kernel structures and registry hives. It uses mutexes (e.g., 'GlobalRPCMutex', 'prkMtx') to ensure single-instance execution.",
+    "sandbox_recommendations": "Run in an environment with kernel debugging enabled (WinDbg). Monitor registry write operations to Run keys and file creation events in System32 directories."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "DMWH",
+          "description": "Registry key associated with installation state"
+        },
+        {
+          "value": "DMWI",
+          "description": "Registry key used for configuration storage"
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "_system32",
+          "description": "Target installation directory"
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for synchronization"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name for process/thread synchronization"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Targets KeServiceDescriptorTable for system call hooking."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Extracts resource-based payloads to disk."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Registry and privilege enumeration/setup."
+    }
+  ]
+}

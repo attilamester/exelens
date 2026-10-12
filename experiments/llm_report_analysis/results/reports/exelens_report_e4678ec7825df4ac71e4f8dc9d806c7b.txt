@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to perform kernel-level operations by leveraging custom driver communication (IoCtl), registry manipulation, and potential system driver hooking to maintain persistence and bypass security protections.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation of data",
+      "Dynamic API resolution using GetProcAddress"
+    ],
+    "details": "The sample uses a simple XOR (0xcd) routine to de-obfuscate embedded resources and periodically uses custom encryption routines (e.g., in fcn.10001723) to manage embedded payloads. It also dynamically resolves API functions at runtime to hide its capabilities."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode interaction",
+      "description": "Uses IoAllocateMdl, MmBuildMdlForNonPagedPool, and MmProbeAndLockPages, which are characteristic of kernel-mode driver interaction."
+    },
+    {
+      "name": "Registry Persistence",
+      "description": "Writes to system registry keys (e.g., Run keys, LSA packages) using RegCreateKeyExA and RegSetValueExA."
+    },
+    {
+      "name": "Process/Service Manipulation",
+      "description": "Checks for processes like 'lsass' and interacts with drivers, suggesting an attempt to inject or control critical system processes."
+    },
+    {
+      "name": "Anti-analysis / Evasion",
+      "description": "Uses mutexes to ensure single instance execution (GlobalRPCMutex, prkMtx) and includes logic to check for debugger environments via timing/hardware checks."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level memory locking (MmProbeAndLockPages), driver-like communication patterns, and registry persistence targeting security packages strongly suggests malicious intent to gain system-level control. The code is not a standard application installer but rather appears to be a sophisticated persistence or rootkit component.",
+    "general": "The function fcn.1000c492 performs direct MDL (Memory Descriptor List) operations, which is indicative of a driver-loader. Functions fcn.1000a949 and fcn.1000ab6f directly interact with kernel structures like 'KeServiceDescriptorTable'.",
+    "uncertainties": "The exact payload being decrypted is not fully reconstructed because it relies on external drivers/resources not provided in the static analysis dump. The impact is assessed based on the clear intent visible in the functional code blocks.",
+    "conditions": "The execution requires administrative privileges to interact with kernel drivers and registry keys successfully. It likely checks for the presence of specific system drivers or mutexes before activating its core functionality.",
+    "sandbox_recommendations": "Run in an environment with full kernel debugging capabilities enabled. Monitor for registry modifications in 'HKLM\\SYSTEM\\CurrentControlSet' and look for attempts to load unsigned drivers."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa",
+          "description": "Persistence via LSA package registry modification."
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for process synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex associated with kernel-mode synchronization."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000c492",
+      "name": "fcn.1000c492",
+      "description": "Handles MDL memory mapping, likely used for kernel-mode data transfers."
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Interacts with KeServiceDescriptorTable, suggesting syscall hooking."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Handles registry-based persistence and service enumeration."
+    }
+  ]
+}

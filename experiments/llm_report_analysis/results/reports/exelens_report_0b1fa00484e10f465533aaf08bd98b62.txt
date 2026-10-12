@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a modular backdoor/rootkit that targets system drivers (win32k.sys, ntoskrnl.exe). It performs process/driver-specific operations, includes obfuscated strings and XOR-based data decryption, and attempts to modify system security descriptors and registry keys to maintain persistence or evade detection.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based obfuscation of data and strings",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress"
+    ],
+    "details": "The file contains multiple encrypted data blobs that are decrypted at runtime (e.g., using a 0xcd XOR key in fcn.10001723 and various custom XOR/obfuscation loops). Resource 102 holds a large payload (106KB) that appears to be the primary functional module."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence Mechanism",
+      "description": "Utilizes RegCreateKeyExA and RegSetValueExA to modify system registry keys, likely for persistence."
+    },
+    {
+      "name": "System/Driver Modification",
+      "description": "Targeting ntoskrnl.exe, win32k.sys and using NtQuerySystemInformation/NtQueryObject to hook or modify kernel-level objects."
+    },
+    {
+      "name": "Process Injection/Hooking",
+      "description": "Uses CreateProcessA and potentially hooks system service tables (KeServiceDescriptorTable) to intercept kernel calls."
+    },
+    {
+      "name": "Evasion",
+      "description": "Checks for debugger presence and uses mutexes (e.g., GlobalRPCMutex, prkMtx) to prevent multiple instances or Sandbox analysis."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level targeting (win32k.sys, ntoskrnl.exe), manual modification of the KeServiceDescriptorTable, and the use of 'lsass' as a registry value name provides clear evidence of malicious intent consistent with rootkit/backdoor behavior, rather than legitimate software.",
+    "general": "High-intent evidence includes manual modification of system service tables (fcn.1000ab6f, fcn.1000b369), manipulation of security descriptors via ADVAPI32 calls, and the use of 'lsass' in registry operations to mask malicious entries.",
+    "uncertainties": "The exact nature of the encrypted payload in resource 102 is not fully visible, but the assembly logic strongly points to a driver-level rootkit deployment.",
+    "conditions": "Execution is gated by mutex checks (prkMtx) and environment variable verification (_system32). The file performs multiple environmental checks before activating its main payload.",
+    "sandbox_recommendations": "Simulate a Windows environment with kernel debugging disabled. Ensure the 'system32' environment variable is present. Monitor for registry changes to 'Run' keys and modifications to system driver files."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\lsass",
+          "description": "Registry key used for persistence/masking."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for process synchronization/anti-sandboxing."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for system-level synchronization."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Primary driver-targeting/system modification routine."
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Routine for Service Descriptor Table (SSDT) modification."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Payload deployment routine using CreateProcessA."
+    }
+  ]
+}

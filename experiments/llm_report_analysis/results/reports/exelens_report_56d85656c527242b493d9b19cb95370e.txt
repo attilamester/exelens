@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a dropper/loader that performs kernel-mode operations, including modifying the System Service Descriptor Table (SSDT) to hide or bypass system monitoring, and deploys a secondary payload by manipulating registry keys and dropping files.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR decryption",
+      "Resource-based payload hiding",
+      "Dynamic API resolution (GetProcAddress/LoadLibrary)"
+    ],
+    "details": "The file uses a custom XOR routine (fcn.100015f7) to decrypt data stored in resources. Sections exhibit significant entropy, consistent with packed or encrypted content."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode SSDT Hooking",
+      "description": "The sample uses ntdll/ntoskrnl exports like KeServiceDescriptorTable and modifies memory to intercept system calls."
+    },
+    {
+      "name": "Process/Service Dropper",
+      "description": "Utilizes CreateProcess and writes files to system directories to persist and execute hidden payloads."
+    },
+    {
+      "name": "Registry Manipulation",
+      "description": "Extensive use of RegCreateKeyExA and RegSetValueExA to maintain persistence and hide configurations under 'DMWI' or similar keys."
+    },
+    {
+      "name": "Self-Protection/Mutex Check",
+      "description": "Uses global mutexes (e.g., GlobalRPCMutex) to ensure only one instance runs."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode memory manipulation (SSDT patching, modifying ntoskrnl exports like KeServiceDescriptorTable), the deliberate evasion of analysis through API hiding, and the persistence mechanisms clearly demonstrates malicious intent rather than legitimate system utility behavior.",
+    "general": "Evidence is found in fcn.1000b369 (patching the SSDT via KeServiceDescriptorTable), fcn.1000c492 (handling memory mapping for kernel operations), and various functions that dynamically resolve kernel symbols via 'Nt' prefix strings (e.g., NtShutdownSystem).",
+    "uncertainties": "While the kernel-level code is clearly malicious, the full extent of the decrypted secondary payload is not visible as it is loaded into memory dynamically at runtime.",
+    "conditions": "The sample performs environmental checks including system directory and registry key existence (e.g., 'DMWH') to determine whether to execute its primary payload.",
+    "sandbox_recommendations": "Run in a kernel-aware sandbox; monitor registry keys 'DMWH' and 'DMWI'; intercept calls to NtLoadDriver or attempts to write to the SSDT."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "DMWH",
+          "description": "Registry key associated with persistence."
+        },
+        {
+          "value": "DMWI",
+          "description": "Registry key associated with payload configuration."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for instance tracking."
+        },
+        {
+          "value": "NtShutdownSystem",
+          "description": "Dynamic lookup for kernel API."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Core function for SSDT patching."
+    },
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "XOR decryption routine for resources."
+    },
+    {
+      "address": "0x10003c04",
+      "name": "fcn.10003c04",
+      "description": "Handles process creation and file system operations for the payload."
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The file is a sophisticated modular dropper that uses obfuscated resources to install a driver and perform system-level manipulation. It features multi-stage code execution, dynamic API resolution via GetProcAddress, and process injection capabilities, explicitly targeting system files and kernel-level drivers.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom XOR decryption",
+      "Resource-based payload storage",
+      "Dynamic API resolution (GetProcAddress)"
+    ],
+    "details": "The executable contains multiple encrypted resources (101, 102, 103). The core functionality is guarded by custom decryption routines (XOR 0xcd) used in 'fcn.100015f7' to unpack payloads stored in resources before execution."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection / System Hollowing",
+      "description": "Uses CreateProcessA combined with file manipulation in system directories to likely inject or replace system processes."
+    },
+    {
+      "name": "Kernel-Level Manipulation",
+      "description": "Direct attempts to resolve and manipulate system tables (KeServiceDescriptorTable, NtQuerySystemInformation) and driver files (win32k.sys, ntoskrnl.exe) indicating rootkit-like behavior."
+    },
+    {
+      "name": "Persistence",
+      "description": "Extensive registry manipulation (RegCreateKeyExA, RegSetValueExA) targeting system Run keys and Windows service configurations."
+    },
+    {
+      "name": "Evasion",
+      "description": "Anti-analysis checks including IsBadReadPtr and environment variable checks to identify sandbox or debugger environments."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level symbol resolution (KeServiceDescriptorTable), modification of system drivers, and the use of hard-coded mutexes ('prkMtx') and registry keys confirms high-intent malicious activity. The file is clearly designed to gain persistent, elevated access while attempting to evade security tools.",
+    "general": "High-intent is evidenced by the resolution and manipulation of kernel symbols like 'KeServiceDescriptorTable' and 'KeRaiseIrqlToDpcLevel' within 'fcn.10009d28'. The use of 'CreateProcessA' to execute dropped files and the registry operations in 'fcn.100028d6' demonstrate persistence and execution. Function 'fcn.1000c492' handles complex memory-mapped file operations required for kernel-mode injection.",
+    "uncertainties": "While the core malicious intent is clear, the exact final payload executed after the driver manipulation is obfuscated behind multiple layers of custom decryption, leaving the final post-infection goal (e.g., banking trojan, ransomware) partially obscured.",
+    "conditions": "The payload executes when the system environment variables and mutex conditions are met, specifically looking for the existence of 'GlobalRPCMutex' and checking for the absence of debugging tools. It requires elevated privileges (administrator) to successfully modify system files.",
+    "sandbox_recommendations": "Simulate a standard Windows environment, ensure the file is executed with administrative privileges, and monitor registry changes in HKLM\\SYSTEM\\CurrentControlSet. Specifically monitor for writes to 'win32k.sys'."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet",
+          "description": "Registry path modified for persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used for process synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex used for process synchronization."
+        },
+        {
+          "value": "win32k.sys",
+          "description": "System driver targeted for modification."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "Resource decryption and extraction function."
+    },
+    {
+      "address": "0x10009d28",
+      "name": "fcn.10009d28",
+      "description": "Core function for driver/kernel symbol resolution and modification."
+    },
+    {
+      "address": "0x100028d6",
+      "name": "fcn.100028d6",
+      "description": "Handles registry persistence logic."
+    }
+  ]
+}

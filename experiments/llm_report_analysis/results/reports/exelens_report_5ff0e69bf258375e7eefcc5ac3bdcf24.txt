@@ -1,0 +1,80 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a kernel-mode rootkit installer that uses a combination of driver manipulation (KeServiceDescriptorTable modification), service registration, and registry persistence to achieve long-term evasion.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based payload obfuscation",
+      "Resource-based loading",
+      "Dynamic API resolution via LoadLibrary/GetProcAddress"
+    ],
+    "details": "The sample contains encrypted payloads in the .rsrc section (RVA: 0x1000b46f). It utilizes custom XOR loops (0xcd XOR key) to decrypt driver code and configuration strings at runtime. The entry point and several key functions (fcn.10001697, fcn.1000ab6f) demonstrate typical loader behavior for stealthy execution."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-Mode Rootkit",
+      "description": "Modifies system service dispatch tables (KeServiceDescriptorTable) to hook kernel functions."
+    },
+    {
+      "name": "Process Injection/Persistence",
+      "description": "Creates system services and modifies registry keys (Run keys) to maintain persistence across reboots."
+    },
+    {
+      "name": "Anti-Analysis",
+      "description": "Checks for common mutex names (GlobalRPCMutex) and potentially checks for debugger/sandbox environment artifacts (GetVersionExA)."
+    },
+    {
+      "name": "Registry Manipulation",
+      "description": "Extensive use of RegCreateKeyExA, RegSetValueExA, and RegQueryValueExA to store configuration and rootkit components."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode hook attempts (fcn.1000b369 targeting KeServiceDescriptorTable), the use of specific driver-loading functions, and the persistence mechanisms strongly indicates malicious intent rather than a legitimate installer. The presence of functions referencing 'ntoskrnl.exe', 'NtShutdownSystem', and 'KeServiceDescriptorTable' provides evidence of deep system manipulation beyond standard application protection.",
+    "general": "The function fcn.1000b369 directly targets the KeServiceDescriptorTable. Furthermore, fcn.1000a2cd and fcn.1000ab6f implement functions that interact with Windows internal structures (WinStaObj) and perform direct system calls (Int 0x2e), which are standard indicators for kernel-mode rootkits aiming to bypass security APIs.",
+    "uncertainties": "While the core behavior is clearly malicious, the full scope of the rootkit's payload is hidden behind the XOR-encrypted resources, meaning some secondary commands (C2 communication or specific file theft) remain hidden.",
+    "conditions": "The sample requires administrative privileges to modify registry keys and load drivers. Execution flow triggers include checking for an existing instance via a mutex (GlobalRPCMutex) and validating OS version compatibility.",
+    "sandbox_recommendations": "Run in an isolated kernel-level analysis environment. Simulate administrator rights. Monitor registry modifications in HKLM\\SYSTEM\\CurrentControlSet\\Services and any attempts to write to the Windows\\System32 directory."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services",
+          "description": "Targeted for service installation for persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex used to detect/prevent multiple instances."
+        },
+        {
+          "value": "KeServiceDescriptorTable",
+          "description": "Target of kernel-mode hooking."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Modifies the SSDT to hook kernel-level system calls."
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Performs system-wide configuration/rootkit activation using direct interrupts (Int 0x2e)."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Creates processes and handles resource unlocking for payload delivery."
+    }
+  ]
+}

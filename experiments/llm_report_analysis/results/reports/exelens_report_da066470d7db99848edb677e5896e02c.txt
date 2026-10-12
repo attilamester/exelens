@@ -1,0 +1,84 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains code to modify system drivers (win32k.sys, ntkrnlpa.exe, ntoskrnl.exe) and bypass integrity checks (Kernel Patch Protection/PatchGuard). It interacts with sensitive kernel-mode structures and uses undocumented APIs to modify memory in restricted system contexts, behavior highly characteristic of kernel-mode rootkits.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "Resource-based payload decryption",
+      "Dynamic API resolution",
+      "XOR-based obfuscation"
+    ],
+    "details": "The file uses FindResource, LoadResource, and SizeofResource to load an encrypted resource. It then uses a custom XOR routine (fcn.100075ce) to decrypt this data. Several kernel-mode-related routines (e.g., KeServiceDescriptorTable) are resolved dynamically via GetProcAddress."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode modification",
+      "description": "The sample attempts to modify system drivers and internal kernel tables (e.g., KeServiceDescriptorTable, KeAddSystemServiceTable)."
+    },
+    {
+      "name": "Evasion",
+      "description": "Uses mutexes ('prkMtx', 'GlobalRPCMutex') and environment variable checks ('temp', '_system32') to detect environments or ensure single-instance execution."
+    },
+    {
+      "name": "Persistence",
+      "description": "Manipulates registry keys (e.g., 'DMWI__', 'DMWH') and likely uses service installation or registry-based persistence mechanisms."
+    },
+    {
+      "name": "Process Injection/System modification",
+      "description": "Uses CopyFile, SetFileAttributes, and registry manipulation to replace or inject into system processes like lsass.exe."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode API usage (KeServiceDescriptorTable, KeAddSystemServiceTable, IoAllocateMdl), the attempt to bypass integrity checks by modifying drivers (ntoskrnl.exe, win32k.sys), and the direct manipulation of memory using non-standard methods (int 2e) provides clear evidence of malicious intent aimed at rootkit-level control over the operating system. Legitimate software rarely interacts with kernel descriptors or patches loaded system drivers.",
+    "general": "High-intent malicious behavior is evidenced in fcn.1000ab6f and fcn.1000a2cd, which perform service table modification (KeServiceDescriptorTable manipulation). Function fcn.100017a0 and fcn.10001723 show code modifying protected system files (lsass.exe, drivers). The code references 'ntkrnlpa.exe' and uses 'int 0x2e' to transition into kernel-mode operations.",
+    "uncertainties": "While the binary is clearly a rootkit/kernel-modifier, the secondary payload decrypted from the resource (102) was not fully analyzed as its execution logic is dynamic and kernel-dependent.",
+    "conditions": "Execution is likely triggered by specific registry keys being present or system environment conditions (GetEnvironmentVariableA/W checks). It requires elevated administrative/system privileges for kernel-mode modifications.",
+    "sandbox_recommendations": "Use a kernel-mode debugger (WinDbg) with a checked build of Windows. Monitor registry keys associated with 'DMWI' and 'DMWH' and watch for driver modification alerts in the kernel."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\DMWI__",
+          "description": "Associated registry key for service or persistence."
+        },
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\DMWH",
+          "description": "Associated registry key for service or persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for single-instance or synchronization."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex name used for synchronization in kernel-mode routines."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Main kernel service table modification routine."
+    },
+    {
+      "address": "0x1000a2cd",
+      "name": "fcn.1000a2cd",
+      "description": "Secondary kernel patching and protection bypass routine."
+    },
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Registry and privilege check routine for persistence."
+    }
+  ]
+}

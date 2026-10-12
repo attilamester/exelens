@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable is a modular rootkit installer/loader designed to perform unauthorized kernel-mode operations. It uses resource-based decryption, persistence through Registry modifications (Run keys), and attempts to load malicious drivers by manipulating system structures (SSDT/kernel hooks) to hide its presence and maintain control.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Resource-based packing",
+      "Dynamic API resolution (GetProcAddress/LoadLibrary)",
+      "XOR obfuscation on loaded resources"
+    ],
+    "details": "The binary stores an encrypted payload in RCDATA (resource 102). It uses a custom XOR routine (fcn.1000161b) triggered during initialization to decrypt and map the payload into memory."
+  },
+  "capabilities": [
+    {
+      "name": "Kernel-mode manipulation",
+      "description": "Attempts to interact with ntoskrnl.exe and win32k.sys, likely for hooking."
+    },
+    {
+      "name": "Registry persistence",
+      "description": "Creates or modifies Registry keys for persistence (e.g., 'lsass')."
+    },
+    {
+      "name": "Process/Service hiding",
+      "description": "Checks for debugger/analysis environment and attempts to hide files or services."
+    },
+    {
+      "name": "Dynamic API loading",
+      "description": "Resolves APIs at runtime from kernel libraries."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level access (interacting with ntoskrnl.exe, win32k.sys, and SSDT hooks), the creation of hidden services/Registry entries ('lsass' obfuscation), and the decryption of a high-entropy resource (102) strongly indicates a rootkit. The logic is specifically designed to subvert OS security rather than perform legitimate installation tasks.",
+    "general": "High-intent evidence includes calls to fcn.100096ce (kernel-mode setup), Registry modification in fcn.100017a0, and direct interaction with the SSDT (KeServiceDescriptorTable manipulation in fcn.1000ab6f).",
+    "uncertainties": "The exact functionality of the decrypted resource (102) remains partially obscured, as it is dynamically mapped to memory and executed, which may involve additional obfuscation not fully captured in the static analysis.",
+    "conditions": "The execution requires administrative privileges to interact with Registry keys and load drivers. It specifically checks for OS versions and Registry keys (e.g., 'cnFormSyncExFBC') as environment gates before proceeding with payload installation.",
+    "sandbox_recommendations": "Run in an isolated environment with kernel-level debugging enabled (e.g., WinDbg). Use a tool like ProcMon to monitor Registry and file system changes related to 'lsass' or system driver directories."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Key used for persistent loading of the malicious component."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "system32\\win32k.sys",
+          "description": "Target file for system modification."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x1000788e",
+      "name": "fcn.1000788e",
+      "description": "Main installation logic, orchestrating registry changes and resource management."
+    },
+    {
+      "address": "0x100043d2",
+      "name": "fcn.100043d2",
+      "description": "Registry key/value enumeration and persistence management."
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Kernel structure modification, specifically targeting system tables for hooking."
+    }
+  ]
+}

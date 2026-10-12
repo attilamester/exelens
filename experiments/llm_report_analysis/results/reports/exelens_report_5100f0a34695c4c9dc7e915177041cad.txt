@@ -1,0 +1,70 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable contains functionality to perform low-level hardware queries (PhysicalDrive, SCSI/IDE) to extract hardware IDs (Model, Serial, Controller). It subsequently attempts to exfiltrate this information, along with environment and user data, via HTTP GET/POST requests, and establishes persistence or configuration persistence mechanisms through registry interaction and dynamic library loading.",
+  "packed": {
+    "status": "true",
+    "techniques": [
+      "Custom heap-based packing/unpacking routine",
+      "Dynamic API resolution via GetProcAddress"
+    ],
+    "details": "The sample uses a multi-stage heap-based unpacking routine where data is allocated, decrypted/unpacked via VirtualAlloc, and then executed. It resolves most of its imported DLL functionality dynamically to hide its actual capabilities."
+  },
+  "capabilities": [
+    {
+      "name": "Hardware Reconnaissance",
+      "description": "Queries PhysicalDrive via IOCTL_DISK_GET_DRIVE_GEOMETRY_EX and SCSI/IDE backdoors to harvest hardware identifiers."
+    },
+    {
+      "name": "Network Communication",
+      "description": "Utilizes wininet.dll to initiate HTTP requests for data exfiltration."
+    },
+    {
+      "name": "Information Theft",
+      "description": "Collects system info (CPU, Memory, OS version), MAC address, and computer name."
+    },
+    {
+      "name": "Persistence/Environment Check",
+      "description": "Checks system configuration, registry keys, and creates temporary file structures."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of hardware identifier harvesting (SCSI/IDE door) with wininet exfiltration routines is a high-intent indicator for spyware. While individual API calls are dual-use, the specific logic targeting physical hardware identifiers for exfiltration is characteristic of unique system fingerprinting used by malware.",
+    "general": "The function fcn.00401680 and fcn.004013e0 explicitly use DeviceIoControl with storage-specific IOCTLs. Function fcn.004039a0 performs network-related initialization and data preparation, pointing to the malicious intent of gathering and sending system data.",
+    "uncertainties": "The exact C2 domain is resolved dynamically or via configuration data not fully visible; however, the presence of '68.96.31.136' and various hardcoded strings leaves little ambiguity about the intent.",
+    "conditions": "The primary exfiltration routine in fcn.004039a0 expects specific configuration from the environment, including potential 'pvid' or 'wininet' strings in memory for proper header construction.",
+    "sandbox_recommendations": "Provide an environment with multiple fake physical drives attached. Ensure the sandbox can intercept and log HTTP traffic, as the sample will attempt to beacon system information."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "68.96.31.136",
+          "description": "Hardcoded IP address observed in network construction logic."
+        },
+        {
+          "value": "wininet.dll",
+          "description": "Dynamic library loaded for exfiltration functionality."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x00401680",
+      "name": "fcn.00401680",
+      "description": "Performs physical drive hardware ID harvesting via DeviceIoControl."
+    },
+    {
+      "address": "0x004039a0",
+      "name": "fcn.004039a0",
+      "description": "Prepares and initiates network exfiltration via wininet APIs."
+    },
+    {
+      "address": "0x004033e0",
+      "name": "fcn.004033e0",
+      "description": "Initializes communication buffers and environment environment configuration."
+    }
+  ]
+}

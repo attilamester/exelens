@@ -1,0 +1,77 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The sample is a remote access trojan (RAT) disguised as a system service. It establishes persistence via registry keys, maintains a command-and-control connection using WinInet to fetch and execute commands, and provides remote command shell capabilities by piping input/output to cmd.exe.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed or obfuscated; the logic for service manipulation, command execution, and C2 communication is plainly visible."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Modifies registry keys in HKLM\\SYSTEM\\CurrentControlSet\\Services to persist as a Windows service."
+    },
+    {
+      "name": "Remote Command Execution",
+      "description": "Uses CreateProcessA to spawn cmd.exe with redirected input/output pipes, allowing remote command shell control."
+    },
+    {
+      "name": "Command and Control",
+      "description": "Uses WinInet functions (HttpSendRequestA, HttpOpenRequestA) to communicate with a remote server, supporting shell commands and file downloads."
+    },
+    {
+      "name": "Process Injection/Control",
+      "description": "Uses CreateToolhelp32Snapshot and TerminateProcess to list and kill processes."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of persistence via Windows Service registry keys, command shell redirection (pipe-based), and C2 communication via WinInet is characteristic of a Remote Access Trojan (RAT). While these APIs can be used in legitimate remote management tools, the specific logic of installing a service via registry modification and the presence of 'shell' handling commands strongly indicates malicious intent rather than a legitimate administration utility.",
+    "general": "The function fcn.100031a0 performs registry modification on 'SYSTEM\\CurrentControlSet\\Services' to inject a service DLL. The function fcn.10001fb0 spawns 'cmd.exe' using CreateProcessA with pipes, clearly intended to hide a remote shell. The communication logic in fcn.100010e0 and fcn.100013c0 uses WinInet to send data and handle HTTP requests, confirming C2 capabilities.",
+    "uncertainties": "No specific C2 domain or IP address is hardcoded in the visible assembly, as it likely expects configuration via registry or arguments; therefore, the exact C2 location remains unknown.",
+    "conditions": "The sample likely operates as a Windows service, requiring proper installation or being triggered by the service controller. It also accepts command-line arguments (like 'kill', 'start', 'list') to drive specific sub-functions.",
+    "sandbox_recommendations": "Run the sample within a controlled network environment that logs outbound HTTP traffic. Provide access to a fake internet service to capture the C2 communication. Execute with various arguments (e.g., --help) if supported, or register it as a service."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\*\\Parameters",
+          "description": "Registry path modified for persistence."
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "cmd.exe",
+          "description": "Target process for remote shell execution."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100031a0",
+      "name": "fcn.100031a0",
+      "description": "Performs persistence by modifying service registry keys."
+    },
+    {
+      "address": "0x10001fb0",
+      "name": "fcn.10001fb0",
+      "description": "Spawns a remote shell via cmd.exe and pipe redirection."
+    },
+    {
+      "address": "0x100010e0",
+      "name": "fcn.100010e0",
+      "description": "Handles initialization of HTTP C2 connection."
+    },
+    {
+      "address": "0x100013c0",
+      "name": "fcn.100013c0",
+      "description": "Executes HTTP requests and handles C2 communication."
+    }
+  ]
+}

@@ -1,0 +1,79 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The file is an installer/dropper that performs complex environment checks, including potential kernel-mode hooks (e.g., KeServiceDescriptorTable), sets up persistence through registry modifications, and executes a secondary payload hidden within its resources.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-encoded resources",
+      "Dynamic API resolution"
+    ],
+    "details": "The file contains resources that are decoded at runtime using a static XOR key (0xcd) via custom routines (fcn.100015f7). It dynamically resolves APIs using GetProcAddress and custom lookup tables."
+  },
+  "capabilities": [
+    {
+      "name": "Persistence",
+      "description": "Modifies registry keys (RegSetValueExA) to ensure execution across reboots."
+    },
+    {
+      "name": "Payload Dropping",
+      "description": "Writes embedded resources to disk as files using CreateFileA and WriteFile."
+    },
+    {
+      "name": "Kernel-mode Interaction",
+      "description": "Attempts to interact with or hook System Service Descriptor Table (KeServiceDescriptorTable) and performs checks related to ntoskrnl.exe, suggesting rootkit-like capabilities."
+    },
+    {
+      "name": "Process Injection/Execution",
+      "description": "Launches processes (CreateProcessA) potentially to execute the dropped payload."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-level structure modification (hooking SSDT), persistence mechanisms via registry manipulation, and the dropping of hidden resources constitutes clear malicious intent beyond simple installation or protection routines. The use of dynamic API resolution and XOR obfuscation are standard evasion techniques used by malware authors to hide these high-intent behaviors.",
+    "general": "High-intent evidence includes calls to ADVAPI32.dll_RegSetValueExA in fcn.10001000, fcn.100017a0, and fcn.1000202a for persistence. fcn.1000ab6f and fcn.1000b369 show clear intent to locate and hook KeServiceDescriptorTable. Resource decoding via 0xcd XOR in fcn.100015f7 hides the initial payload.",
+    "uncertainties": "The exact nature of the dropped payload remains obscured without executing the binary, as it is dynamically written and possibly further obfuscated on disk.",
+    "conditions": "The file exhibits environment-specific behavior based on OS version checks (GetVersionExA) and requires specific registry keys (e.g., 'cnFormSyncExFBC') to proceed through its installation/execution logic.",
+    "sandbox_recommendations": "Use a Windows XP or Windows 7 virtual environment, as the code contains specific checks for older OS versions and kernel structures. Ensure network connectivity is restricted, as it attempts to communicate via standard HTTP headers (HTTP/1.0)."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "HKLM\\Software\\DMWI",
+          "description": "Persistence registry key"
+        }
+      ]
+    },
+    {
+      "type": "mutex",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Used for single-instance execution check"
+        },
+        {
+          "value": "prkMtx",
+          "description": "Used for synchronization"
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100015f7",
+      "name": "fcn.100015f7",
+      "description": "XOR-based resource decryption routine (payload loader)"
+    },
+    {
+      "address": "0x1000ab6f",
+      "name": "fcn.1000ab6f",
+      "description": "Kernel-mode structure manipulation (SSDT hooking)"
+    },
+    {
+      "address": "0x10003c04",
+      "name": "fcn.10003c04",
+      "description": "Payload dropping and process execution handler"
+    }
+  ]
+}

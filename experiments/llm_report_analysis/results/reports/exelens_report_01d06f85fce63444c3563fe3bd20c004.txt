@@ -1,0 +1,92 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable functions as a dropper/downloader. It checks for specific environment conditions, writes hidden files to the disk, decrypts an embedded payload using a simple XOR operation, and executes it via dynamic API resolution (GetProcAddress/CreateProcessA).",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based payload decryption",
+      "Dynamic API resolution",
+      "Self-deobfuscation loop"
+    ],
+    "details": "The file contains an encrypted/encoded payload in the .data section. Routine fcn.004016af implements a simple XOR (key 0x3E) to decrypt strings and payload segments before usage."
+  },
+  "capabilities": [
+    {
+      "name": "Payload Dropper",
+      "description": "Writes embedded data to files (snetmgr.exe, snetmgr.dll) using WriteFile."
+    },
+    {
+      "name": "Dynamic Code Execution",
+      "description": "Resolves CreateProcessA from kernel32.dll at runtime to launch dropped payloads."
+    },
+    {
+      "name": "Anti-Analysis / Environment Checks",
+      "description": "Checks for the presence of specific directories (Kaspersky Lab) using FindFirstFileA/FindNextFileA."
+    },
+    {
+      "name": "Persistence / Configuration",
+      "description": "Writes configuration data to an INI file (sperf2012.ini) using WritePrivateProfileStringA."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of file dropping, environment-specific checks against security software (Kaspersky Lab), and runtime API resolution for process creation confirms malicious intent. This behavior goes beyond standard installer functionality.",
+    "general": "High-intent evidence includes the loop in fcn.004016d1 that uses WriteFile to save data (RVA 0x40133c), the call to fcn.004016af for XOR decryption, and the use of LoadLibraryA/GetProcAddress at RVA 0x401c9a to invoke CreateProcessA.",
+    "uncertainties": "While the overall flow is clear, the exact contents of the decrypted binary data remain hidden, although the function calls strongly imply a secondary stage execution.",
+    "conditions": "The sample performs directory existence checks. It attempts to create specific files and registry-like entries in an INI format. It appears to require execution with standard user or admin privileges to write files to the file system.",
+    "sandbox_recommendations": "Run in a sandbox with network simulation enabled to catch potential C2 connections. Ensure the sandbox is not running Kaspersky Antivirus, as the malware explicitly checks for this directory path."
+  },
+  "ioc": [
+    {
+      "type": "path",
+      "values": [
+        {
+          "value": "C:\\Program Files\\Kaspersky Lab",
+          "description": "Directory path targeted by the malware for environment checking."
+        },
+        {
+          "value": "snetmgr.exe",
+          "description": "Dropped executable file."
+        },
+        {
+          "value": "snetmgr.dll",
+          "description": "Dropped DLL file."
+        },
+        {
+          "value": "sperf2012.ini",
+          "description": "Configuration file created by the malware."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "Adobe",
+          "description": "String used in file naming or configuration checks."
+        },
+        {
+          "value": "DownCmdTime",
+          "description": "Configuration key used in INI file."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x004016d1",
+      "name": "fcn.004016d1",
+      "description": "Main logic function: responsible for file dropping, decryption, and configuration management."
+    },
+    {
+      "address": "0x004016af",
+      "name": "fcn.004016af",
+      "description": "XOR decryption routine used to deobfuscate configuration strings and data."
+    },
+    {
+      "address": "0x00401bed",
+      "name": "fcn.00401bed",
+      "description": "Performs environment check for security software by scanning directories."
+    }
+  ]
+}

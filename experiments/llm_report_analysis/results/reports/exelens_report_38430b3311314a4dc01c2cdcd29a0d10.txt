@@ -1,0 +1,75 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "This file is a sophisticated modular dropper/rootkit installer. It decrypts a hidden payload from resources, establishes a system-wide mutex, modifies registry settings (including those related to system services), deletes itself after execution, and contains capabilities for kernel-mode operations such as patching system service tables.",
+  "packed": {
+    "status": "partially",
+    "techniques": [
+      "XOR-based payload decryption",
+      "Dynamic API resolution (GetProcAddress)",
+      "Resource-based storage"
+    ],
+    "details": "The file uses custom XOR routines (e.g., fcn.100075ce) to decrypt resource data (RSRC section) at runtime. It also dynamically resolves essential APIs using string decryption/obfuscation techniques, which is common in stealthy droppers."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/System Modification",
+      "description": "Utilizes NtQuerySystemInformation, NtQueryObject, and attempts to modify system kernel service tables to hide or persist."
+    },
+    {
+      "name": "Persistence Mechanism",
+      "description": "Modifies Windows Registry keys (specifically Run or Service-related) to ensure execution across reboots."
+    },
+    {
+      "name": "File System Evasion",
+      "description": "Uses CreateFileW, CopyFileA, and DeleteFileA to drop payloads in system directories and remove original artifacts."
+    },
+    {
+      "name": "Mutex Locking",
+      "description": "Uses CreateMutexW/A to enforce single-instance execution and prevent collision with other malware instances."
+    }
+  ],
+  "details": {
+    "reasoning": "The combination of kernel-mode API imports (NtQuerySystemInformation, KeServiceDescriptorTable), registry-based persistence, and the routine deletion of files (CopyFileA/DeleteFileA) clearly establishes malicious intent beyond dual-use utility. The file does not exhibit features of standard installers (e.g., lacking digital signatures, typical UI, or manifest files), confirming it is malicious.",
+    "general": "High-intent indicators include calls to KeServiceDescriptorTable (fcn.1000b369), modifications to system registry keys (fcn.1000202a), and the decryption of embedded resources (fcn.100075ce). The execution flow explicitly targets system directory paths.",
+    "uncertainties": "The exact nature of the encrypted resource 102 remains unknown, though its size (106KB) and structure suggest it is the primary malicious module or driver.",
+    "conditions": "Execution likely triggers upon system startup or when invoked by a parent installer. It checks for specific environment variables (GetEnvironmentVariableA) and potentially the presence of administrative privileges (RegCreateKeyExA).",
+    "sandbox_recommendations": "Ensure the sandbox provides a full Windows environment. Monitor registry keys in HKLM\\SYSTEM\\CurrentControlSet and check for any newly created files in System32 directories. Simulate a reboot to observe persistence."
+  },
+  "ioc": [
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "GlobalRPCMutex",
+          "description": "Mutex name used for synchronization."
+        },
+        {
+          "value": "lsass",
+          "description": "String constant often used for masquerading or targeting the LSASS process."
+        },
+        {
+          "value": "prkMtx",
+          "description": "Mutex related to system/driver initialization."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x100075ce",
+      "name": "fcn.100075ce",
+      "description": "The XOR-based decryption routine used for resources."
+    },
+    {
+      "address": "0x1000b369",
+      "name": "fcn.1000b369",
+      "description": "Modifies KeServiceDescriptorTable to hook system calls."
+    },
+    {
+      "address": "0x10001b34",
+      "name": "fcn.10001b34",
+      "description": "Handles process creation and payload persistence."
+    }
+  ]
+}

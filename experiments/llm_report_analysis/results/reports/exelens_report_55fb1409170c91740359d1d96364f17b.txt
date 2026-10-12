@@ -1,0 +1,76 @@
+{
+  "verdict": "malicious",
+  "confidence": "high",
+  "summary": "The executable acts as a remote administration tool (RAT) with reverse shell capabilities. It establishes a mutex for single-instance persistence, attempts to register itself in the Windows Registry Run key, and initiates network communication with a C2 server to execute commands or download files.",
+  "packed": {
+    "status": "false",
+    "techniques": [],
+    "details": "The code is not packed; it appears to be a compiled C/C++ application using standard CRT functions and Windows APIs for process and network control."
+  },
+  "capabilities": [
+    {
+      "name": "Process Injection/Execution",
+      "description": "Utilizes CreateProcessA and Pipes to spawn and control shell processes (cmd.exe)."
+    },
+    {
+      "name": "Persistence",
+      "description": "Attempts registry persistence by adding entries to Software\\Microsoft\\Windows\\CurrentVersion\\Run."
+    },
+    {
+      "name": "Networking",
+      "description": "Uses WININET to communicate via HTTP, including downloading payloads and exfiltrating data."
+    },
+    {
+      "name": "Command and Control",
+      "description": "Implements a remote command-line interface allowing file downloads, process termination, and service control."
+    }
+  ],
+  "details": {
+    "reasoning": "The application exhibits clear malicious intent by combining system modification (Registry persistence), stealthy process management (piped shell access), and external C2 communication. The code specifically looks for and interacts with system-critical paths and implements custom command-and-control logic (e.g., parsing 'shell', 'kill', 'start' commands), confirming its role as a backdoor/RAT.",
+    "general": "High-intent indicators include: (1) RVA 0x004030d8 (fcn.004030d8) creates registry keys under 'Software\\Microsoft\\Windows\\CurrentVersion\\Run'. (2) RVA 0x00401d84 (fcn.00401d84) enables remote process listing and service manipulation. (3) RVA 0x00401406 (fcn.00401406) initiates network communication to act as a reverse shell via 'CreatePipe' and 'CreateProcessA'.",
+    "uncertainties": "The exact C2 URL or IP address is obfuscated or dynamically resolved, so connectivity was not confirmed, though the code logic is clear.",
+    "conditions": "The malware requires an active network connection to a configured (but not hardcoded in plain text) C2 server to proceed with command execution. It uses 'GLOBALADR32' mutex to ensure only one instance runs.",
+    "sandbox_recommendations": "Use a network simulation tool (e.g., INetSim) to provide fake HTTP responses for the C2 communication attempts. Monitor Registry HKLM/HKCU persistence locations."
+  },
+  "ioc": [
+    {
+      "type": "registry",
+      "values": [
+        {
+          "value": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "description": "Registry key used for persistence."
+        }
+      ]
+    },
+    {
+      "type": "string",
+      "values": [
+        {
+          "value": "Adobe_Reader_Speed_Launcher",
+          "description": "Fake name used for persistence entry to mimic legitimate software."
+        },
+        {
+          "value": "GLOBALADR32",
+          "description": "Mutex name used for single-instance check."
+        }
+      ]
+    }
+  ],
+  "important_functions": [
+    {
+      "address": "0x004030d8",
+      "name": "fcn.004030d8",
+      "description": "Handles persistence via registry modification."
+    },
+    {
+      "address": "0x00401406",
+      "name": "fcn.00401406",
+      "description": "Primary C2 communication and reverse shell orchestration loop."
+    },
+    {
+      "address": "0x00401d84",
+      "name": "fcn.00401d84",
+      "description": "Command processor for remote management (list processes, services)."
+    }
+  ]
+}
