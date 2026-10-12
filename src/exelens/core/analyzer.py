@@ -137,7 +137,7 @@ def shorten_instruction2(i: Instruction) -> str:
 
 
 def display_instructions(instructions: List[Instruction]) -> str:
-    """One line per instruction; a run of identical instructions is shown once, with its repeat count."""
+    """One line per instruction, with runs of identical instructions collapsed."""
     buffer = ""
     for line, run in itertools.groupby(shorten_instruction2(i) for i in instructions):
         repeats = sum(1 for _ in run) - 1
@@ -199,7 +199,7 @@ def function_register_types(cg_node: CGNode) -> List[str]:
 
 def dfs_call_graph_instruction_traversal(cg: CallGraph) -> str:
     buffer = ""
-    instructions = []  # consecutive instructions, displayed together so that repeats are collapsed
+    instructions = []  # collected between function markers, to collapse repeats
     for instr in cg.dfs_instructions(max_instructions=None, allow_multiple_visits=False, store_call=True, store_cg_node=True):
         if isinstance(instr, Instruction):
             instructions.append(instr)
@@ -234,14 +234,14 @@ def get_entrypoints(cg) -> List[PEFunctionInfo]:
     return entrypoints_info
 
 
-# Upper bound of system prompt + analysis message, in estimated tokens (Gemini Pro prices rise above 200k).
+# Budget of system prompt + analysis message, in estimated tokens
 MAX_PROMPT_TOKENS = 200_000
-# Cheap pre-check before building the full DFS traversal: at ~8 tokens/instruction, larger files cannot fit.
+# Skip building the full DFS above this (~8 tokens/instruction, it could not fit)
 MAX_INSTRUCTIONS = 100_000
 MAX_FUNCTIONS = 1000
 
 def imports_markdown(cg: CallGraph) -> str:
-    """The imported (DLL) functions of the call graph, grouped by DLL."""
+    """Imported functions, grouped by DLL."""
     imports: Dict[str, List[str]] = {}
     for node in cg.nodes.values():
         if node.type == FunctionType.DLL:
@@ -272,7 +272,7 @@ def build_analysis_context(cg, pe_info: PEInfo,
         "functions_analyzed": {},
     }
 
-    # Kept even when the full DFS is available: it is the fallback if the DFS does not fit the token budget.
+    # also built for full DFS: the fallback if it does not fit the budget
     for f_label in [f.label for f in entrypoints[:10]] + functions_to_analyze:
         node = cg.nodes.get(f_label)
         if node and node.label not in context["functions_analyzed"]:
@@ -284,7 +284,7 @@ def build_analysis_context(cg, pe_info: PEInfo,
 
 
 def format_analysis_message(context: Dict, max_tokens: int) -> Tuple[str, Dict]:
-    """Returns the analysis message, within max_tokens (estimated), and stats about what it contains."""
+    """Returns the analysis message (within max_tokens) and its stats."""
     entrypoints_string = '\n'.join([f.display_markdown() for f in context["entrypoints"]])
     important_functions_string = '\n'.join([f.display_markdown() for f in context["important_functions"]])
 
@@ -302,7 +302,7 @@ def format_analysis_message(context: Dict, max_tokens: int) -> Tuple[str, Dict]:
         if estimate_tokens(task + full_dfs) <= max_tokens:
             return task + full_dfs, {"mode": "full_dfs"}
 
-    # Functions are added in priority order (entrypoints, then by centrality score) while they fit the budget.
+    # in priority order (entrypoints, then centrality) while they fit
     functions = []
     budget = max_tokens - estimate_tokens(task + "## Analyzed Functions\n---\n---\n")
     for label, function in context["functions_analyzed"].items():
@@ -321,8 +321,7 @@ def format_analysis_message(context: Dict, max_tokens: int) -> Tuple[str, Dict]:
 
 def write_drawing_and_context(cg: CallGraph, drawing_dir: str, context_dir: str, system_prompt: str,
                               sample_path: str = None) -> str:
-    """Draws the call graph SVG (unless it exists) into drawing_dir and writes the LLM input context (the
-    analysis message) and its stats into context_dir. Returns the analysis message."""
+    """Draws the SVG (unless it exists), writes the context and its stats; returns the context."""
     pe_info = call_graph_info(cg)
     centrality_metrics, sorted_node_labels = measure_node_centrality(cg)
     important_functions = get_important_functions(cg, centrality_metrics, sorted_node_labels, top_n=20)
@@ -343,7 +342,7 @@ def write_drawing_and_context(cg: CallGraph, drawing_dir: str, context_dir: str,
     else:
         dfs_summary = None
 
-    # Sorted by centrality score, so the functions kept within the token budget are the same on every run.
+    # sorted by score (not a set), so the selection is the same on every run
     selected_node_labels = get_selected_node_labels(cg, centrality_metrics, sorted_node_labels, MAX_FUNCTIONS)
     functions_to_analyze = [label for label in sorted_node_labels if label in selected_node_labels]
 
@@ -408,7 +407,7 @@ def analyze_file(file_path: str, md5: str = None, model_name: str = None, output
         # Always re-dumped (not skipped on a cache hit) so a corrupted/stale cache file
         # self-heals instead of being reused forever. The drawing/, context/ and reports/
         # outputs below are unaffected and still go to output_dir.
-        # An input that is already a compressed dump is not re-dumped over itself.
+        # a dump given as input is not re-dumped over itself
         dump = not file_path.endswith(CallGraphCompressed.COMPRESSED_EXTENSION)
         input = file_path
         output = None
@@ -422,7 +421,7 @@ def analyze_file(file_path: str, md5: str = None, model_name: str = None, output
 
     if prompt_only or not os.path.exists(context_path):
         if not file_path.endswith(CallGraphCompressed.COMPRESSED_EXTENSION):
-            sample_path = sample_path or file_path  # the input itself is the original sample
+            sample_path = sample_path or file_path
         analysis_message = write_drawing_and_context(cg, drawing_dir, context_dir, system_prompt, sample_path)
         if prompt_only:
             return 0
@@ -439,11 +438,10 @@ def analyze_file(file_path: str, md5: str = None, model_name: str = None, output
     report_text, usage, finish_reason = llm_client.generate_summary(system_prompt, analysis_message)
     dt_llm = time.perf_counter() - ts_llm
     if usage is None:
-        # The call failed (e.g. network, quota): nothing is written, so a batch re-run retries this sample.
+        # failed call: nothing is written, so a re-run retries it
         return 1
 
-    # Result: the report (unless the LLM returned none) and its metadata, which also marks a sample without a report
-    # (blocked, or cut off at the output cap) as done - a batch re-run skips it instead of paying for it again.
+    # the metadata is written even without a report, so a re-run skips (and does not pay for) the sample again
     os.makedirs(reports_dir, exist_ok=True)
     output_file_path = os.path.join(reports_dir, f"exelens_report_{cg.md5}.txt")
     if report_text is not None:

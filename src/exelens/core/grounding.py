@@ -11,8 +11,7 @@ def normalize(text: str) -> str:
 
 
 def parse_report(report_text: str) -> Optional[dict]:
-    """The JSON object of a report, or None if it is not JSON. Only the first JSON object is parsed, as some reports
-    end with a stray extra "}"."""
+    """The report's JSON object, or None. Parses only the first object: some reports end with a stray "}"."""
     try:
         report, _ = json.JSONDecoder().raw_decode(report_text.strip())
     except ValueError:
@@ -21,8 +20,7 @@ def parse_report(report_text: str) -> Optional[dict]:
 
 
 def check_grounding(report_text: str, context: str) -> Optional[dict]:
-    """Checks that the IOC values and important function names cited by a JSON report appear in its input context.
-    Returns None if the report is not the expected JSON."""
+    """Which cited IOC values and function names do not appear in the report's context (None if not JSON)."""
     report = parse_report(report_text)
     try:
         cited = [v["value"] for ioc in report.get("ioc", []) for v in ioc.get("values", [])]

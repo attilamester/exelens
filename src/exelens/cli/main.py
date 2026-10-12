@@ -35,7 +35,7 @@ def create_parser():
     return parser
 
 def index_samples(samples_dir: str) -> dict:
-    """Maps md5 -> path of every file under samples_dir (the dataset names samples by sha256)."""
+    """md5 -> path of every file under samples_dir."""
     index = {}
     for path in glob.glob(os.path.join(samples_dir, "**", "*"), recursive=True):
         if os.path.isfile(path) and not path.endswith(".zip"):
@@ -45,9 +45,9 @@ def index_samples(samples_dir: str) -> dict:
     return index
 
 def analyze_directory(directory: str, model_name: str, output_dir: str, prompt_only: bool, samples: dict) -> int:
-    """Analyzes every <md5>.cgcompressed.pickle in directory; samples with an existing output are skipped."""
+    """Analyzes every dump in directory, skipping finished samples."""
     output_dir = output_dir or directory
-    # Report metadata is written for blocked samples too, so they are not retried (and paid for) again.
+    # report metadata also exists for blocked samples, so they are not retried
     output_name = os.path.join("context", "{}.txt") if prompt_only else os.path.join("reports", "exelens_report_{}.json")
     dumps = sorted(glob.glob(os.path.join(directory, "*.cgcompressed.pickle")))
     done, skipped, failed = 0, 0, []

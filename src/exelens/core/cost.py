@@ -24,12 +24,12 @@ def estimate_tokens(text: str) -> int:
 
 
 def billed_output_tokens(usage: dict) -> int:
-    # Gemini bills thinking tokens as output, but leaves them out of completion_tokens (only total_tokens has them).
+    # Gemini bills thinking tokens as output but excludes them from completion_tokens
     return usage["total_tokens"] - usage["prompt_tokens"]
 
 
 def estimate_cost(model: str, input_tokens: int, output_tokens: int) -> Optional[float]:
-    # OpenRouter-style ids ("google/gemini-2.5-flash") are priced as the bare model id.
+    # "google/<model>" (OpenRouter) is priced as <model>
     prices = PRICES_PER_1M.get(model.split("/")[-1])
     if prices is None:
         return None
